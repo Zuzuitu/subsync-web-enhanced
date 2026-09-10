@@ -1,0 +1,83 @@
+name: Legacy web build
+
+on:
+  push:
+    branches:
+      - ci/legacy-web-build
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "web/**"
+      - "gizmo/**"
+      - ".github/workflows/legacy-web-build.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  legacy-web-build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 14
+        uses: actions/setup-node@v4
+        with:
+          node-version: "14"
+
+      - name: Record toolchain
+        run: |
+          node --version
+          npm --version
+          docker --version
+
+      - name: Install JavaScript dependencies without lifecycle scripts
+        working-directory: web
+        run: npm install --ignore-scripts
+
+      - name: Fetch legacy native dependencies
+        working-directory: web
+        run: npx napa
+
+      - name: Build legacy Emscripten container
+        working-directory: web
+        run: docker build --progress=plain -t subsync-web-build .
+
+      - name: Build extractor and correlator WASM
+        working-directory: web
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/src" \
+            --user "$(id -u):$(id -g)" \
+            -w /src/web \
+            subsync-web-build \
+            emmake make -j4
+
+      - name: Build browser JavaScript bundle
+        working-directory: web
+        run: npm run build
+
+      - name: Verify expected artifacts
+        run: |
+          test -s web/scripts/extractor.js
+          test -s web/scripts/extractor.wasm
+          test -s web/scripts/correlator.js
+          test -s web/scripts/correlator.wasm
+          test -s web/scripts/subsync.js
+          ls -lh web/scripts/extractor.js web/scripts/extractor.wasm web/scripts/correlator.js web/scripts/correlator.wasm web/scripts/subsync.js
+
+      - name: Upload web build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: subsync2-legacy-web-build
+          if-no-files-found: error
+          path: |
+            web/scripts/extractor.js
+            web/scripts/extractor.wasm
+            web/scripts/correlator.js
+            web/scripts/correlator.wasm
+            web/scripts/subsync.js
