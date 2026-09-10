@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "project": "SubSync2",
+  "repository": "Zuzuitu/subsync-web-enhanced",
+  "sourceOfTruth": {
+    "rule": "repository_over_chat_memory",
+    "readOrder": [
+      "docs/PROJECT_STATE.md",
+      "config/project-invariants.json",
+      "AGENTS.md",
+      "relevant current implementation"
+    ]
+  },
+  "upstream": {
+    "repository": "sc0ty/subsync",
+    "pinnedBaseline": "c888da7257d57bf039523c9f7015feacb4b95dc3",
+    "baselineFile": "UPSTREAM_COMMIT",
+    "requireExplicitPinnedCommitForRefresh": true,
+    "requirePRForRefresh": true
+  },
+  "licensing": {
+    "license": "GPL-3.0",
+    "preserveUpstreamLicense": true,
+    "originalAuthor": "Michał Szymaniak (sc0ty)",
+    "requireSc0tyAttribution": true,
+    "attributionSurfaces": [
+      "README.md",
+      "credits/about surface when introduced"
+    ]
+  },
+  "workflow": {
+    "materialChanges": [
+      "branch",
+      "pull_request",
+      "ci_green",
+      "merge"
+    ],
+    "directMaterialCommitsToMain": false,
+    "bootstrapExceptionCommit": "96371770728e930fb1e5709cb4036f394b81e294",
+    "neverWeakenInvariantsToPassCI": true
+  },
+  "product": {
+    "browserFirst": true,
+    "pwaTarget": true,
+    "primaryBugTarget": "direct MKV + SRT reliability",
+    "multiUploadNearTermPriority": false,
+    "preserveSynchronizationSemanticsDuringExtractorFixes": true
+  },
+  "evidence": {
+    "noInventedResults": true,
+    "noRootCauseClaimWithoutReproduction": true,
+    "distinguishObservationHypothesisAndConfirmedResult": true
+  },
+  "privacy": {
+    "preferLocalBrowserProcessing": true,
+    "serverMediaUploadRequiresExplicitArchitectureDecision": true
+  },
+  "testing": {
+    "regressionTestRequiredForConfirmedBugFix": true,
+    "legalRedistributableFixturesOnly": true,
+    "initialMkvMatrix": [
+      "AAC",
+      "AC3",
+      "E-AC3",
+      "multiple-audio-tracks",
+      "embedded-subtitles"
+    ]
+  },
+  "deployment": {
+    "productionConfigured": false,
+    "productionMode": "manual",
+    "autoDeployProduction": false
+  },
+  "cost": {
+    "paidServicesRequireExplicitApproval": true,
+    "preferFreeOrLowCostCloudCI": true
+  }
+}
