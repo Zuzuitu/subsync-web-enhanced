@@ -301,7 +301,7 @@ async function initModule() {
   });
 
   phase('module-init:done');
-  return wrapper.instance;
+  return wrapper;
 }
 
 async function run() {
@@ -309,7 +309,8 @@ async function run() {
   try {
     assert(typeof gizmo === 'function', 'Emscripten extractor factory is not available');
     phase('module-init:start');
-    module = await initModule();
+    const initialized = await initModule();
+    module = initialized.instance;
 
     const FS = module.FS;
     assert(FS && FS.filesystems && FS.filesystems.WORKERFS, 'WORKERFS is not available');
