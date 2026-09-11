@@ -67,8 +67,8 @@ export class Overlay {
     const spinner = new OverlayItem();
     spinner.content = (
       <p class='spinner'>
-        <img src={settings.url + 'img/wait.gif'} />
-        {msg || i18n`loading...`}
+        <span class='spinner_icon' aria-hidden='true' />
+        <span>{msg || i18n`loading...`}</span>
       </p>);
     return spinner.delayedShow(100);
   }
