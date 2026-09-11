@@ -119,7 +119,25 @@ try:
         save_button.click()
 
         popup = page.locator("#subsync_app .popup").last
-        popup.wait_for(state="visible", timeout=10_000)
+        try:
+            popup.wait_for(state="visible", timeout=10_000)
+        except Exception as exc:
+            diagnostics = {
+                "reason": "save-popup-not-visible",
+                "exception": str(exc),
+                "consoleErrors": console_errors,
+                "pageErrors": page_errors,
+                "httpFailures": http_failures,
+                "appText": page.locator("#subsync_app").inner_text(),
+                "bodyText": page.locator("body").inner_text(),
+            }
+            RESULT.parent.mkdir(parents=True, exist_ok=True)
+            RESULT.write_text(
+                json.dumps(diagnostics, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            print(json.dumps(diagnostics, indent=2, ensure_ascii=False))
+            raise
         popup_text = popup.inner_text()
         format_links = popup.locator("a:not(.popup_close)")
         if format_links.count() < 1:
