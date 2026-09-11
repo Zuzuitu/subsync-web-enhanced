@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+import functools
+import http.server
+import json
+import shutil
+import socketserver
+import threading
+from pathlib import Path
+
+from playwright.sync_api import sync_playwright
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+class QuietHandler(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, format, *args):
+        pass
+
+
+handler = functools.partial(QuietHandler, directory=str(ROOT))
+server = socketserver.ThreadingTCPServer(("127.0.0.1", 0), handler)
+server.daemon_threads = True
+thread = threading.Thread(target=server.serve_forever, daemon=True)
+thread.start()
+
+browser_path = (
+    shutil.which("google-chrome")
+    or shutil.which("google-chrome-stable")
+    or shutil.which("chromium")
+    or shutil.which("chromium-browser")
+)
+if not browser_path:
+    server.shutdown()
+    raise SystemExit("No system Chromium/Chrome executable found on the CI runner")
+
+url = f"http://127.0.0.1:{server.server_address[1]}/tests/wasm/browser-smoke.html"
+
+try:
+    with sync_playwright() as p:
+        browser = p.chromium.launch(
+            headless=True,
+            executable_path=browser_path,
+            args=["--no-sandbox", "--disable-dev-shm-usage"],
+        )
+        page = browser.new_page()
+        console_lines = []
+        page.on("console", lambda msg: console_lines.append(f"{msg.type}: {msg.text}"))
+        page.on("pageerror", lambda exc: console_lines.append(f"pageerror: {exc}"))
+
+        page.goto(url, wait_until="load")
+        page.wait_for_function(
+            "document.documentElement.dataset.status === 'pass' || "
+            "document.documentElement.dataset.status === 'fail'",
+            timeout=90_000,
+        )
+
+        status = page.get_attribute("html", "data-status")
+        details = page.get_attribute("html", "data-details") or ""
+        print("\n".join(console_lines))
+        print("Smoke status:", status)
+        print("Smoke details:", details)
+
+        browser.close()
+
+        if status != "pass":
+            raise SystemExit("Browser/WASM MKV smoke test failed")
+finally:
+    server.shutdown()
+    server.server_close()
