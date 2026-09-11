@@ -55,9 +55,6 @@ phase('worker-start');
 importScripts('/web/scripts/extractor.js');
 const extractorFactory = gizmo;
 phase('extractor-js-loaded');
-importScripts('/web/scripts/correlator.js');
-const correlatorFactory = gizmo;
-phase('correlator-js-loaded');
 
 async function loadSpeechModel(module) {
   const FS = module.FS;
@@ -231,10 +228,18 @@ async function extractTranslatedSubtitleWords(module, dict) {
 async function run() {
   let extractor, correlator, dict, sync;
   try {
-    phase('module-init:start');
+    phase('extractor-init:start');
     extractor = await initModule(extractorFactory, '/web/scripts/extractor.wasm');
+    phase('extractor-init:done');
+
+    phase('correlator-js-load:start');
+    importScripts('/web/scripts/correlator.js');
+    const correlatorFactory = gizmo;
+    phase('correlator-js-load:done');
+
+    phase('correlator-init:start');
     correlator = await initModule(correlatorFactory, '/web/scripts/correlator.wasm');
-    phase('module-init:done');
+    phase('correlator-init:done');
 
     assert(extractor.FS && extractor.FS.filesystems.WORKERFS, 'Extractor WORKERFS unavailable');
 
