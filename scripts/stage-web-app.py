@@ -76,6 +76,7 @@ materialized = [
 
 sw = (PUBLIC / "sw.js.in").read_text(encoding="utf-8").replace("__BUILD_HASH__", args.hash[:16])
 (DIST / "sw.js").write_text(sw, encoding="utf-8")
+(DIST / ".nojekyll").write_text("", encoding="utf-8")
 
 manifest = {
     "buildHash": args.hash,
