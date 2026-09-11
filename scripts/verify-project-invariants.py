@@ -9,6 +9,7 @@ required = [
     ROOT / "docs" / "PROJECT_STATE.md",
     ROOT / "config" / "project-invariants.json",
     ROOT / "config" / "legacy-build-pins.json",
+    ROOT / "config" / "test-fixture-pins.json",
     ROOT / "AGENTS.md",
     ROOT / "README.md",
     ROOT / "LICENSE",
@@ -27,6 +28,9 @@ with (ROOT / "config" / "project-invariants.json").open(encoding="utf-8") as f:
 with (ROOT / "config" / "legacy-build-pins.json").open(encoding="utf-8") as f:
     pins = json.load(f)
 
+with (ROOT / "config" / "test-fixture-pins.json").open(encoding="utf-8") as f:
+    fixture_pins = json.load(f)
+
 if inv.get("project") != "SubSync2":
     raise SystemExit("project-invariants.json: project must be SubSync2")
 
@@ -43,6 +47,18 @@ if inv["deployment"].get("autoDeployProduction") is not False:
 
 if inv["licensing"].get("requireSc0tyAttribution") is not True:
     raise SystemExit("sc0ty attribution invariant is required")
+
+romanian = inv["product"].get("romanian", {})
+if inv["product"].get("primaryLanguagePriority") != "Romanian":
+    raise SystemExit("Romanian must remain the primary language priority")
+if romanian.get("subtitleSupportRequired") is not True:
+    raise SystemExit("Romanian subtitle support is required")
+if romanian.get("audioSpeechRecognitionRequired") is not True:
+    raise SystemExit("Romanian audio speech recognition is required")
+if set(romanian.get("acceptedLanguageCodes", [])) != {"ro", "rum", "ron"}:
+    raise SystemExit("Romanian language aliases must include ro, rum and ron")
+if romanian.get("preserveDiacritics") is not True:
+    raise SystemExit("Romanian diacritics must be preserved")
 
 readme = (ROOT / "README.md").read_text(encoding="utf-8").lower()
 for token in ("sc0ty", "gnu general public license"):
@@ -71,6 +87,17 @@ for name in ("sphinxbase", "pocketsphinx"):
     sha = pins[name]["sha"]
     if not re.fullmatch(r"[0-9a-f]{40}", sha):
         raise SystemExit(f"{name} pin must be a full 40-character Git SHA")
+
+speech_fixture = fixture_pins.get("sc0tySpeechItalian", {})
+fixture_sha = speech_fixture.get("sha256", "")
+if not re.fullmatch(r"[0-9a-f]{64}", fixture_sha):
+    raise SystemExit("Pinned sc0ty speech fixture must have a full SHA-256")
+if speech_fixture.get("releaseAssetId") != 14727504:
+    raise SystemExit("Unexpected sc0ty Italian speech release asset ID")
+if speech_fixture.get("filename") != "speech-ita.zip":
+    raise SystemExit("Unexpected sc0ty Italian speech fixture filename")
+if not speech_fixture.get("url", "").endswith("/speech-ita.zip"):
+    raise SystemExit("Unexpected sc0ty Italian speech fixture URL")
 
 dockerfile = (ROOT / "web" / "Dockerfile").read_text(encoding="utf-8")
 first_instruction = next(

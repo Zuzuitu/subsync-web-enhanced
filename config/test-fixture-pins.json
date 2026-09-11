@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "sc0tySpeechItalian": {
+    "sourceRepository": "sc0ty/subsync",
+    "releaseTag": "assets",
+    "releaseAssetId": 14727504,
+    "filename": "speech-ita.zip",
+    "url": "https://github.com/sc0ty/subsync/releases/download/assets/speech-ita.zip",
+    "sha256": "f96ea9fa679886454635c5f0cd5c6fb3750ffc1f91473603bcccc441e27c07c2"
+  }
+}

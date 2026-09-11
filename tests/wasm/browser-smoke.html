@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en" data-status="running" data-phase="boot">
+<head>
+  <meta charset="utf-8">
+  <title>SubSync2 MKV WASM smoke</title>
+</head>
+<body>
+  <pre id="result">running</pre>
+  <script>
+    const resultNode = document.getElementById('result');
+    const phases = [];
+    window.__subsyncSmokePhases = phases;
+
+    const worker = new Worker('/tests/wasm/browser-smoke-worker.js');
+
+    function finish(status, details) {
+      const payload = typeof details === 'string' ? details : JSON.stringify(details, null, 2);
+      document.documentElement.dataset.status = status;
+      document.documentElement.dataset.details = payload;
+      resultNode.textContent = payload;
+      console.log('[subsync2-smoke]', status, payload);
+      worker.terminate();
+    }
+
+    worker.onmessage = event => {
+      const message = event.data || {};
+      if (message.type === 'phase') {
+        phases.push(message);
+        document.documentElement.dataset.phase = message.phase || 'unknown';
+        console.log('[subsync2-phase]', message.phase, JSON.stringify(message.data));
+        return;
+      }
+
+      if (message.type === 'result') {
+        finish(message.status || 'fail', message.details || { message: 'Worker returned no details' });
+        return;
+      }
+
+      finish('fail', { message: 'Unknown worker message', payload: message });
+    };
+
+    worker.onerror = event => {
+      finish('fail', {
+        message: event.message || 'Unhandled Web Worker error',
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+      });
+    };
+  </script>
+</body>
+</html>

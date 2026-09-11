@@ -16,9 +16,37 @@ Repository truth overrides chat memory. Before material changes, read in this or
 
 Revive and modernize the archived sc0ty/SubSync web application as a browser-first PWA that can synchronize subtitle timing against a media reference while preserving the original synchronization approach where it remains technically sound.
 
-Primary near-term goal: make the online workflow reliable for MKV + SRT, especially the known user-reported case where direct MKV processing fails while extracted audio + SRT succeeds.
+Primary near-term goals:
+- make direct MKV + SRT synchronization reliable;
+- make Romanian a first-class supported language for subtitles and audio;
+- preserve local/browser-first media processing.
 
 Multi-file / batch upload is not a near-term priority.
+
+## Romanian support — project requirement
+
+Romanian is the primary language priority.
+
+Required language identifiers:
+- `ro`
+- `rum`
+- `ron`
+
+Required behavior:
+- preserve Romanian UTF-8 diacritics `ă â î ș ț Ă Â Î Ș Ț`;
+- support Romanian external and embedded subtitles;
+- support Romanian audio speech recognition locally in the browser whenever technically feasible.
+
+Confirmed:
+- The legacy language table contains Romanian as `rum` / `ro`.
+- The current legacy table does not yet declare `ron` as an alias.
+- FFmpeg can surface Matroska language metadata as `ron`; the regression fixture already demonstrates an embedded subtitle stream tagged `ron`.
+- Browser/WASM subtitle regression run `34602860832` preserved all required Romanian UTF-8 diacritics and emitted 17 subtitle words with `romanianUtf8: true`.
+
+Open:
+- The original sc0ty speech release assets do not include a Romanian PocketSphinx model.
+- Romanian audio speech recognition therefore needs a separate compatible backend/model.
+- A multilingual local WebAssembly speech backend is being evaluated; no replacement has been adopted yet.
 
 ## Repository
 
@@ -50,7 +78,7 @@ Native/WASM layer:
   - `extractor.js/.wasm`
   - `correlator.js/.wasm`
 - FFmpeg n4.2 is the pinned media stack in the legacy web build.
-- SphinxBase + PocketSphinx provide speech recognition.
+- SphinxBase + PocketSphinx provide the legacy speech-recognition backend.
 
 Reference audio pipeline:
 `File -> WORKERFS -> Demux -> AudioDec -> Resampler -> SpeechRecognition -> optional n-gram/translation -> correlator`
@@ -60,22 +88,47 @@ Subtitle pipeline:
 
 The synchronizer runs subtitle extraction and one or more reference extractors, sends recognized/reference words and subtitle words to the correlator, then applies the resulting timing formula to the subtitle output.
 
-## Known issue / reproduction target
+## Original MKV issue / reproduction status
 
-User-observed behavior from the previous project session:
+User-observed historical behavior:
 - Direct MKV + SRT processing can fail.
 - Extracting audio from the same media first and then using audio + SRT can succeed.
 
-This observation strongly narrows the investigation to the media demux / audio decode / browser-WASM path, but the exact root cause is NOT yet confirmed.
+The exact root cause is still NOT confirmed.
 
-Do not state that FFmpeg, MKV parsing, codec support, memory, Safari, or any specific decoder is the cause until a reproducible fixture or trace proves it.
+Important negative evidence:
+- The failure does NOT reproduce on the current deterministic synthetic matrix.
+- Therefore do not claim that MKV itself, FFmpeg demux, AAC, AC3, E-AC3, multiple audio tracks, embedded text subtitles, WORKERFS, AudioDec, Resampler, or PocketSphinx is generally broken.
+
+Confirmed browser/WASM coverage:
+- `File -> WORKERFS -> Demux -> AudioDec`: PASS.
+- `AudioDec -> Resampler -> PocketSphinx`: PASS with the pinned original sc0ty Italian model.
+- external SRT -> `SubtitleDec`: PASS.
+- Romanian UTF-8 subtitle text: PASS.
+
+Canonical matrix run `34600827268`:
+- MKV + AAC 16 kHz: PASS.
+- MKV + AC3 48 kHz: PASS.
+- MKV + E-AC3 48 kHz: PASS.
+- MKV with two audio tracks (ENG AAC + ITA AC3), explicitly selecting ITA: PASS.
+- MKV with embedded text subtitle stream tagged `ron`: PASS through media/speech path.
+- extracted WAV baseline: PASS.
+- external SRT: PASS.
+
+Full speech-pipeline run `34600505290`:
+- original sc0ty Italian PocketSphinx asset loaded successfully;
+- 12 model files / 12,161,077 bytes;
+- model format S16 / 16 kHz;
+- both MKV+AAC and extracted WAV completed the full legacy speech pipeline.
+
+The synthetic audio is a deterministic sine signal, so zero recognized words is expected and is not treated as speech-accuracy evidence. These tests prove pipeline execution and failure isolation, not recognition quality.
 
 ## Build system status
 
-The legacy WebAssembly engine is now reproducible in GitHub Actions without a local laptop.
+The legacy WebAssembly engine is reproducible in GitHub Actions without a local laptop.
 
 Confirmed on 2026-09-11:
-- Successful workflow run: `34562875819`
+- Successful baseline workflow run: `34562875819`
 - Workflow: `.github/workflows/legacy-web-build.yml`
 - Emscripten: `1.39.11-fastcomp`
 - Docker image digest: `sha256:7e32f961a0b5280151f7f5e4d8de3e655ac054b5564ee707a81ea1512e8b9911`
@@ -86,13 +139,16 @@ Confirmed on 2026-09-11:
 - First successful artifact name: `legacy-wasm`
 - First successful artifact archive digest: `sha256:6411d9cb71f62f885e342d0292b723874dd117cd901af9e817bc265326c16816`
 
+Regression fixture inputs are pinned separately in `config/test-fixture-pins.json`.
+The original sc0ty Italian speech fixture is verified by SHA-256 before extraction.
+
 Reconstruction notes:
 - The original web build files were introduced on 2020-03-29.
 - Emscripten 1.39.11 was the latest release before that date and successfully builds the imported baseline.
 - SphinxBase and PocketSphinx are pinned to their latest commits on or before 2020-03-29.
 - Debian Buster package mirrors are EOL; the historical image is kept intact but its apt sources are redirected to `archive.debian.org`.
-- All reproducibility pins are centralized in `config/legacy-build-pins.json`.
 - CI caches only the built native dependencies; application C++/WASM output is rebuilt and verified.
+- A fast diagnostic workflow can reuse a known-good WASM artifact while iterating on browser-only regression instrumentation.
 
 The old stack remains a compatibility baseline, not a commitment to preserve these dependency versions forever.
 
@@ -115,19 +171,27 @@ Build confidence in layers:
 
 1. Governance/static checks — repository state, invariants, attribution, pinned upstream. **DONE**
 2. Legacy web/WASM build reproduction in Linux CI. **DONE**
-3. Small deterministic media fixtures covering container/codec combinations. **NEXT**
-4. Extractor tests: stream discovery, open, decode/resample progress, errors.
-5. End-to-end synchronization tests with known expected timing correction.
-6. Browser tests, including mobile Safari after the engine is reproducible in CI.
+3. Deterministic browser/WASM media matrix. **DONE for initial matrix**
+4. Extractor execution through demux/decode/resample/legacy speech. **DONE for initial matrix**
+5. Romanian subtitle UTF-8 regression. **DONE**
+6. Romanian language-code canonicalization (`ro/rum/ron`). **NEXT**
+7. Romanian local speech-recognition PoC and browser performance measurement. **NEXT**
+8. End-to-end synchronization tests with spoken-language fixtures and known expected timing correction.
+9. Browser/device tests, including mobile Safari.
 
-Target fixture matrix for the MKV issue, introduced incrementally:
-- MKV + AAC
-- MKV + AC3
-- MKV + E-AC3
-- MKV + multiple audio tracks
-- MKV + embedded subtitles
+Media fixtures must be small and legally redistributable or generated deterministically.
 
-Fixtures must be legally redistributable, tiny, and generated or sourced with explicit licensing.
+## Romanian speech direction
+
+The legacy PocketSphinx backend is retained as the compatibility baseline for languages where its original model assets exist.
+
+For Romanian audio:
+- do not fake support by mapping Romanian to another language model;
+- do not upload user media to a server as a shortcut;
+- evaluate a multilingual browser-local speech backend with usable timing output;
+- preserve the existing downstream word/correlator semantics where practical;
+- pin any imported engine/model version and license before adoption;
+- benchmark memory and speed before declaring iPhone support.
 
 ## Deployment
 
@@ -152,15 +216,20 @@ Prefer GitHub Actions and free/low-cost infrastructure. Do not introduce paid se
 Completed:
 1. Establish repository governance and baseline CI.
 2. Reproduce the legacy web/WASM build in GitHub Actions.
-3. Capture the first successful build artifacts.
+3. Capture successful legacy build artifacts.
+4. Build deterministic MKV/SRT browser regression harness.
+5. Validate initial MKV codec/track matrix through full legacy speech pipeline.
+6. Validate Romanian UTF-8 subtitle decoding.
 
 Next:
-4. Add a minimal generated MKV fixture and reproduce direct-MKV behavior.
-5. Locate the failing stage: mount, probe/demux, stream selection, decode, resample, speech recognition, or orchestration.
-6. Fix the smallest proven root cause.
-7. Add regression coverage before modernizing UI/PWA behavior.
+7. Merge regression harness after PR CI is green.
+8. Canonicalize Romanian metadata aliases `ro/rum/ron`.
+9. Build a Romanian local-speech PoC behind the existing word-output boundary.
+10. Add real spoken Romanian fixtures and end-to-end timing/correlation regression.
+11. Continue isolating the historical real-world MKV failure with more realistic channel layouts, codecs, file sizes/seeking, browser/device behavior, or a legal minimal reproduction derived from an affected file.
 
 ## Open blockers
 
-- The direct-MKV failure has not yet been reproduced in an automated test.
-- Browser/version-specific behavior is not yet characterized.
+- The historical direct-MKV failure has not been reproduced by the synthetic matrix.
+- Romanian audio has no original sc0ty PocketSphinx model.
+- Mobile Safari performance/memory for a Romanian-capable local speech backend is not yet measured.

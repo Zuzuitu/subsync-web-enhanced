@@ -1,0 +1,79 @@
+name: MKV WASM Fast Diagnostic
+
+on:
+  push:
+    branches:
+      - "test/mkv-wasm-reproduction"
+    paths:
+      - "tests/wasm/**"
+      - "tests/fixtures/**"
+      - "config/test-fixture-pins.json"
+      - ".github/workflows/mkv-smoke-fast.yml"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  browser-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout diagnostic branch
+        uses: actions/checkout@v4
+
+      - name: Download known-good WASM engine from PR #2
+        uses: actions/download-artifact@v4
+        with:
+          name: legacy-wasm
+          path: web/scripts
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: 34564019526
+
+      - name: Verify downloaded engine
+        shell: bash
+        run: |
+          set -euxo pipefail
+          test -s web/scripts/extractor.js
+          test -s web/scripts/extractor.wasm
+          test -s web/scripts/correlator.js
+          test -s web/scripts/correlator.wasm
+          sha256sum web/scripts/extractor.js web/scripts/extractor.wasm
+
+      - name: Generate deterministic MKV + Romanian SRT fixtures
+        shell: bash
+        run: |
+          set -euxo pipefail
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
+          bash tests/fixtures/generate-mkv-smoke.sh
+
+      - name: Prepare pinned sc0ty speech fixture
+        run: python3 tests/fixtures/prepare-sc0ty-speech-model.py
+
+      - name: Install browser smoke test runner
+        shell: bash
+        run: |
+          python3 -m pip install --disable-pip-version-check playwright==1.55.0
+          if ! command -v google-chrome >/dev/null              && ! command -v google-chrome-stable >/dev/null              && ! command -v chromium >/dev/null              && ! command -v chromium-browser >/dev/null; then
+            python3 -m playwright install --with-deps chromium
+          fi
+
+      - name: Compare canonical MKV matrix and Romanian SRT through browser WASM
+        run: python3 tests/wasm/run-browser-smoke.py
+
+      - name: Upload smoke diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mkv-wasm-fast-diagnostics
+          path: |
+            tests/generated/browser-wasm-smoke.json
+            tests/generated/speech-ita.sha256
+            tests/generated/speech-model/manifest.json
+          if-no-files-found: warn
+          retention-days: 7
