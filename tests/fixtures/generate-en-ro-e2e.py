@@ -10,36 +10,39 @@ OUT = ROOT / "tests" / "generated" / "en-ro-e2e"
 OUT.mkdir(parents=True, exist_ok=True)
 
 PAIRS = [
-    ("always", "mereu"),
-    ("because", "deoarece"),
-    ("friend", "prieten"),
-    ("people", "oameni"),
-    ("problem", "problemă"),
-    ("together", "împreună"),
-    ("understand", "înțelege"),
-    ("world", "mondial"),
-    ("morning", "dimineață"),
-    ("minute", "minut"),
-    ("today", "astăzi"),
-    ("tonight", "deseară"),
-    ("father", "părinte"),
-    ("police", "poliție"),
-    ("right", "corect"),
-    ("wrong", "greșit"),
-    ("never", "niciodată"),
-    ("maybe", "poate"),
-    ("sorry", "scuzați"),
-    ("thank", "mulțumesc"),
-    ("hello", "salut"),
-    ("little", "fetiță"),
-    ("different", "diferit"),
-    ("important", "important"),
-    ("beautiful", "frumos"),
-    ("answer", "răspuns"),
-    ("question", "întrebare"),
-    ("waiting", "așteptare"),
-    ("listen", "asculta"),
-    ("coming", "venire"),
+    ("always remember this", "always", "mereu"),
+    ("because we need help", "because", "deoarece"),
+    ("friend come with me", "friend", "prieten"),
+    ("people are waiting", "people", "oameni"),
+    ("problem is very important", "problem", "problemă"),
+    ("together we can work", "together", "împreună"),
+    ("understand what I mean", "understand", "înțelege"),
+    ("world is beautiful today", "world", "mondial"),
+    ("morning comes very early", "morning", "dimineață"),
+    ("minute please wait here", "minute", "minut"),
+    ("today we are together", "today", "astăzi"),
+    ("tonight we will meet", "tonight", "deseară"),
+    ("father is coming home", "father", "părinte"),
+    ("police are coming now", "police", "poliție"),
+    ("right answer is important", "right", "corect"),
+    ("wrong answer is different", "wrong", "greșit"),
+    ("never forget your friend", "never", "niciodată"),
+    ("maybe we can help", "maybe", "poate"),
+    ("sorry I was wrong", "sorry", "scuzați"),
+    ("thank you my friend", "thank", "mulțumesc"),
+    ("hello my friend", "hello", "salut"),
+    ("little things are important", "little", "fetiță"),
+    ("different answer is possible", "different", "diferit"),
+    ("important question today", "important", "important"),
+    ("beautiful world today", "beautiful", "frumos"),
+    ("answer this question", "answer", "răspuns"),
+    ("question is very important", "question", "întrebare"),
+    ("waiting for my friend", "waiting", "așteptare"),
+    ("listen to my answer", "listen", "asculta"),
+    ("coming home tonight", "coming", "venire"),
+    ("remember my answer", "remember", "aminti"),
+    ("mother is coming home", "mother", "maternă"),
+    ("better answer is possible", "better", "îmbunătăți"),
 ]
 
 RATE = 16000
@@ -61,13 +64,13 @@ timeline = []
 
 with tempfile.TemporaryDirectory() as tmp:
     tmp = Path(tmp)
-    for idx, (english, romanian) in enumerate(PAIRS):
+    for idx, (phrase, english, romanian) in enumerate(PAIRS):
         raw = tmp / f"{idx:02d}-{english}-raw.wav"
         norm = tmp / f"{idx:02d}-{english}.wav"
 
         subprocess.run([
-            "espeak-ng", "-v", "en-us", "-s", "125", "-p", "50",
-            "-w", str(raw), english,
+            "espeak-ng", "-v", "en-us", "-s", "145", "-p", "50",
+            "-w", str(raw), phrase,
         ], check=True)
 
         subprocess.run([
@@ -88,6 +91,7 @@ with tempfile.TemporaryDirectory() as tmp:
         end = len(combined) / WIDTH / RATE
 
         timeline.append({
+            "phrase": phrase,
             "english": english,
             "romanian": romanian,
             "audioStart": start,
