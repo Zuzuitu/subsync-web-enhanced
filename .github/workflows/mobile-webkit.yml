@@ -17,6 +17,22 @@ on:
       - "tests/fixtures/generate-en-ro-e2e.py"
       - "config/english-romanian-assets.json"
       - ".github/workflows/mobile-webkit.yml"
+  pull_request:
+    branches:
+      - "main"
+    paths:
+      - "web/src/**"
+      - "web/public/**"
+      - "web/package.json"
+      - "web/package-lock.json"
+      - "scripts/generate-web-metadata.py"
+      - "scripts/stage-web-app.py"
+      - "tests/web/run-mobile-webkit.py"
+      - "tests/fixtures/prepare-en-ro-assets.py"
+      - "tests/fixtures/prepare-piper-fixture-voice.py"
+      - "tests/fixtures/generate-en-ro-e2e.py"
+      - "config/english-romanian-assets.json"
+      - ".github/workflows/mobile-webkit.yml"
   workflow_dispatch:
 
 permissions:
