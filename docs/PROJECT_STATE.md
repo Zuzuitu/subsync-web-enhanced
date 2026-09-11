@@ -91,7 +91,7 @@ Measured:
 
 This proves the primary ENG-audio + RO-subtitle architecture end to end on a deterministic direct-MKV browser fixture.
 
-The same E2E is now part of the authoritative Legacy WebAssembly Build and must pass against freshly compiled WASM before merge.
+Authoritative Legacy WebAssembly Build run `34620017397`: **PASS** on freshly compiled WASM. PR #5 merged this regression to `main` at `a2acdfca162b8fe53bc0ac792ebf7cafe1c9829e`.
 
 ## Original historical MKV issue
 
@@ -119,6 +119,34 @@ Outputs:
 
 Compatibility note: Emscripten 1.39.11 MODULARIZE returns a legacy thenable. Keep the instance wrapped as `{ instance }` across Promise/async boundaries.
 
+## Browser application / PWA status
+
+The original engine repository does not contain the deployed HTML shell. The historical web shell and hosted assets live separately in `sc0ty/subsync-webpage`. SubSync2 keeps the engine as technical truth and builds a new reviewed PWA shell around it rather than treating the old deployment HTML as engine source.
+
+Branch `feat/pwa-shell` now contains:
+- responsive installable PWA shell;
+- web manifest and service worker;
+- visible sc0ty/Michał Szymaniak attribution and GPL v3 notice;
+- local-processing/privacy messaging;
+- reproducible generation of `web/src/data/assets.json` and `web/version.json`;
+- staging of pinned `speech-eng.zip` and `dict-eng-rum.zip` with SHA-256 verification;
+- no ~40 MB speech model committed to git;
+- browser shell smoke coverage.
+
+Fast PWA run `34621345460`: **PASS**.
+Observed:
+- browser bundle built successfully;
+- service worker became ready;
+- zero console errors;
+- zero page errors;
+- zero HTTP failures;
+- staged PWA artifact produced successfully.
+
+The authoritative workflow is being extended to drive the real PWA UI through:
+`select RO SRT + select ENG MKV -> Start -> synchronize -> Save subtitles -> validate corrected SRT`.
+
+JavaScript dependency locking is not yet complete. The legacy package tree currently installs successfully, but `web/package-lock.json` is still ignored and must be pinned before the browser build is called fully reproducible.
+
 ## Testing status
 
 Completed:
@@ -129,22 +157,27 @@ Completed:
 5. Romanian UTF-8 subtitles;
 6. Romanian Windows-1250 subtitles;
 7. `ro/rum/ron` canonicalization;
-8. fast browser E2E for ENG audio + RO subtitles.
+8. fast browser E2E for ENG audio + RO subtitles;
+9. authoritative freshly compiled WASM E2E;
+10. merge of the primary ENG->RO regression through PR #5;
+11. reproducible primary asset-index/version generation;
+12. PWA shell build and browser smoke.
 
 In progress:
-9. authoritative freshly compiled WASM E2E.
+13. authoritative full PWA user-flow E2E including saved corrected SRT;
+14. JavaScript dependency lock for deterministic browser bundle.
 
-Next after authoritative E2E is green:
-10. merge this regression through PR;
-11. make the web asset index reproducible;
-12. build the complete browser application/PWA shell;
-13. add preview/manual deployment;
-14. test mobile Safari/iPhone;
-15. expand realistic MKV coverage;
-16. return to Romanian-audio support near completion.
+Next:
+15. merge the PWA shell through PR after all authoritative checks are green;
+16. add a deliberate preview/manual deployment path;
+17. test mobile Safari/iPhone;
+18. expand realistic MKV coverage;
+19. return to Romanian-audio support near completion.
 
 ## Open blockers
 
-- freshly compiled authoritative EN->RO E2E has not yet been recorded green;
+- full PWA UI synchronization/save E2E has not yet been recorded green;
+- JavaScript dependency graph is not yet lockfile-pinned;
 - historical real-world MKV failure class is not yet reproduced;
-- complete web/PWA build and preview deployment are not yet established.
+- preview/manual deployment is not yet configured;
+- mobile Safari/iPhone behavior is not yet measured.
