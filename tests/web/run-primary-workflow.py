@@ -118,9 +118,17 @@ try:
             raise SystemExit("Save subtitles stayed disabled after successful synchronization")
         save_button.click()
 
+        popup = page.locator("#subsync_app .popup")
+        popup.wait_for(state="visible", timeout=10_000)
+        popup_text = popup.inner_text()
+        format_links = popup.locator("dl a")
+        if format_links.count() < 1:
+            raise SystemExit("Save subtitles popup did not expose any output format")
+
         with page.expect_download(timeout=30_000) as download_info:
-            page.get_by_text("reference-english.srt", exact=True).click()
+            format_links.first.click()
         download = download_info.value
+        suggested_filename = download.suggested_filename
         download.save_as(str(SAVED))
 
         original_text = SRT_IN.read_text(encoding="utf-8")
@@ -168,6 +176,8 @@ try:
             "outputFirstStartSeconds": output_start,
             "savedTimingShiftSeconds": shift,
             "savedBytes": SAVED.stat().st_size,
+            "downloadSuggestedFilename": suggested_filename,
+            "savePopupText": popup_text,
             "romanianTokensVerified": romanian_tokens,
             "consoleErrors": console_errors,
             "pageErrors": page_errors,
