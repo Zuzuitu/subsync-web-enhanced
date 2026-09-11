@@ -7,11 +7,11 @@ mkdir -p "$OUT_DIR"
 cat > "$OUT_DIR/target.srt" <<'SRT'
 1
 00:00:00,200 --> 00:00:00,900
-SubSync2 deterministic subtitle fixture.
+Română: ă â î ș ț Ă Â Î Ș Ț.
 
 2
 00:00:01,100 --> 00:00:01,800
-External SRT path is alive.
+Șapte țări își păstrează diacriticele corect.
 SRT
 
 make_video_audio_mkv() {
