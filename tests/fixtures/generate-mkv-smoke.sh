@@ -20,10 +20,21 @@ ffmpeg -hide_banner -loglevel error -y \
   -map 0:v:0 -map 1:a:0 \
   -c:v mpeg4 -q:v 5 -pix_fmt yuv420p \
   -c:a aac -b:a 64k \
-  -metadata:s:a:0 language=eng \
+  -metadata:s:a:0 language=ita \
   -shortest \
   -f matroska "$OUT_DIR/reference-aac.mkv"
 
+ffmpeg -hide_banner -loglevel error -y \
+  -f lavfi -i "sine=frequency=440:sample_rate=16000:duration=2" \
+  -c:a pcm_s16le \
+  "$OUT_DIR/reference-audio.wav"
+
+echo "Generated MKV:"
 ffprobe -v error \
   -show_entries format=format_name,duration:stream=index,codec_type,codec_name:stream_tags=language \
   -of json "$OUT_DIR/reference-aac.mkv"
+
+echo "Generated audio-only reference:"
+ffprobe -v error \
+  -show_entries format=format_name,duration:stream=index,codec_type,codec_name \
+  -of json "$OUT_DIR/reference-audio.wav"

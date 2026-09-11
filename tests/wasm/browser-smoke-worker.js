@@ -29,6 +29,10 @@ function normalizeError(module, error) {
   };
 }
 
+function assert(condition, message) {
+  if (!condition) throw new Error(message);
+}
+
 async function fetchAsFile(url, name, type) {
   const response = await fetch(url);
   if (!response.ok) {
@@ -38,214 +42,304 @@ async function fetchAsFile(url, name, type) {
   return new File([blob], name, { type });
 }
 
-function assert(condition, message) {
-  if (!condition) throw new Error(message);
+function mkdirp(FS, path) {
+  const parts = path.split('/').filter(Boolean);
+  let current = '';
+  for (const part of parts) {
+    current += '/' + part;
+    try {
+      FS.mkdir(current);
+    } catch (error) {
+      if (!FS.analyzePath(current).exists) throw error;
+    }
+  }
+}
+
+async function loadSpeechModel(module) {
+  const FS = module.FS;
+  phase('speech-model-manifest:start');
+  const manifestResponse = await fetch('/tests/generated/speech-model/manifest.json');
+  assert(manifestResponse.ok, `Speech manifest HTTP ${manifestResponse.status}`);
+  const manifest = await manifestResponse.json();
+  phase('speech-model-manifest:done', {
+    descriptor: manifest.descriptor,
+    files: manifest.files.length,
+    releaseAssetId: manifest.releaseAssetId,
+  });
+
+  let totalBytes = 0;
+  let loadedFiles = 0;
+  for (const relativePath of manifest.files) {
+    if (relativePath === 'manifest.json') continue;
+
+    const response = await fetch('/tests/generated/speech-model/' + relativePath);
+    assert(response.ok, `Speech model file ${relativePath}: HTTP ${response.status}`);
+    const bytes = new Uint8Array(await response.arrayBuffer());
+
+    const fsPath = '/assets/' + relativePath;
+    mkdirp(FS, fsPath.substring(0, fsPath.lastIndexOf('/')));
+    FS.writeFile(fsPath, bytes);
+
+    totalBytes += bytes.byteLength;
+    loadedFiles += 1;
+    if (loadedFiles <= 3 || loadedFiles % 25 === 0) {
+      phase('speech-model-load:progress', {
+        loadedFiles,
+        totalFiles: manifest.files.length - 1,
+        totalBytes,
+        file: relativePath,
+      });
+    }
+  }
+
+  const descriptorPath = '/assets/' + manifest.descriptor;
+  const model = JSON.parse(FS.readFile(descriptorPath, { encoding: 'utf8' }));
+  const descriptorDir = descriptorPath.substring(0, descriptorPath.lastIndexOf('/'));
+
+  for (const key of Object.keys(model.sphinx || {})) {
+    const value = model.sphinx[key];
+    if (typeof value === 'string' && value.startsWith('./')) {
+      model.sphinx[key] = descriptorDir + '/' + value.substring(2);
+    }
+  }
+
+  phase('speech-model-load:done', {
+    loadedFiles,
+    totalBytes,
+    sampleformat: model.sampleformat,
+    samplerate: model.samplerate,
+    sphinxParams: Object.keys(model.sphinx || {}),
+  });
+  return model;
+}
+
+async function runSpeechReference(module, model, spec) {
+  const FS = module.FS;
+  const label = spec.label;
+  const mountPath = '/ref-' + label;
+
+  phase(label + ':fetch:start');
+  const file = await fetchAsFile(spec.url, spec.name, spec.type);
+  phase(label + ':fetch:done', { size: file.size });
+
+  mkdirp(FS, mountPath);
+  FS.mount(FS.filesystems.WORKERFS, { files: [file] }, mountPath);
+  phase(label + ':mount:done');
+
+  let demux;
+  let audioDec;
+  let resampler;
+  let speechRec;
+  let packets = 0;
+  const words = [];
+
+  try {
+    phase(label + ':demux-construct:start');
+    demux = new module.Demux(mountPath + '/' + spec.name);
+    phase(label + ':demux-construct:done');
+
+    const streams = demux.getStreamsInfo();
+    const duration = demux.getDuration();
+    const audio = streams.find(stream => stream.type === 'audio');
+    assert(audio, label + ': no audio stream');
+    phase(label + ':audio-stream', { stream: audio, duration, streams });
+
+    phase(label + ':speech-pipeline:start');
+    speechRec = new module.SpeechRecognition();
+    for (const [key, value] of Object.entries(model.sphinx || {})) {
+      speechRec.setParam(key, String(value));
+    }
+    speechRec.setParam('-mmap', '0');
+    speechRec.setMinWordProb(0.3);
+    speechRec.setMinWordLen(1);
+    speechRec.addWordsListener(word => words.push(word));
+
+    audioDec = new module.AudioDec();
+    resampler = new module.Resampler();
+    demux.connectDec(audioDec, audio.no);
+    audioDec.connectOutput(resampler);
+
+    const sampleFormat = module.AVSampleFormat[model.sampleformat];
+    assert(sampleFormat !== undefined, `Unknown model sample format ${model.sampleformat}`);
+
+    resampler.connectOutput(
+      speechRec,
+      sampleFormat,
+      parseInt(model.samplerate, 10),
+      32 * 1024
+    );
+    phase(label + ':speech-pipeline:done');
+
+    phase(label + ':demux-start:start');
+    demux.start();
+    phase(label + ':demux-start:done');
+
+    phase(label + ':demux-loop:start');
+    while (demux.step()) {
+      packets += 1;
+      if (packets <= 5 || packets % 25 === 0) {
+        phase(label + ':demux-loop:progress', { packets, words: words.length });
+      }
+      if (packets > 10000) throw new Error(label + ': demux safety limit exceeded');
+    }
+    phase(label + ':demux-loop:done', { packets, words: words.length });
+
+    phase(label + ':demux-stop:start');
+    demux.stop();
+    phase(label + ':demux-stop:done', { words: words.length });
+
+    assert(packets > 0, label + ': demux produced zero packets');
+
+    return {
+      label,
+      fileSize: file.size,
+      duration,
+      packets,
+      words: words.length,
+      audioStream: audio,
+      streams,
+    };
+  } finally {
+    phase(label + ':cleanup:start');
+    if (demux) demux.delete();
+    if (audioDec) audioDec.delete();
+    if (speechRec) speechRec.delete();
+    if (resampler) resampler.delete();
+    try {
+      FS.unmount(mountPath);
+    } catch (_) {}
+    phase(label + ':cleanup:done');
+  }
+}
+
+async function runSubtitleReference(module) {
+  const FS = module.FS;
+  const srtFile = await fetchAsFile(
+    '/tests/generated/target.srt',
+    'target.srt',
+    'application/x-subrip'
+  );
+  mkdirp(FS, '/srt');
+  FS.mount(FS.filesystems.WORKERFS, { files: [srtFile] }, '/srt');
+
+  let demux;
+  let subtitleDec;
+  let packets = 0;
+  const subtitles = [];
+
+  try {
+    phase('srt:demux-construct:start');
+    demux = new module.Demux('/srt/target.srt');
+    phase('srt:demux-construct:done');
+
+    const streams = demux.getStreamsInfo();
+    const subtitle = streams.find(stream => stream.type === 'subtitle/text');
+    assert(subtitle, 'SRT was not recognized as text subtitles');
+
+    subtitleDec = new module.SubtitleDec();
+    subtitleDec.setEncoding('UTF-8');
+    subtitleDec.setMinWordLen(1);
+    subtitleDec.addSubsListener(event => subtitles.push(event));
+    demux.connectDec(subtitleDec, subtitle.no);
+
+    demux.start();
+    while (demux.step()) {
+      packets += 1;
+      if (packets > 10000) throw new Error('SRT demux safety limit exceeded');
+    }
+    demux.stop();
+
+    assert(packets > 0, 'SRT produced zero packets');
+    assert(subtitles.length > 0, 'SRT decoder emitted no subtitles');
+    phase('srt:done', { packets, subtitles: subtitles.length, streams });
+
+    return {
+      packets,
+      subtitles: subtitles.length,
+      streams,
+    };
+  } finally {
+    if (demux) demux.delete();
+    if (subtitleDec) subtitleDec.delete();
+    try {
+      FS.unmount('/srt');
+    } catch (_) {}
+  }
+}
+
+async function initModule() {
+  const wasmResponse = await fetch('/web/scripts/extractor.wasm', { cache: 'no-store' });
+  phase('wasm-prefetch:response', {
+    ok: wasmResponse.ok,
+    status: wasmResponse.status,
+    contentType: wasmResponse.headers.get('content-type'),
+    contentLength: wasmResponse.headers.get('content-length'),
+  });
+  assert(wasmResponse.ok, `Failed to fetch extractor.wasm: HTTP ${wasmResponse.status}`);
+
+  const wasmBinary = await wasmResponse.arrayBuffer();
+  phase('wasm-prefetch:done', { bytes: wasmBinary.byteLength });
+
+  const wrapper = await new Promise((resolve, reject) => {
+    try {
+      const candidate = gizmo({
+        wasmBinary,
+        locateFile: path => '/web/scripts/' + path,
+        print: text => console.log('[wasm]', text),
+        printErr: text => console.warn('[wasm]', text),
+        monitorRunDependencies: left => phase('module-run-dependencies', { left }),
+        onRuntimeInitialized: () => phase('module-runtime-initialized'),
+        onAbort: reason => {
+          phase('module-abort', { reason: String(reason) });
+          reject(new Error('Emscripten aborted: ' + String(reason)));
+        },
+      });
+      candidate.then(instance => resolve({ instance }));
+    } catch (error) {
+      reject(error);
+    }
+  });
+
+  phase('module-init:done');
+  return wrapper.instance;
 }
 
 async function run() {
   let module;
   try {
     assert(typeof gizmo === 'function', 'Emscripten extractor factory is not available');
-
-    phase('wasm-prefetch:start');
-    const wasmResponse = await fetch('/web/scripts/extractor.wasm', { cache: 'no-store' });
-    phase('wasm-prefetch:response', {
-      ok: wasmResponse.ok,
-      status: wasmResponse.status,
-      contentType: wasmResponse.headers.get('content-type'),
-      contentLength: wasmResponse.headers.get('content-length'),
-    });
-    assert(wasmResponse.ok, `Failed to fetch extractor.wasm: HTTP ${wasmResponse.status}`);
-
-    const wasmBinary = await wasmResponse.arrayBuffer();
-    phase('wasm-prefetch:done', { bytes: wasmBinary.byteLength });
-    assert(wasmBinary.byteLength > 0, 'extractor.wasm is empty');
-
     phase('module-init:start');
-    const moduleWrapper = await new Promise((resolve, reject) => {
-      try {
-        const candidate = gizmo({
-          wasmBinary,
-          locateFile: path => '/web/scripts/' + path,
-          print: text => console.log('[wasm]', text),
-          printErr: text => console.warn('[wasm]', text),
-          monitorRunDependencies: left => phase('module-run-dependencies', { left }),
-          onRuntimeInitialized: () => phase('module-runtime-initialized'),
-          onAbort: reason => {
-            phase('module-abort', { reason: String(reason) });
-            reject(new Error('Emscripten aborted: ' + String(reason)));
-          },
-        });
-
-        // Emscripten 1.39.11 MODULARIZE returns a legacy thenable, not a
-        // standards-compliant Promise. Resolving a Promise directly with that
-        // same thenable recursively assimilates it, so wrap the instance.
-        candidate.then(instance => resolve({ instance }));
-      } catch (error) {
-        reject(error);
-      }
-    });
-    module = moduleWrapper.instance;
-    phase('module-init:done');
+    module = await initModule();
 
     const FS = module.FS;
     assert(FS && FS.filesystems && FS.filesystems.WORKERFS, 'WORKERFS is not available');
-    phase('workerfs-available');
 
-    phase('mkv-fetch:start');
-    const mkvFile = await fetchAsFile(
-      '/tests/generated/reference-aac.mkv',
-      'reference-aac.mkv',
-      'video/x-matroska'
-    );
-    phase('mkv-fetch:done', { size: mkvFile.size });
+    const model = await loadSpeechModel(module);
 
-    phase('mkv-mount:start');
-    FS.mkdir('/mkv');
-    FS.mount(FS.filesystems.WORKERFS, { files: [mkvFile] }, '/mkv');
-    phase('mkv-mount:done');
+    const mkv = await runSpeechReference(module, model, {
+      label: 'mkv',
+      url: '/tests/generated/reference-aac.mkv',
+      name: 'reference-aac.mkv',
+      type: 'video/x-matroska',
+    });
 
-    let mkvDemux;
-    let audioDec;
-    let mkvPackets = 0;
-    let mkvStreams;
-    let mkvDuration;
+    const audio = await runSpeechReference(module, model, {
+      label: 'wav',
+      url: '/tests/generated/reference-audio.wav',
+      name: 'reference-audio.wav',
+      type: 'audio/wav',
+    });
 
-    try {
-      phase('mkv-demux-construct:start');
-      mkvDemux = new module.Demux('/mkv/reference-aac.mkv');
-      phase('mkv-demux-construct:done');
-
-      phase('mkv-stream-info:start');
-      mkvStreams = mkvDemux.getStreamsInfo();
-      phase('mkv-stream-info:done', { streams: mkvStreams });
-
-      phase('mkv-duration:start');
-      mkvDuration = mkvDemux.getDuration();
-      phase('mkv-duration:done', { duration: mkvDuration });
-
-      const audio = mkvStreams.find(stream => stream.type === 'audio');
-      assert(audio, 'Generated MKV has no audio stream according to WASM demux');
-      assert(audio.codec === 'aac', `Expected AAC audio stream, got ${audio.codec}`);
-      assert(mkvDuration > 0, `Expected positive MKV duration, got ${mkvDuration}`);
-      phase('mkv-audio-stream-selected', { stream: audio });
-
-      phase('audio-decoder-construct:start');
-      audioDec = new module.AudioDec();
-      phase('audio-decoder-construct:done');
-
-      phase('audio-decoder-connect:start');
-      mkvDemux.connectDec(audioDec, audio.no);
-      phase('audio-decoder-connect:done');
-
-      phase('mkv-demux-start:start');
-      mkvDemux.start();
-      phase('mkv-demux-start:done');
-
-      phase('mkv-demux-loop:start');
-      while (mkvDemux.step()) {
-        mkvPackets += 1;
-        if (mkvPackets <= 5 || mkvPackets % 25 === 0) {
-          phase('mkv-demux-loop:progress', { packets: mkvPackets });
-        }
-        if (mkvPackets > 10000) throw new Error('MKV demux safety limit exceeded');
-      }
-      phase('mkv-demux-loop:done', { packets: mkvPackets });
-
-      phase('mkv-demux-stop:start');
-      mkvDemux.stop();
-      phase('mkv-demux-stop:done');
-
-      assert(mkvPackets > 0, 'MKV demux produced zero packets');
-    } finally {
-      phase('mkv-cleanup:start');
-      if (audioDec) audioDec.delete();
-      if (mkvDemux) mkvDemux.delete();
-      FS.unmount('/mkv');
-      phase('mkv-cleanup:done');
-    }
-
-    phase('srt-fetch:start');
-    const srtFile = await fetchAsFile(
-      '/tests/generated/target.srt',
-      'target.srt',
-      'application/x-subrip'
-    );
-    phase('srt-fetch:done', { size: srtFile.size });
-
-    phase('srt-mount:start');
-    FS.mkdir('/srt');
-    FS.mount(FS.filesystems.WORKERFS, { files: [srtFile] }, '/srt');
-    phase('srt-mount:done');
-
-    let srtDemux;
-    let subtitleDec;
-    let subtitlePackets = 0;
-    const subtitleEvents = [];
-    let srtStreams;
-
-    try {
-      phase('srt-demux-construct:start');
-      srtDemux = new module.Demux('/srt/target.srt');
-      phase('srt-demux-construct:done');
-
-      phase('srt-stream-info:start');
-      srtStreams = srtDemux.getStreamsInfo();
-      phase('srt-stream-info:done', { streams: srtStreams });
-
-      const subtitle = srtStreams.find(stream => stream.type === 'subtitle/text');
-      assert(subtitle, 'Generated SRT was not recognized as a text subtitle stream');
-      phase('srt-subtitle-stream-selected', { stream: subtitle });
-
-      subtitleDec = new module.SubtitleDec();
-      subtitleDec.setEncoding('UTF-8');
-      subtitleDec.setMinWordLen(1);
-      subtitleDec.addSubsListener(event => subtitleEvents.push(event));
-      phase('subtitle-decoder-ready');
-
-      srtDemux.connectDec(subtitleDec, subtitle.no);
-      phase('subtitle-decoder-connected');
-
-      srtDemux.start();
-      phase('srt-demux-started');
-
-      phase('srt-demux-loop:start');
-      while (srtDemux.step()) {
-        subtitlePackets += 1;
-        if (subtitlePackets <= 5 || subtitlePackets % 25 === 0) {
-          phase('srt-demux-loop:progress', { packets: subtitlePackets });
-        }
-        if (subtitlePackets > 10000) throw new Error('SRT demux safety limit exceeded');
-      }
-      phase('srt-demux-loop:done', {
-        packets: subtitlePackets,
-        events: subtitleEvents.length,
-      });
-
-      srtDemux.stop();
-      phase('srt-demux-stopped');
-
-      assert(subtitlePackets > 0, 'SRT demux produced zero packets');
-      assert(subtitleEvents.length > 0, 'Subtitle decoder emitted no subtitle events');
-    } finally {
-      phase('srt-cleanup:start');
-      if (subtitleDec) subtitleDec.delete();
-      if (srtDemux) srtDemux.delete();
-      FS.unmount('/srt');
-      phase('srt-cleanup:done');
-    }
+    const srt = await runSubtitleReference(module);
 
     finish('pass', {
-      mkv: {
-        duration: mkvDuration,
-        packets: mkvPackets,
-        streams: mkvStreams,
+      model: {
+        sampleformat: model.sampleformat,
+        samplerate: model.samplerate,
       },
-      srt: {
-        packets: subtitlePackets,
-        events: subtitleEvents.length,
-        streams: srtStreams,
-      },
+      mkv,
+      audio,
+      srt,
     });
   } catch (error) {
     const normalized = normalizeError(module, error);
