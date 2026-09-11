@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import re
 import subprocess
 import tempfile
 import wave
@@ -9,40 +10,21 @@ ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "tests" / "generated" / "en-ro-e2e"
 OUT.mkdir(parents=True, exist_ok=True)
 
-PAIRS = [
-    ("always remember this", "always", "mereu"),
-    ("because we need help", "because", "deoarece"),
-    ("friend come with me", "friend", "prieten"),
-    ("people are waiting", "people", "oameni"),
-    ("problem is very important", "problem", "problemă"),
-    ("together we can work", "together", "împreună"),
-    ("understand what I mean", "understand", "înțelege"),
-    ("world is beautiful today", "world", "mondial"),
-    ("morning comes very early", "morning", "dimineață"),
-    ("minute please wait here", "minute", "minut"),
-    ("today we are together", "today", "astăzi"),
-    ("tonight we will meet", "tonight", "deseară"),
-    ("father is coming home", "father", "părinte"),
-    ("police are coming now", "police", "poliție"),
-    ("right answer is important", "right", "corect"),
-    ("wrong answer is different", "wrong", "greșit"),
-    ("never forget your friend", "never", "niciodată"),
-    ("maybe we can help", "maybe", "poate"),
-    ("sorry I was wrong", "sorry", "scuzați"),
-    ("thank you my friend", "thank", "mulțumesc"),
-    ("hello my friend", "hello", "salut"),
-    ("little things are important", "little", "fetiță"),
-    ("different answer is possible", "different", "diferit"),
-    ("important question today", "important", "important"),
-    ("beautiful world today", "beautiful", "frumos"),
-    ("answer this question", "answer", "răspuns"),
-    ("question is very important", "question", "întrebare"),
-    ("waiting for my friend", "waiting", "așteptare"),
-    ("listen to my answer", "listen", "asculta"),
-    ("coming home tonight", "coming", "venire"),
-    ("remember my answer", "remember", "aminti"),
-    ("mother is coming home", "mother", "maternă"),
-    ("better answer is possible", "better", "îmbunătăți"),
+CANDIDATES = [
+    "always", "because", "friend", "people", "problem", "together",
+    "understand", "world", "morning", "minute", "today", "tonight",
+    "father", "police", "right", "wrong", "never", "maybe", "sorry",
+    "thank", "hello", "little", "different", "important", "beautiful",
+    "answer", "question", "waiting", "listen", "coming", "remember",
+    "mother", "better", "money", "house", "water", "think", "place",
+    "where", "there", "about", "after", "again", "around", "believe",
+    "bring", "brother", "called", "children", "country", "course",
+    "death", "doing", "drink", "everything", "family", "found",
+    "happen", "heart", "home", "inside", "leave", "looking", "matter",
+    "night", "other", "person", "please", "pretty", "ready", "really",
+    "school", "something", "sometimes", "still", "story", "talking",
+    "thing", "things", "through", "trying", "wanted", "woman", "women",
+    "work", "years", "young",
 ]
 
 RATE = 16000
@@ -50,7 +32,32 @@ WIDTH = 2
 CHANNELS = 1
 OFFSET = 8.0
 INITIAL_SILENCE = 1.0
-GAP = 0.70
+GAP = 0.45
+
+DICT_PATH = OUT / "dictionary" / "dict" / "eng-rum.dict"
+
+def load_dictionary():
+    if not DICT_PATH.is_file():
+        raise SystemExit(f"Pinned dictionary missing: {DICT_PATH}")
+
+    result = {}
+    for line in DICT_PATH.read_text(encoding="utf-8").splitlines():
+        if not line or line.startswith("#"):
+            continue
+        parts = [part.strip() for part in line.split("|")]
+        key = parts[0].lower()
+        values = []
+        for value in parts[1:]:
+            if len(value) < 5:
+                continue
+            if "[" in value or "/" in value or "," in value:
+                continue
+            if not re.fullmatch(r"[A-Za-zĂÂÎȘŞȚŢăâîșşțţ-]+", value):
+                continue
+            values.append(value)
+        if values:
+            result[key] = values
+    return result
 
 def srt_ts(seconds):
     ms = round(seconds * 1000)
@@ -59,12 +66,30 @@ def srt_ts(seconds):
     secs, millis = divmod(rem, 1000)
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
 
+dictionary = load_dictionary()
+pairs = []
+for word in CANDIDATES:
+    translations = dictionary.get(word)
+    if translations:
+        pairs.append({
+            "phrase": f"please say {word} clearly today",
+            "english": word,
+            "romanian": translations[0],
+        })
+
+if len(pairs) < 60:
+    raise SystemExit(f"Calibration corpus too small: {len(pairs)} dictionary-backed words")
+
 combined = bytearray(b"\x00" * int(RATE * INITIAL_SILENCE) * WIDTH)
 timeline = []
 
 with tempfile.TemporaryDirectory() as tmp:
     tmp = Path(tmp)
-    for idx, (phrase, english, romanian) in enumerate(PAIRS):
+    for idx, pair in enumerate(pairs):
+        phrase = pair["phrase"]
+        english = pair["english"]
+        romanian = pair["romanian"]
+
         raw = tmp / f"{idx:02d}-{english}-raw.wav"
         norm = tmp / f"{idx:02d}-{english}.wav"
 
@@ -91,16 +116,13 @@ with tempfile.TemporaryDirectory() as tmp:
         end = len(combined) / WIDTH / RATE
 
         timeline.append({
-            "phrase": phrase,
-            "english": english,
-            "romanian": romanian,
+            **pair,
             "audioStart": start,
             "audioEnd": end,
             "subtitleStart": start + OFFSET,
             "subtitleEnd": end + OFFSET,
             "duration": duration,
         })
-
         combined.extend(b"\x00" * int(RATE * GAP) * WIDTH)
 
 wav_path = OUT / "reference-english.wav"
@@ -134,6 +156,7 @@ subprocess.run([
 ], check=True)
 
 fixture = {
+    "mode": "calibration",
     "offsetSeconds": OFFSET,
     "sampleRate": RATE,
     "pairs": timeline,
@@ -144,4 +167,9 @@ fixture = {
     json.dumps(fixture, indent=2, ensure_ascii=False) + "\n",
     encoding="utf-8",
 )
-print(json.dumps(fixture, indent=2, ensure_ascii=False))
+print(json.dumps({
+    "mode": fixture["mode"],
+    "offsetSeconds": OFFSET,
+    "segments": len(timeline),
+    "words": [item["english"] for item in timeline],
+}, indent=2, ensure_ascii=False))

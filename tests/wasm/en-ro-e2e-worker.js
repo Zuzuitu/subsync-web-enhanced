@@ -273,6 +273,31 @@ async function run() {
     const referenceWords = await extractReferenceWords(extractor, model);
     const sub = await extractTranslatedSubtitleWords(extractor, dict);
 
+    const calibration = fixture.pairs.map((pair, index) => {
+      const inSegment = referenceWords.filter(word =>
+        word.time >= pair.audioStart - 0.15 &&
+        word.time <= pair.audioEnd + 0.15
+      );
+      const exact = inSegment.some(word => String(word.text).toLowerCase() === pair.english);
+      return {
+        index,
+        english: pair.english,
+        romanian: pair.romanian,
+        phrase: pair.phrase,
+        audioStart: pair.audioStart,
+        audioEnd: pair.audioEnd,
+        exactTargetRecognized: exact,
+        recognized: inSegment.map(word => String(word.text).toLowerCase()),
+      };
+    });
+    const exactHits = calibration.filter(item => item.exactTargetRecognized);
+    phase('calibration-target-hits', {
+      count: exactHits.length,
+      total: calibration.length,
+      words: exactHits.map(item => item.english),
+      misses: calibration.filter(item => !item.exactTargetRecognized),
+    });
+
     sync = new correlator.Synchronizer(30 * 60, 0.9999, 2, 20, 0.6);
     for (const item of sub.subtitles) {
       sync.addSubtitle(item.start, item.end);
@@ -296,10 +321,13 @@ async function run() {
       maxDistance: stats.maxDistance,
       formula: { a: formula.a, b: formula.b },
       expected: { a: 1, b: -fixture.offsetSeconds },
+      calibrationExactTargetHits: exactHits.length,
+      calibrationExactTargetWords: exactHits.map(item => item.english),
     };
     phase('correlation-result', details);
 
     assert(referenceWords.length >= 20, 'English speech recognition produced fewer than 20 usable words');
+    assert(exactHits.length >= 20, 'Calibration produced fewer than 20 exact target-word hits');
     assert(sub.words.length >= 20, 'Romanian subtitles produced fewer than 20 translated words');
     assert(stats.correlated, 'English audio and Romanian subtitles did not correlate');
     assert(stats.points >= 20, 'Correlation produced fewer than 20 synchronization points');
