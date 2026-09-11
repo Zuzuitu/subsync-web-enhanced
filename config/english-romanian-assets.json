@@ -23,5 +23,16 @@
     "url": "https://github.com/sc0ty/subsync/releases/download/assets/dict-eng-rum.zip",
     "sha256": "04350f06586fc06082142e7a8e9b32f961782bc08341755594a0c4be3b57cfc4",
     "version": "1.1.1"
+  },
+  "englishFixtureVoice": {
+    "provider": "Piper",
+    "package": "piper-tts[http]==1.8.0",
+    "repository": "rhasspy/piper-voices",
+    "revision": "v1.0.0",
+    "voice": "en_US-joe-medium",
+    "modelUrl": "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/joe/medium/en_US-joe-medium.onnx",
+    "configUrl": "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/joe/medium/en_US-joe-medium.onnx.json",
+    "modelSha256": "58afce0321b8d9c46d7cdf9c16500cc55a793b4220212dba6b70fb788b3baf06",
+    "datasetLicense": "CC0"
   }
 }
