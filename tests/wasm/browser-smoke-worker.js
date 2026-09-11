@@ -262,6 +262,7 @@ async function runSubtitleReference(module) {
   let subtitleDec;
   let packets = 0;
   const subtitles = [];
+  const words = [];
 
   try {
     phase('srt:demux-construct:start');
@@ -276,6 +277,7 @@ async function runSubtitleReference(module) {
     subtitleDec.setEncoding('UTF-8');
     subtitleDec.setMinWordLen(1);
     subtitleDec.addSubsListener(event => subtitles.push(event));
+    subtitleDec.addWordsListener(word => words.push(word));
     demux.connectDec(subtitleDec, subtitle.no);
 
     demux.start();
@@ -287,11 +289,36 @@ async function runSubtitleReference(module) {
 
     assert(packets > 0, 'SRT produced zero packets');
     assert(subtitles.length > 0, 'SRT decoder emitted no subtitles');
-    phase('srt:done', { packets, subtitles: subtitles.length, streams });
+
+    const subtitleText = subtitles.map(item => item.text || '').join('\n');
+    const wordText = words.map(item => item.text || '').join(' ');
+    const requiredRomanian = ['ă', 'â', 'î', 'ș', 'ț', 'Ă', 'Â', 'Î', 'Ș', 'Ț'];
+
+    for (const char of requiredRomanian) {
+      assert(
+        subtitleText.includes(char) || wordText.includes(char),
+        'Romanian UTF-8 character was not preserved: ' + char
+      );
+    }
+
+    assert(
+      subtitleText.includes('Română') || wordText.includes('Română'),
+      'Romanian UTF-8 word Română was not preserved'
+    );
+
+    phase('srt:done', {
+      packets,
+      subtitles: subtitles.length,
+      words: words.length,
+      romanianUtf8: true,
+      streams,
+    });
 
     return {
       packets,
       subtitles: subtitles.length,
+      words: words.length,
+      romanianUtf8: true,
       streams,
     };
   } finally {
