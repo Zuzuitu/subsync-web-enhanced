@@ -1,5 +1,9 @@
 name: Legacy WebAssembly Build
 
+concurrency:
+  group: legacy-wasm-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   pull_request:
     branches: [main]
@@ -10,7 +14,6 @@ on:
       - "config/test-fixture-pins.json"
       - "config/english-romanian-assets.json"
       - ".github/workflows/legacy-web-build.yml"
-      - "docs/PROJECT_STATE.md"
       - "tests/wasm/**"
       - "tests/fixtures/**"
   push:
@@ -173,6 +176,12 @@ jobs:
 
       - name: Generate reproducible web metadata
         run: python3 scripts/generate-web-metadata.py --hash "$GITHUB_SHA" --version "2.0.0-dev"
+
+      - name: Reset native dependency workspace before npm ci
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo rm -rf web/node_modules
 
       - name: Set up Node for browser application
         uses: actions/setup-node@v4
