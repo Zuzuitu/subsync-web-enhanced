@@ -6,6 +6,7 @@ on:
     paths:
       - "gizmo/**"
       - "web/**"
+      - "config/legacy-build-pins.json"
       - ".github/workflows/legacy-web-build.yml"
       - "docs/PROJECT_STATE.md"
   push:
@@ -14,6 +15,7 @@ on:
     paths:
       - "gizmo/**"
       - "web/**"
+      - "config/legacy-build-pins.json"
       - ".github/workflows/legacy-web-build.yml"
 
 permissions:
@@ -23,16 +25,40 @@ jobs:
   wasm-build:
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    env:
-      FFMPEG_REF: n4.2
-      SPHINXBASE_SHA: 4ffc4b79515fd18f7adfbf80c20f3c0ecb9edccd
-      POCKETSPHINX_SHA: ab6d6471800966990e12fdb6ed27ae36323cf2c4
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Load pinned build inputs
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          pins = json.loads(Path("config/legacy-build-pins.json").read_text())
+          values = {
+              "FFMPEG_REF": pins["ffmpeg"]["ref"],
+              "SPHINXBASE_SHA": pins["sphinxbase"]["sha"],
+              "POCKETSPHINX_SHA": pins["pocketsphinx"]["sha"],
+              "EMSCRIPTEN_VERSION": pins["emscripten"]["version"],
+          }
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as f:
+              for key, value in values.items():
+                  print(f"{key}={value}", file=f)
+          PY
+
+      - name: Restore pinned native dependency build
+        id: cache-deps
+        uses: actions/cache@v4
+        with:
+          path: web/deps
+          key: legacy-wasm-deps-${{ runner.os }}-${{ hashFiles('config/legacy-build-pins.json', 'web/Makefile') }}
+
       - name: Prepare pinned native dependency sources
+        if: steps.cache-deps.outputs.cache-hit != 'true'
         shell: bash
         run: |
           set -euxo pipefail
@@ -54,13 +80,14 @@ jobs:
 
           test "$(git -C web/node_modules/sphinxbase rev-parse HEAD)" = "$SPHINXBASE_SHA"
           test "$(git -C web/node_modules/pocketsphinx rev-parse HEAD)" = "$POCKETSPHINX_SHA"
-          git -C web/node_modules/ffmpeg describe --tags --exact-match
+          test "$(git -C web/node_modules/ffmpeg describe --tags --exact-match)" = "$FFMPEG_REF"
 
       - name: Build pinned Emscripten toolchain image
         run: docker build --pull -t subsync-web-build web
 
       - name: Record compiler version
         run: |
+          test "$(docker run --rm subsync-web-build emcc --version | head -n1 | awk '{print $NF}')" = "$EMSCRIPTEN_VERSION"
           docker run --rm subsync-web-build emcc --version
           docker run --rm subsync-web-build em++ --version
 
@@ -72,7 +99,7 @@ jobs:
             -v "$GITHUB_WORKSPACE:/src" \
             -w /src/web \
             subsync-web-build \
-            emmake make -j2
+            emmake make -j4
 
       - name: Verify WebAssembly artifacts
         shell: bash
