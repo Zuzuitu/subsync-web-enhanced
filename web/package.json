@@ -62,8 +62,8 @@
   },
   "napa": {
     "ffmpeg": "FFmpeg/FFmpeg#n4.2",
-    "sphinxbase": "cmusphinx/sphinxbase",
-    "pocketsphinx": "cmusphinx/pocketsphinx"
+    "sphinxbase": "cmusphinx/sphinxbase#4ffc4b79515fd18f7adfbf80c20f3c0ecb9edccd",
+    "pocketsphinx": "cmusphinx/pocketsphinx#ab6d6471800966990e12fdb6ed27ae36323cf2c4"
   },
   "devDependencies": {
     "@babel/cli": "^7.8.4",
