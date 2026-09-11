@@ -1,0 +1,116 @@
+name: English Romanian Asset Probe
+
+on:
+  push:
+    branches:
+      - "test/english-romanian-e2e"
+    paths:
+      - ".github/workflows/english-romanian-assets-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe-assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download original sc0ty assets
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p tests/generated/en-ro-assets
+
+          curl --fail --location --retry 5 --retry-delay 3             https://github.com/sc0ty/subsync/releases/download/assets/speech-eng.zip             --output tests/generated/en-ro-assets/speech-eng.zip
+
+          curl --fail --location --retry 5 --retry-delay 3             https://github.com/sc0ty/subsync/releases/download/assets/dict-eng-rum.zip             --output tests/generated/en-ro-assets/dict-eng-rum.zip
+
+          curl --fail --location --retry 5 --retry-delay 3             https://github.com/sc0ty/subsync/releases/download/assets/assets.json             --output tests/generated/en-ro-assets/assets.json
+
+          sha256sum             tests/generated/en-ro-assets/speech-eng.zip             tests/generated/en-ro-assets/dict-eng-rum.zip             tests/generated/en-ro-assets/assets.json             | tee tests/generated/en-ro-assets/SHA256SUMS
+
+      - name: Inspect English speech model and English Romanian dictionary
+        shell: bash
+        run: |
+          set -euxo pipefail
+          rm -rf tests/generated/en-ro-assets/speech tests/generated/en-ro-assets/dict
+          mkdir -p tests/generated/en-ro-assets/speech tests/generated/en-ro-assets/dict
+          unzip -q tests/generated/en-ro-assets/speech-eng.zip -d tests/generated/en-ro-assets/speech
+          unzip -q tests/generated/en-ro-assets/dict-eng-rum.zip -d tests/generated/en-ro-assets/dict
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("tests/generated/en-ro-assets")
+          speech_path = root / "speech" / "speech" / "eng.speech"
+          dict_path = root / "dict" / "dict" / "eng-rum.dict"
+          asset_index = json.loads((root / "assets.json").read_text(encoding="utf-8"))
+
+          speech = json.loads(speech_path.read_text(encoding="utf-8"))
+          print("=== SPEECH ENG DESCRIPTOR ===")
+          print(json.dumps(speech, indent=2, ensure_ascii=False))
+
+          print("=== OFFICIAL ASSET INDEX ENTRIES ===")
+          print(json.dumps({
+              "speech/eng": asset_index.get("speech/eng"),
+              "dict/eng-rum": asset_index.get("dict/eng-rum"),
+          }, indent=2, ensure_ascii=False))
+
+          lines = dict_path.read_text(encoding="utf-8").splitlines()
+          print("=== DICTIONARY HEADER ===")
+          print(lines[0])
+
+          wanted = [
+              "always", "before", "because", "family", "friend", "friends",
+              "house", "people", "please", "problem", "remember", "something",
+              "together", "understand", "world", "morning", "minute", "second",
+              "today", "tonight", "mother", "father", "money", "police",
+              "really", "right", "wrong", "never", "maybe", "sorry",
+              "thank", "thanks", "hello", "going", "wanted", "little",
+              "better", "different", "important", "beautiful", "answer",
+              "question", "waiting", "listen", "looking", "coming"
+          ]
+          entries = {}
+          for line in lines:
+              if not line or line.startswith("#"):
+                  continue
+              parts = line.split("|")
+              if parts and parts[0].lower() in wanted:
+                  entries[parts[0].lower()] = parts[1:]
+
+          print("=== SELECTED ENG RUM ENTRIES ===")
+          for key in wanted:
+              if key in entries:
+                  print(key + "|" + "|".join(entries[key][:8]))
+
+          stats = {
+              "dictionaryLines": len(lines),
+              "selectedEntries": len(entries),
+              "speechDescriptor": speech,
+              "assetIndex": {
+                  "speech/eng": asset_index.get("speech/eng"),
+                  "dict/eng-rum": asset_index.get("dict/eng-rum"),
+              },
+              "selectedDictionaryEntries": entries,
+          }
+          (root / "probe.json").write_text(
+              json.dumps(stats, indent=2, ensure_ascii=False) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Upload probe evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: english-romanian-asset-probe
+          path: |
+            tests/generated/en-ro-assets/SHA256SUMS
+            tests/generated/en-ro-assets/probe.json
+          if-no-files-found: error
+          retention-days: 7
