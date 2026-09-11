@@ -47,11 +47,29 @@ async function run() {
   try {
     assert(typeof gizmo === 'function', 'Emscripten extractor factory is not available');
 
+    phase('wasm-prefetch:start');
+    const wasmResponse = await fetch('/web/scripts/extractor.wasm', { cache: 'no-store' });
+    phase('wasm-prefetch:response', {
+      ok: wasmResponse.ok,
+      status: wasmResponse.status,
+      contentType: wasmResponse.headers.get('content-type'),
+      contentLength: wasmResponse.headers.get('content-length'),
+    });
+    assert(wasmResponse.ok, `Failed to fetch extractor.wasm: HTTP ${wasmResponse.status}`);
+
+    const wasmBinary = await wasmResponse.arrayBuffer();
+    phase('wasm-prefetch:done', { bytes: wasmBinary.byteLength });
+    assert(wasmBinary.byteLength > 0, 'extractor.wasm is empty');
+
     phase('module-init:start');
     module = await gizmo({
+      wasmBinary,
       locateFile: path => '/web/scripts/' + path,
       print: text => console.log('[wasm]', text),
       printErr: text => console.warn('[wasm]', text),
+      monitorRunDependencies: left => phase('module-run-dependencies', { left }),
+      onRuntimeInitialized: () => phase('module-runtime-initialized'),
+      onAbort: reason => phase('module-abort', { reason: String(reason) }),
     });
     phase('module-init:done');
 
@@ -215,8 +233,9 @@ async function run() {
       },
     });
   } catch (error) {
-    phase('error', normalizeError(module, error));
-    finish('fail', normalizeError(module, error));
+    const normalized = normalizeError(module, error);
+    phase('error', normalized);
+    finish('fail', normalized);
   }
 }
 

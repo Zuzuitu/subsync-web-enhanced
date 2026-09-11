@@ -14,14 +14,11 @@ on:
   push:
     branches:
       - "chore/legacy-wasm-build"
-      - "test/**"
     paths:
       - "gizmo/**"
       - "web/**"
       - "config/legacy-build-pins.json"
       - ".github/workflows/legacy-web-build.yml"
-      - "tests/wasm/**"
-      - "tests/fixtures/**"
 
 permissions:
   contents: read

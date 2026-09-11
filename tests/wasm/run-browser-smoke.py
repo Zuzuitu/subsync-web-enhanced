@@ -46,8 +46,34 @@ try:
         browser = p.chromium.launch(**launch_args)
         page = browser.new_page()
         console_lines = []
+        network_events = []
+
         page.on("console", lambda msg: console_lines.append(f"{msg.type}: {msg.text}"))
         page.on("pageerror", lambda exc: console_lines.append(f"pageerror: {exc}"))
+
+        def record_response(response):
+            if response.status >= 400:
+                network_events.append(
+                    {
+                        "type": "response",
+                        "status": response.status,
+                        "url": response.url,
+                        "contentType": response.headers.get("content-type"),
+                    }
+                )
+
+        def record_request_failed(request):
+            failure = request.failure
+            network_events.append(
+                {
+                    "type": "requestfailed",
+                    "url": request.url,
+                    "failure": str(failure) if failure else None,
+                }
+            )
+
+        page.on("response", record_response)
+        page.on("requestfailed", record_request_failed)
 
         page.goto(url, wait_until="load")
 
@@ -81,6 +107,7 @@ try:
         print("\n".join(console_lines))
         print("Smoke status:", status)
         print("Last phase:", last_phase)
+        print("Network events:", json.dumps(network_events, indent=2))
         print("Smoke details:", json.dumps(details, indent=2))
         print("Phase timeline:", json.dumps(phases, indent=2))
 
@@ -94,6 +121,7 @@ try:
                     "lastPhase": last_phase,
                     "details": details,
                     "phases": phases,
+                    "network": network_events,
                     "console": console_lines,
                 },
                 indent=2,
