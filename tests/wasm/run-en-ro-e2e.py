@@ -43,8 +43,28 @@ try:
         browser = p.chromium.launch(**launch)
         page = browser.new_page()
         console = []
+        network = []
         page.on("console", lambda msg: console.append(f"{msg.type}: {msg.text}"))
         page.on("pageerror", lambda exc: console.append(f"pageerror: {exc}"))
+
+        def record_response(response):
+            if response.status >= 400:
+                network.append({
+                    "type": "response",
+                    "status": response.status,
+                    "url": response.url,
+                    "contentType": response.headers.get("content-type"),
+                })
+
+        def record_failed(request):
+            network.append({
+                "type": "requestfailed",
+                "url": request.url,
+                "failure": str(request.failure) if request.failure else None,
+            })
+
+        page.on("response", record_response)
+        page.on("requestfailed", record_failed)
         page.goto(url, wait_until="load")
 
         timed_out = False
@@ -74,6 +94,7 @@ try:
         print("E2E status:", status)
         print("Last phase:", phase)
         print("E2E details:", json.dumps(details, indent=2, ensure_ascii=False))
+        print("Network events:", json.dumps(network, indent=2, ensure_ascii=False))
         print("Phase timeline:", json.dumps(phases, indent=2, ensure_ascii=False))
 
         RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -85,6 +106,7 @@ try:
                 "lastPhase": phase,
                 "details": details,
                 "phases": phases,
+                "network": network,
                 "console": console,
             }, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
