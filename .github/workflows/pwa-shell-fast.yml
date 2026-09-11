@@ -3,7 +3,8 @@ name: PWA Shell Fast Build
 on:
   push:
     branches:
-      - "feat/pwa-shell"
+      - "feat/**"
+      - "fix/**"
     paths:
       - "web/src/**"
       - "web/public/**"
