@@ -1,0 +1,103 @@
+name: Legacy WebAssembly Build
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "gizmo/**"
+      - "web/**"
+      - ".github/workflows/legacy-web-build.yml"
+      - "docs/PROJECT_STATE.md"
+  push:
+    branches:
+      - "chore/legacy-wasm-build"
+    paths:
+      - "gizmo/**"
+      - "web/**"
+      - ".github/workflows/legacy-web-build.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  wasm-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      FFMPEG_REF: n4.2
+      SPHINXBASE_SHA: 4ffc4b79515fd18f7adfbf80c20f3c0ecb9edccd
+      POCKETSPHINX_SHA: ab6d6471800966990e12fdb6ed27ae36323cf2c4
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare pinned native dependency sources
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p web/node_modules
+
+          git clone --depth 1 --branch "$FFMPEG_REF" https://github.com/FFmpeg/FFmpeg.git web/node_modules/ffmpeg
+
+          git -C web/node_modules init sphinxbase-tmp
+          git -C web/node_modules/sphinxbase-tmp remote add origin https://github.com/cmusphinx/sphinxbase.git
+          git -C web/node_modules/sphinxbase-tmp fetch --depth 1 origin "$SPHINXBASE_SHA"
+          git -C web/node_modules/sphinxbase-tmp checkout --detach FETCH_HEAD
+          mv web/node_modules/sphinxbase-tmp web/node_modules/sphinxbase
+
+          git -C web/node_modules init pocketsphinx-tmp
+          git -C web/node_modules/pocketsphinx-tmp remote add origin https://github.com/cmusphinx/pocketsphinx.git
+          git -C web/node_modules/pocketsphinx-tmp fetch --depth 1 origin "$POCKETSPHINX_SHA"
+          git -C web/node_modules/pocketsphinx-tmp checkout --detach FETCH_HEAD
+          mv web/node_modules/pocketsphinx-tmp web/node_modules/pocketsphinx
+
+          test "$(git -C web/node_modules/sphinxbase rev-parse HEAD)" = "$SPHINXBASE_SHA"
+          test "$(git -C web/node_modules/pocketsphinx rev-parse HEAD)" = "$POCKETSPHINX_SHA"
+          git -C web/node_modules/ffmpeg describe --tags --exact-match
+
+      - name: Build pinned Emscripten toolchain image
+        run: docker build --pull -t subsync-web-build web
+
+      - name: Record compiler version
+        run: |
+          docker run --rm subsync-web-build emcc --version
+          docker run --rm subsync-web-build em++ --version
+
+      - name: Build extractor and correlator WebAssembly
+        shell: bash
+        run: |
+          set -euxo pipefail
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/src" \
+            -w /src/web \
+            subsync-web-build \
+            emmake make -j2
+
+      - name: Verify WebAssembly artifacts
+        shell: bash
+        run: |
+          set -euxo pipefail
+          test -s web/scripts/extractor.js
+          test -s web/scripts/extractor.wasm
+          test -s web/scripts/correlator.js
+          test -s web/scripts/correlator.wasm
+          sha256sum \
+            web/scripts/extractor.js \
+            web/scripts/extractor.wasm \
+            web/scripts/correlator.js \
+            web/scripts/correlator.wasm \
+            | tee web/scripts/SHA256SUMS
+
+      - name: Upload WebAssembly artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: legacy-wasm
+          path: |
+            web/scripts/extractor.js
+            web/scripts/extractor.wasm
+            web/scripts/correlator.js
+            web/scripts/correlator.wasm
+            web/scripts/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 7
