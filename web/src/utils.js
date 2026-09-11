@@ -43,27 +43,60 @@ export async function checkSupportedTech() {
 }
 
 function checkSupportedTechInWebWorker() {
+  const dbName = 'subsync2-support-test';
   const blob = new Blob([`
-    try {
-      indexedDB.open('test');
-      var hasIndexedDB = true;
-    } catch (e) {
-      var hasIndexedDB = false;
+    const result = {
+      'WebAssembly inside Web Worker': typeof WebAssembly !== 'undefined',
+      'IndexedDB inside Web Worker': false,
+    };
+
+    function finish() {
+      postMessage(result);
     }
-    postMessage({ 'WebAssembly inside Web Worker': hasIndexedDB });
+
+    if (typeof indexedDB === 'undefined') {
+      finish();
+    } else {
+      try {
+        const request = indexedDB.open('${dbName}');
+        request.onsuccess = () => {
+          result['IndexedDB inside Web Worker'] = true;
+          request.result.close();
+          indexedDB.deleteDatabase('${dbName}');
+          finish();
+        };
+        request.onerror = finish;
+        request.onblocked = finish;
+      } catch (e) {
+        finish();
+      }
+    }
     `]);
+
   const url = window.URL.createObjectURL(blob);
   const worker = new Worker(url);
+
   return new Promise(resolve => {
-    worker.onmessage = ev => {
+    let settled = false;
+
+    const finish = result => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
       worker.terminate();
       window.URL.revokeObjectURL(url);
-      resolve(ev.data);
-    }
-    worker.onerror = e => {
-      worker.terminate();
-      window.URL.revokeObjectURL(url);
-      resolve({ 'Web Worker': false });
-    }
+      resolve(result);
+    };
+
+    const timeout = setTimeout(() => finish({
+      'WebAssembly inside Web Worker': false,
+      'IndexedDB inside Web Worker': false,
+    }), 5000);
+
+    worker.onmessage = ev => finish(ev.data);
+    worker.onerror = () => finish({
+      'WebAssembly inside Web Worker': false,
+      'IndexedDB inside Web Worker': false,
+    });
   });
 }
