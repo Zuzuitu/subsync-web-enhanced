@@ -30,20 +30,40 @@ function mkdirp(FS, path) {
     }
   }
 }
-async function initModule(factory, wasmUrl) {
-  const response = await fetch(wasmUrl, { cache: 'no-store' });
-  assert(response.ok, `Failed to fetch ${wasmUrl}: HTTP ${response.status}`);
-  const wasmBinary = await response.arrayBuffer();
+async function initModule(factory, wasmUrl, label) {
+  phase(label + ':wasm-fetch:start');
+  const wasmResponse = await fetch(wasmUrl, { cache: 'no-store' });
+  phase(label + ':wasm-fetch:response', {
+    ok: wasmResponse.ok,
+    status: wasmResponse.status,
+    contentType: wasmResponse.headers.get('content-type'),
+    contentLength: wasmResponse.headers.get('content-length'),
+  });
+  assert(wasmResponse.ok, `Failed to fetch ${wasmUrl}: HTTP ${wasmResponse.status}`);
+
+  const wasmBinary = await wasmResponse.arrayBuffer();
+  phase(label + ':wasm-fetch:done', { bytes: wasmBinary.byteLength });
+
   const wrapper = await new Promise((resolve, reject) => {
     try {
+      phase(label + ':factory:start');
       const candidate = factory({
         wasmBinary,
         locateFile: path => wasmUrl.substring(0, wasmUrl.lastIndexOf('/') + 1) + path,
         print: text => console.log('[wasm]', text),
         printErr: text => console.warn('[wasm]', text),
-        onAbort: reason => reject(new Error('Emscripten aborted: ' + String(reason))),
+        monitorRunDependencies: left => phase(label + ':run-dependencies', { left }),
+        onRuntimeInitialized: () => phase(label + ':runtime-initialized'),
+        onAbort: reason => {
+          phase(label + ':abort', { reason: String(reason) });
+          reject(new Error('Emscripten aborted: ' + String(reason)));
+        },
       });
-      candidate.then(instance => resolve({ instance }));
+      phase(label + ':factory:created');
+      candidate.then(instance => {
+        phase(label + ':factory:resolved');
+        resolve({ instance });
+      });
     } catch (error) {
       reject(error);
     }
@@ -229,7 +249,7 @@ async function run() {
   let extractor, correlator, dict, sync;
   try {
     phase('extractor-init:start');
-    extractor = await initModule(extractorFactory, '/web/scripts/extractor.wasm');
+    extractor = await initModule(extractorFactory, '/web/scripts/extractor.wasm', 'extractor');
     phase('extractor-init:done');
 
     phase('correlator-js-load:start');
@@ -238,7 +258,7 @@ async function run() {
     phase('correlator-js-load:done');
 
     phase('correlator-init:start');
-    correlator = await initModule(correlatorFactory, '/web/scripts/correlator.wasm');
+    correlator = await initModule(correlatorFactory, '/web/scripts/correlator.wasm', 'correlator');
     phase('correlator-init:done');
 
     assert(extractor.FS && extractor.FS.filesystems.WORKERFS, 'Extractor WORKERFS unavailable');
