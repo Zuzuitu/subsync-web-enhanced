@@ -10,6 +10,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[2]
+RESULT_PATH = ROOT / "tests" / "generated" / "browser-wasm-smoke.json"
 
 
 class QuietHandler(http.server.SimpleHTTPRequestHandler):
@@ -29,19 +30,19 @@ browser_path = (
     or shutil.which("chromium")
     or shutil.which("chromium-browser")
 )
-if not browser_path:
-    server.shutdown()
-    raise SystemExit("No system Chromium/Chrome executable found on the CI runner")
 
 url = f"http://127.0.0.1:{server.server_address[1]}/tests/wasm/browser-smoke.html"
 
 try:
     with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=True,
-            executable_path=browser_path,
-            args=["--no-sandbox", "--disable-dev-shm-usage"],
-        )
+        launch_args = {
+            "headless": True,
+            "args": ["--no-sandbox", "--disable-dev-shm-usage"],
+        }
+        if browser_path:
+            launch_args["executable_path"] = browser_path
+
+        browser = p.chromium.launch(**launch_args)
         page = browser.new_page()
         console_lines = []
         page.on("console", lambda msg: console_lines.append(f"{msg.type}: {msg.text}"))
@@ -55,10 +56,30 @@ try:
         )
 
         status = page.get_attribute("html", "data-status")
-        details = page.get_attribute("html", "data-details") or ""
+        details_raw = page.get_attribute("html", "data-details") or ""
         print("\n".join(console_lines))
         print("Smoke status:", status)
-        print("Smoke details:", details)
+        print("Smoke details:", details_raw)
+
+        try:
+            details = json.loads(details_raw)
+        except json.JSONDecodeError:
+            details = {"raw": details_raw}
+
+        RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        RESULT_PATH.write_text(
+            json.dumps(
+                {
+                    "status": status,
+                    "browserExecutable": browser_path or "playwright-bundled-chromium",
+                    "details": details,
+                    "console": console_lines,
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
 
         browser.close()
 
