@@ -19,7 +19,7 @@ on:
 
 permissions:
   actions: read
-  contents: read
+  contents: write
 
 jobs:
   web-app:
@@ -67,6 +67,24 @@ jobs:
           path: web/package-lock.json
           if-no-files-found: error
           retention-days: 7
+
+      - name: Commit generated lockfile to PWA branch
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cp web/package-lock.json /tmp/subsync2-package-lock.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin feat/pwa-shell
+          git checkout -B feat/pwa-shell origin/feat/pwa-shell
+          cp /tmp/subsync2-package-lock.json web/package-lock.json
+          git add -f web/package-lock.json
+          if git diff --cached --quiet; then
+            echo "package-lock.json already matches"
+            exit 0
+          fi
+          git commit -m "build: pin legacy web JavaScript dependencies"
+          git push origin HEAD:feat/pwa-shell
 
       - name: Build browser bundle
         working-directory: web
