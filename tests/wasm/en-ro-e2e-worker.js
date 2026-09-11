@@ -68,7 +68,7 @@ async function initModule(factory, wasmUrl, label) {
       reject(error);
     }
   });
-  return wrapper.instance;
+  return wrapper;
 }
 
 phase('worker-start');
@@ -249,7 +249,7 @@ async function run() {
   let extractor, correlator, dict, sync;
   try {
     phase('extractor-init:start');
-    extractor = await initModule(extractorFactory, '/web/scripts/extractor.wasm', 'extractor');
+    extractor = (await initModule(extractorFactory, '/web/scripts/extractor.wasm', 'extractor')).instance;
     phase('extractor-init:done');
 
     phase('correlator-js-load:start');
@@ -258,7 +258,7 @@ async function run() {
     phase('correlator-js-load:done');
 
     phase('correlator-init:start');
-    correlator = await initModule(correlatorFactory, '/web/scripts/correlator.wasm', 'correlator');
+    correlator = (await initModule(correlatorFactory, '/web/scripts/correlator.wasm', 'correlator')).instance;
     phase('correlator-init:done');
 
     assert(extractor.FS && extractor.FS.filesystems.WORKERFS, 'Extractor WORKERFS unavailable');
