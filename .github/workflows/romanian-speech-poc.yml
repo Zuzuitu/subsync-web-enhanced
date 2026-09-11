@@ -75,9 +75,9 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p tests/generated
-          curl --fail --location --retry 5 --retry-delay 3             "$WHISPER_MODEL_URL"             --output tests/generated/ggml-tiny-q5_1.bin
-          echo "$WHISPER_MODEL_SHA256  tests/generated/ggml-tiny-q5_1.bin"             | sha256sum --check
-          sha256sum tests/generated/ggml-tiny-q5_1.bin             | tee tests/generated/whisper-model.sha256
+          curl --fail --location --retry 5 --retry-delay 3             "$WHISPER_MODEL_URL"             --output tests/generated/ggml-base-q5_1.bin
+          echo "$WHISPER_MODEL_SHA256  tests/generated/ggml-base-q5_1.bin"             | sha256sum --check
+          sha256sum tests/generated/ggml-base-q5_1.bin             | tee tests/generated/whisper-model.sha256
 
       - name: Generate deterministic Romanian speech fixture
         shell: bash
@@ -92,7 +92,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          /tmp/whisper-build/bin/whisper-cli             -m tests/generated/ggml-tiny-q5_1.bin             -f tests/generated/romanian-16k.wav             -l "$WHISPER_LANGUAGE"             -ojf             -of tests/generated/romanian-whisper             2>&1 | tee tests/generated/romanian-whisper.log
+          /tmp/whisper-build/bin/whisper-cli             -m tests/generated/ggml-base-q5_1.bin             -f tests/generated/romanian-16k.wav             -l "$WHISPER_LANGUAGE"             -ojf             -of tests/generated/romanian-whisper             2>&1 | tee tests/generated/romanian-whisper.log
           test -s tests/generated/romanian-whisper.json
 
       - name: Validate Romanian recognition
