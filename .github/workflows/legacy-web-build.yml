@@ -1,0 +1,130 @@
+name: Legacy WebAssembly Build
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "gizmo/**"
+      - "web/**"
+      - "config/legacy-build-pins.json"
+      - ".github/workflows/legacy-web-build.yml"
+      - "docs/PROJECT_STATE.md"
+  push:
+    branches:
+      - "chore/legacy-wasm-build"
+    paths:
+      - "gizmo/**"
+      - "web/**"
+      - "config/legacy-build-pins.json"
+      - ".github/workflows/legacy-web-build.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  wasm-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Load pinned build inputs
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          pins = json.loads(Path("config/legacy-build-pins.json").read_text())
+          values = {
+              "FFMPEG_REF": pins["ffmpeg"]["ref"],
+              "SPHINXBASE_SHA": pins["sphinxbase"]["sha"],
+              "POCKETSPHINX_SHA": pins["pocketsphinx"]["sha"],
+              "EMSCRIPTEN_VERSION": pins["emscripten"]["version"],
+          }
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as f:
+              for key, value in values.items():
+                  print(f"{key}={value}", file=f)
+          PY
+
+      - name: Restore pinned native dependency build
+        id: cache-deps
+        uses: actions/cache@v4
+        with:
+          path: web/deps
+          key: legacy-wasm-deps-${{ runner.os }}-${{ hashFiles('config/legacy-build-pins.json', 'web/Makefile') }}
+
+      - name: Prepare pinned native dependency sources
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p web/node_modules
+
+          git clone --depth 1 --branch "$FFMPEG_REF" https://github.com/FFmpeg/FFmpeg.git web/node_modules/ffmpeg
+
+          git -C web/node_modules init sphinxbase-tmp
+          git -C web/node_modules/sphinxbase-tmp remote add origin https://github.com/cmusphinx/sphinxbase.git
+          git -C web/node_modules/sphinxbase-tmp fetch --depth 1 origin "$SPHINXBASE_SHA"
+          git -C web/node_modules/sphinxbase-tmp checkout --detach FETCH_HEAD
+          mv web/node_modules/sphinxbase-tmp web/node_modules/sphinxbase
+
+          git -C web/node_modules init pocketsphinx-tmp
+          git -C web/node_modules/pocketsphinx-tmp remote add origin https://github.com/cmusphinx/pocketsphinx.git
+          git -C web/node_modules/pocketsphinx-tmp fetch --depth 1 origin "$POCKETSPHINX_SHA"
+          git -C web/node_modules/pocketsphinx-tmp checkout --detach FETCH_HEAD
+          mv web/node_modules/pocketsphinx-tmp web/node_modules/pocketsphinx
+
+          test "$(git -C web/node_modules/sphinxbase rev-parse HEAD)" = "$SPHINXBASE_SHA"
+          test "$(git -C web/node_modules/pocketsphinx rev-parse HEAD)" = "$POCKETSPHINX_SHA"
+          test "$(git -C web/node_modules/ffmpeg describe --tags --exact-match)" = "$FFMPEG_REF"
+
+      - name: Build pinned Emscripten toolchain image
+        run: docker build --pull -t subsync-web-build web
+
+      - name: Record compiler version
+        run: |
+          test "$(docker run --rm subsync-web-build emcc --version | head -n1 | awk '{print $NF}')" = "$EMSCRIPTEN_VERSION"
+          docker run --rm subsync-web-build emcc --version
+          docker run --rm subsync-web-build em++ --version
+
+      - name: Build extractor and correlator WebAssembly
+        shell: bash
+        run: |
+          set -euxo pipefail
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/src" \
+            -w /src/web \
+            subsync-web-build \
+            emmake make -j4
+
+      - name: Verify WebAssembly artifacts
+        shell: bash
+        run: |
+          set -euxo pipefail
+          test -s web/scripts/extractor.js
+          test -s web/scripts/extractor.wasm
+          test -s web/scripts/correlator.js
+          test -s web/scripts/correlator.wasm
+          sha256sum \
+            web/scripts/extractor.js \
+            web/scripts/extractor.wasm \
+            web/scripts/correlator.js \
+            web/scripts/correlator.wasm \
+            | tee web/scripts/SHA256SUMS
+
+      - name: Upload WebAssembly artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: legacy-wasm
+          path: |
+            web/scripts/extractor.js
+            web/scripts/extractor.wasm
+            web/scripts/correlator.js
+            web/scripts/correlator.wasm
+            web/scripts/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 7

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Reproducible legacy SubSync web/WebAssembly baseline",
+  "historicalWebBuildIntroducedAt": "2020-03-29",
+  "emscripten": {
+    "image": "trzeci/emscripten:1.39.11-fastcomp@sha256:7e32f961a0b5280151f7f5e4d8de3e655ac054b5564ee707a81ea1512e8b9911",
+    "version": "1.39.11",
+    "selectionBasis": "Latest Emscripten release available before the original SubSync web build commit; verified by GitHub Actions."
+  },
+  "ffmpeg": {
+    "repository": "FFmpeg/FFmpeg",
+    "ref": "n4.2"
+  },
+  "sphinxbase": {
+    "repository": "cmusphinx/sphinxbase",
+    "sha": "4ffc4b79515fd18f7adfbf80c20f3c0ecb9edccd",
+    "selectionBasis": "Latest commit on or before 2020-03-29."
+  },
+  "pocketsphinx": {
+    "repository": "cmusphinx/pocketsphinx",
+    "sha": "ab6d6471800966990e12fdb6ed27ae36323cf2c4",
+    "selectionBasis": "Latest commit on or before 2020-03-29."
+  }
+}

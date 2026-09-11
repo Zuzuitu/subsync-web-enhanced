@@ -6,13 +6,14 @@ SubSync2 is focused first on making the browser workflow reliable again — espe
 
 ## Status
 
-Foundation / reproducibility phase.
+Legacy C++/FFmpeg/PocketSphinx/Emscripten WebAssembly build reproduced successfully in GitHub Actions.
 
-The first technical objective is not a UI rewrite. It is to reproduce the legacy C++/FFmpeg/PocketSphinx/Emscripten web build in cloud CI and create a deterministic regression test for the direct-MKV failure.
+Current phase: deterministic **MKV + SRT regression reproduction**. The engine can now be built and verified entirely in cloud CI; local laptop compilation is not required for normal development.
 
 See:
 - `docs/PROJECT_STATE.md` — canonical human-readable checkpoint
 - `config/project-invariants.json` — machine-readable project rules
+- `config/legacy-build-pins.json` — reproducible legacy toolchain/dependency pins
 - `AGENTS.md` — contribution / coding-agent rules
 - `UPSTREAM_COMMIT` — pinned upstream baseline
 

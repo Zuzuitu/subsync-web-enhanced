@@ -72,12 +72,29 @@ Do not state that FFmpeg, MKV parsing, codec support, memory, Safari, or any spe
 
 ## Build system status
 
-The legacy web build is old and complex:
-- `web/package.json` uses `napa` to fetch FFmpeg, SphinxBase and PocketSphinx.
-- `web/Makefile` uses historical Emscripten flags and builds static dependencies before producing WASM.
-- The old build must be treated as a baseline to reproduce first, not as a stack to preserve forever.
+The legacy WebAssembly engine is now reproducible in GitHub Actions without a local laptop.
 
-A modern cloud CI/build path is required so normal development does not depend on a local laptop.
+Confirmed on 2026-09-11:
+- Successful workflow run: `34562875819`
+- Workflow: `.github/workflows/legacy-web-build.yml`
+- Emscripten: `1.39.11-fastcomp`
+- Docker image digest: `sha256:7e32f961a0b5280151f7f5e4d8de3e655ac054b5564ee707a81ea1512e8b9911`
+- FFmpeg: `n4.2`
+- SphinxBase: `4ffc4b79515fd18f7adfbf80c20f3c0ecb9edccd`
+- PocketSphinx: `ab6d6471800966990e12fdb6ed27ae36323cf2c4`
+- Produced and verified: `extractor.js/.wasm` and `correlator.js/.wasm`
+- First successful artifact name: `legacy-wasm`
+- First successful artifact archive digest: `sha256:6411d9cb71f62f885e342d0292b723874dd117cd901af9e817bc265326c16816`
+
+Reconstruction notes:
+- The original web build files were introduced on 2020-03-29.
+- Emscripten 1.39.11 was the latest release before that date and successfully builds the imported baseline.
+- SphinxBase and PocketSphinx are pinned to their latest commits on or before 2020-03-29.
+- Debian Buster package mirrors are EOL; the historical image is kept intact but its apt sources are redirected to `archive.debian.org`.
+- All reproducibility pins are centralized in `config/legacy-build-pins.json`.
+- CI caches only the built native dependencies; application C++/WASM output is rebuilt and verified.
+
+The old stack remains a compatibility baseline, not a commitment to preserve these dependency versions forever.
 
 ## Development workflow
 
@@ -96,9 +113,9 @@ Rules:
 
 Build confidence in layers:
 
-1. Governance/static checks — repository state, invariants, attribution, pinned upstream.
-2. Legacy web build reproduction in Linux CI.
-3. Small deterministic media fixtures covering container/codec combinations.
+1. Governance/static checks — repository state, invariants, attribution, pinned upstream. **DONE**
+2. Legacy web/WASM build reproduction in Linux CI. **DONE**
+3. Small deterministic media fixtures covering container/codec combinations. **NEXT**
 4. Extractor tests: stream discovery, open, decode/resample progress, errors.
 5. End-to-end synchronization tests with known expected timing correction.
 6. Browser tests, including mobile Safari after the engine is reproducible in CI.
@@ -132,16 +149,18 @@ Prefer GitHub Actions and free/low-cost infrastructure. Do not introduce paid se
 
 ## Immediate next milestones
 
+Completed:
 1. Establish repository governance and baseline CI.
-2. Reproduce the legacy web build in GitHub Actions.
+2. Reproduce the legacy web/WASM build in GitHub Actions.
 3. Capture the first successful build artifacts.
-4. Add a minimal MKV fixture and reproduce direct-MKV behavior.
+
+Next:
+4. Add a minimal generated MKV fixture and reproduce direct-MKV behavior.
 5. Locate the failing stage: mount, probe/demux, stream selection, decode, resample, speech recognition, or orchestration.
 6. Fix the smallest proven root cause.
 7. Add regression coverage before modernizing UI/PWA behavior.
 
 ## Open blockers
 
-- Legacy Emscripten/FFmpeg/PocketSphinx build has not yet been reproduced in current CI.
 - The direct-MKV failure has not yet been reproduced in an automated test.
 - Browser/version-specific behavior is not yet characterized.
