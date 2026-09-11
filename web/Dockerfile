@@ -1,4 +1,4 @@
-FROM trzeci/emscripten:1.39.11-fastcomp
+FROM trzeci/emscripten:1.39.11-fastcomp@sha256:7e32f961a0b5280151f7f5e4d8de3e655ac054b5564ee707a81ea1512e8b9911
 
 # Debian Buster is EOL; the historical toolchain image still points at the
 # normal mirrors. Keep the original userspace, but use Debian's archive so the
