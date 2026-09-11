@@ -10,7 +10,11 @@
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./app.css">
   <script>
-    var baseurl = "";
+    var pagePath = window.location.pathname;
+    var appPath = pagePath.endsWith("/")
+      ? pagePath.slice(0, -1)
+      : pagePath.slice(0, pagePath.lastIndexOf("/"));
+    var baseurl = appPath.replace(/^\/+|\/+$/g, "");
     var user_language = "en";
   </script>
   <script src="./scripts/subsync.js" defer></script>

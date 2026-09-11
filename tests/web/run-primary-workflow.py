@@ -6,6 +6,7 @@ import re
 import shutil
 import socketserver
 import threading
+import tempfile
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
@@ -33,7 +34,12 @@ class QuietHandler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
-handler = functools.partial(QuietHandler, directory=str(DIST))
+pages_root_ctx = tempfile.TemporaryDirectory(prefix="subsync2-pages-")
+pages_root = Path(pages_root_ctx.name)
+pages_base = "subsync-web-enhanced"
+(pages_root / pages_base).symlink_to(DIST, target_is_directory=True)
+
+handler = functools.partial(QuietHandler, directory=str(pages_root))
 server = socketserver.ThreadingTCPServer(("127.0.0.1", 0), handler)
 server.daemon_threads = True
 threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -44,7 +50,7 @@ browser_path = (
     or shutil.which("chromium")
     or shutil.which("chromium-browser")
 )
-url = f"http://127.0.0.1:{server.server_address[1]}/"
+url = f"http://127.0.0.1:{server.server_address[1]}/{pages_base}/"
 
 try:
     with sync_playwright() as p:
@@ -187,6 +193,7 @@ try:
 
         details = {
             "url": url,
+            "pagesBasePath": "/" + pages_base + "/",
             "browserExecutable": browser_path or "playwright-bundled-chromium",
             "status": "pass",
             "pointsText": points,
@@ -217,3 +224,4 @@ try:
 finally:
     server.shutdown()
     server.server_close()
+    pages_root_ctx.cleanup()
