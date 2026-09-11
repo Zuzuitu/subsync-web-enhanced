@@ -18,7 +18,7 @@ ffmpeg -hide_banner -loglevel error -y \
   -f lavfi -i "color=c=black:s=32x32:r=2:d=2" \
   -f lavfi -i "sine=frequency=440:sample_rate=16000:duration=2" \
   -map 0:v:0 -map 1:a:0 \
-  -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p \
+  -c:v mpeg4 -q:v 5 -pix_fmt yuv420p \
   -c:a aac -b:a 64k \
   -metadata:s:a:0 language=eng \
   -shortest \
