@@ -10,6 +10,7 @@ required = [
     ROOT / "config" / "project-invariants.json",
     ROOT / "config" / "legacy-build-pins.json",
     ROOT / "config" / "test-fixture-pins.json",
+    ROOT / "config" / "english-romanian-assets.json",
     ROOT / "AGENTS.md",
     ROOT / "README.md",
     ROOT / "LICENSE",
@@ -31,6 +32,9 @@ with (ROOT / "config" / "legacy-build-pins.json").open(encoding="utf-8") as f:
 with (ROOT / "config" / "test-fixture-pins.json").open(encoding="utf-8") as f:
     fixture_pins = json.load(f)
 
+with (ROOT / "config" / "english-romanian-assets.json").open(encoding="utf-8") as f:
+    en_ro_assets = json.load(f)
+
 if inv.get("project") != "SubSync2":
     raise SystemExit("project-invariants.json: project must be SubSync2")
 
@@ -49,12 +53,27 @@ if inv["licensing"].get("requireSc0tyAttribution") is not True:
     raise SystemExit("sc0ty attribution invariant is required")
 
 romanian = inv["product"].get("romanian", {})
-if inv["product"].get("primaryLanguagePriority") != "Romanian":
-    raise SystemExit("Romanian must remain the primary language priority")
+primary_workflow = inv["product"].get("primaryWorkflow", {})
+if inv["product"].get("primaryLanguagePriority") != "Romanian subtitles":
+    raise SystemExit("Romanian subtitles must remain the primary language priority")
+if primary_workflow.get("referenceAudioLanguage") != "English":
+    raise SystemExit("Primary reference audio language must be English")
+if primary_workflow.get("referenceAudioCode") != "eng":
+    raise SystemExit("Primary reference audio code must be eng")
+if primary_workflow.get("subtitleLanguage") != "Romanian":
+    raise SystemExit("Primary subtitle language must be Romanian")
+if set(primary_workflow.get("subtitleLanguageCodes", [])) != {"ro", "rum", "ron"}:
+    raise SystemExit("Primary Romanian subtitle aliases must include ro, rum and ron")
+if primary_workflow.get("endToEndRequiredBeforeRelease") is not True:
+    raise SystemExit("English audio + Romanian subtitle E2E coverage is required before release")
 if romanian.get("subtitleSupportRequired") is not True:
     raise SystemExit("Romanian subtitle support is required")
 if romanian.get("audioSpeechRecognitionRequired") is not True:
     raise SystemExit("Romanian audio speech recognition is required")
+if romanian.get("audioSpeechRecognitionNearTermPriority") is not False:
+    raise SystemExit("Romanian audio speech recognition must not be a near-term priority")
+if romanian.get("audioSpeechRecognitionDeferredUntilNearCompletion") is not True:
+    raise SystemExit("Romanian audio speech recognition must remain deferred until near completion")
 if set(romanian.get("acceptedLanguageCodes", [])) != {"ro", "rum", "ron"}:
     raise SystemExit("Romanian language aliases must include ro, rum and ron")
 if romanian.get("preserveDiacritics") is not True:
@@ -98,6 +117,25 @@ if speech_fixture.get("filename") != "speech-ita.zip":
     raise SystemExit("Unexpected sc0ty Italian speech fixture filename")
 if not speech_fixture.get("url", "").endswith("/speech-ita.zip"):
     raise SystemExit("Unexpected sc0ty Italian speech fixture URL")
+
+expected_en_ro = {
+    "assetIndex": (49186110, "assets.json", "f25ccee51728c6632fdb66a33744e33945cb054a562c4ff600afc03ced605da4"),
+    "speechEnglish": (14727496, "speech-eng.zip", "b96fa77cc3567c0351d1a1dae2cd87cb38ae815834903cc1e680e48b6cbd45a5"),
+    "dictionaryEnglishRomanian": (39441884, "dict-eng-rum.zip", "04350f06586fc06082142e7a8e9b32f961782bc08341755594a0c4be3b57cfc4"),
+}
+for name, (asset_id, filename, sha256) in expected_en_ro.items():
+    asset = en_ro_assets.get(name, {})
+    if asset.get("releaseAssetId") != asset_id:
+        raise SystemExit(f"Unexpected {name} release asset ID")
+    if asset.get("filename") != filename:
+        raise SystemExit(f"Unexpected {name} filename")
+    if asset.get("sha256") != sha256 or not re.fullmatch(r"[0-9a-f]{64}", asset.get("sha256", "")):
+        raise SystemExit(f"Unexpected {name} SHA-256")
+
+if en_ro_assets["speechEnglish"].get("version") != "1.0.0":
+    raise SystemExit("Unexpected English speech asset version")
+if en_ro_assets["dictionaryEnglishRomanian"].get("version") != "1.1.1":
+    raise SystemExit("Unexpected English-Romanian dictionary asset version")
 
 dockerfile = (ROOT / "web" / "Dockerfile").read_text(encoding="utf-8")
 first_instruction = next(
