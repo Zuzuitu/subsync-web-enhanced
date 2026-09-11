@@ -14,8 +14,17 @@
     "sha256": "422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898"
   },
   "fixture": {
-    "tts": "espeak-ng",
-    "voice": "ro",
+    "provider": "piper",
+    "piperPackage": "piper-tts==1.8.0",
+    "voice": {
+      "name": "ro_RO-mihai-medium",
+      "sourceRevision": "1af0d6b01d3dbe698a426f0c3424650ef77fc131",
+      "modelUrl": "https://huggingface.co/rhasspy/piper-voices/resolve/1af0d6b01d3dbe698a426f0c3424650ef77fc131/ro/ro_RO/mihai/medium/ro_RO-mihai-medium.onnx",
+      "configUrl": "https://huggingface.co/rhasspy/piper-voices/resolve/1af0d6b01d3dbe698a426f0c3424650ef77fc131/ro/ro_RO/mihai/medium/ro_RO-mihai-medium.onnx.json",
+      "modelSha256": "e0608bbbd53c80267c09ece681b09f5199f54e792356684c8073738e5f15d29f",
+      "configMd5": "f820f8ba65a8646c68792be581b85144",
+      "datasetLicense": "CC0"
+    },
     "text": "Aceasta este o probă în limba română. Subtitrarea trebuie sincronizată corect.",
     "expectedNormalizedWords": [
       "aceasta",

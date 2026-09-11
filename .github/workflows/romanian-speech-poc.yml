@@ -30,13 +30,21 @@ jobs:
           from pathlib import Path
 
           cfg = json.loads(Path("config/romanian-speech-poc.json").read_text(encoding="utf-8"))
+          fixture = cfg["fixture"]
+          voice = fixture["voice"]
           values = {
               "WHISPER_CPP_SHA": cfg["whisperCpp"]["commit"],
               "WHISPER_MODEL_URL": cfg["model"]["url"],
               "WHISPER_MODEL_SHA256": cfg["model"]["sha256"],
+              "WHISPER_MODEL_NAME": cfg["model"]["name"],
               "WHISPER_LANGUAGE": cfg["model"]["language"],
-              "ROMANIAN_TTS_VOICE": cfg["fixture"]["voice"],
-              "ROMANIAN_TTS_TEXT": cfg["fixture"]["text"],
+              "ROMANIAN_TTS_TEXT": fixture["text"],
+              "PIPER_PACKAGE": fixture["piperPackage"],
+              "PIPER_VOICE_NAME": voice["name"],
+              "PIPER_MODEL_URL": voice["modelUrl"],
+              "PIPER_CONFIG_URL": voice["configUrl"],
+              "PIPER_MODEL_SHA256": voice["modelSha256"],
+              "PIPER_CONFIG_MD5": voice["configMd5"],
           }
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as f:
               for key, value in values.items():
@@ -48,7 +56,8 @@ jobs:
         run: |
           set -euxo pipefail
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build espeak-ng ffmpeg
+          sudo apt-get install -y cmake ninja-build ffmpeg
+          python3 -m pip install --disable-pip-version-check "$PIPER_PACKAGE"
 
       - name: Checkout pinned whisper.cpp
         shell: bash
@@ -68,34 +77,46 @@ jobs:
           cmake -S /tmp/whisper.cpp -B /tmp/whisper-build -G Ninja             -DWHISPER_BUILD_EXAMPLES=ON             -DWHISPER_BUILD_TESTS=OFF
           cmake --build /tmp/whisper-build --target whisper-cli -j2
           test -x /tmp/whisper-build/bin/whisper-cli
-          /tmp/whisper-build/bin/whisper-cli --help >/dev/null
 
       - name: Download and verify pinned multilingual model
         shell: bash
         run: |
           set -euxo pipefail
           mkdir -p tests/generated
-          curl --fail --location --retry 5 --retry-delay 3             "$WHISPER_MODEL_URL"             --output tests/generated/ggml-base-q5_1.bin
-          echo "$WHISPER_MODEL_SHA256  tests/generated/ggml-base-q5_1.bin"             | sha256sum --check
-          sha256sum tests/generated/ggml-base-q5_1.bin             | tee tests/generated/whisper-model.sha256
+          curl --fail --location --retry 5 --retry-delay 3             "$WHISPER_MODEL_URL"             --output "tests/generated/ggml-$WHISPER_MODEL_NAME.bin"
+          echo "$WHISPER_MODEL_SHA256  tests/generated/ggml-$WHISPER_MODEL_NAME.bin"             | sha256sum --check
+          sha256sum "tests/generated/ggml-$WHISPER_MODEL_NAME.bin"             | tee tests/generated/whisper-model.sha256
 
-      - name: Generate deterministic Romanian speech fixture
+      - name: Download and verify pinned Romanian Piper voice
         shell: bash
         run: |
           set -euxo pipefail
-          espeak-ng --voices="$ROMANIAN_TTS_VOICE" | tee tests/generated/espeak-romanian-voice.txt
-          espeak-ng             -v "$ROMANIAN_TTS_VOICE"             -s 145             -p 50             -w tests/generated/romanian-espeak.wav             "$ROMANIAN_TTS_TEXT"
-          ffmpeg -hide_banner -loglevel error -y             -i tests/generated/romanian-espeak.wav             -ar 16000 -ac 1 -c:a pcm_s16le             tests/generated/romanian-16k.wav
+          curl --fail --location --retry 5 --retry-delay 3             "$PIPER_MODEL_URL"             --output "tests/generated/$PIPER_VOICE_NAME.onnx"
+          curl --fail --location --retry 5 --retry-delay 3             "$PIPER_CONFIG_URL"             --output "tests/generated/$PIPER_VOICE_NAME.onnx.json"
+
+          echo "$PIPER_MODEL_SHA256  tests/generated/$PIPER_VOICE_NAME.onnx"             | sha256sum --check
+          echo "$PIPER_CONFIG_MD5  tests/generated/$PIPER_VOICE_NAME.onnx.json"             | md5sum --check
+
+          sha256sum             "tests/generated/$PIPER_VOICE_NAME.onnx"             "tests/generated/$PIPER_VOICE_NAME.onnx.json"             | tee tests/generated/piper-voice.sha256
+
+      - name: Generate neural Romanian speech fixture
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 -m piper             --data-dir tests/generated             -m "$PIPER_VOICE_NAME"             -f tests/generated/romanian-piper.wav             -- "$ROMANIAN_TTS_TEXT"
+
+          ffmpeg -hide_banner -loglevel error -y             -i tests/generated/romanian-piper.wav             -ar 16000 -ac 1 -c:a pcm_s16le             tests/generated/romanian-16k.wav
+
           ffprobe -v error             -show_entries stream=codec_name,sample_rate,channels:format=duration             -of json tests/generated/romanian-16k.wav             | tee tests/generated/romanian-audio.json
 
       - name: Transcribe Romanian fixture
         shell: bash
         run: |
           set -euxo pipefail
-          /tmp/whisper-build/bin/whisper-cli             -m tests/generated/ggml-base-q5_1.bin             -f tests/generated/romanian-16k.wav             -l "$WHISPER_LANGUAGE"             -ojf             -of tests/generated/romanian-whisper             2>&1 | tee tests/generated/romanian-whisper.log
+          /tmp/whisper-build/bin/whisper-cli             -m "tests/generated/ggml-$WHISPER_MODEL_NAME.bin"             -f tests/generated/romanian-16k.wav             -l "$WHISPER_LANGUAGE"             -ojf             -of tests/generated/romanian-whisper             2>&1 | tee tests/generated/romanian-whisper.log
           test -s tests/generated/romanian-whisper.json
 
-      - name: Validate Romanian recognition
+      - name: Validate Romanian recognition and timing output
         shell: bash
         run: |
           python3 - <<'PY'
@@ -105,41 +126,58 @@ jobs:
           from pathlib import Path
 
           cfg = json.loads(Path("config/romanian-speech-poc.json").read_text(encoding="utf-8"))
-          log = Path("tests/generated/romanian-whisper.log").read_text(encoding="utf-8", errors="replace")
           result = json.loads(Path("tests/generated/romanian-whisper.json").read_text(encoding="utf-8"))
 
-          def normalize(text):
-              text = unicodedata.normalize("NFD", text.lower())
-              text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
-              return set(re.findall(r"[a-z]+", text))
+          transcription = result.get("transcription", [])
+          text = " ".join(segment.get("text", "") for segment in transcription)
 
-          recognized = normalize(log)
+          def normalize_words(value):
+              value = unicodedata.normalize("NFD", value.lower())
+              value = "".join(ch for ch in value if unicodedata.category(ch) != "Mn")
+              return set(re.findall(r"[a-z]+", value))
+
+          recognized = normalize_words(text)
           expected = set(cfg["fixture"]["expectedNormalizedWords"])
           matched = sorted(recognized & expected)
           minimum = cfg["fixture"]["minimumExpectedWords"]
 
-          print("Matched Romanian content words:", matched)
-          print("Required minimum:", minimum)
-
-          if len(matched) < minimum:
-              raise SystemExit(
-                  f"Romanian recognition too weak for PoC: matched {len(matched)} / {len(expected)}"
-              )
+          timed_segments = 0
+          timed_tokens = 0
+          for segment in transcription:
+              if segment.get("offsets"):
+                  timed_segments += 1
+              for token in segment.get("tokens", []):
+                  if token.get("offsets"):
+                      timed_tokens += 1
 
           payload = {
+              "recognizedText": text.strip(),
               "matchedWords": matched,
               "expectedWords": sorted(expected),
               "minimumExpectedWords": minimum,
+              "timedSegments": timed_segments,
+              "timedTokens": timed_tokens,
               "model": cfg["model"]["name"],
               "language": cfg["model"]["language"],
               "whisperCppCommit": cfg["whisperCpp"]["commit"],
-              "jsonResultPresent": bool(result),
+              "fixtureProvider": cfg["fixture"]["provider"],
+              "fixtureVoice": cfg["fixture"]["voice"]["name"],
           }
+
           Path("tests/generated/romanian-poc-result.json").write_text(
               json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
               encoding="utf-8",
           )
           print(json.dumps(payload, indent=2, ensure_ascii=False))
+
+          if len(matched) < minimum:
+              raise SystemExit(
+                  f"Romanian recognition too weak for PoC: matched {len(matched)} / {len(expected)}"
+              )
+          if timed_segments < 1:
+              raise SystemExit("Whisper PoC produced no timed transcription segments")
+          if timed_tokens < 1:
+              raise SystemExit("Whisper PoC produced no token timing output")
           PY
 
       - name: Upload Romanian speech PoC evidence
@@ -153,6 +191,6 @@ jobs:
             tests/generated/romanian-whisper.json
             tests/generated/romanian-audio.json
             tests/generated/whisper-model.sha256
-            tests/generated/espeak-romanian-voice.txt
+            tests/generated/piper-voice.sha256
           if-no-files-found: warn
           retention-days: 7
