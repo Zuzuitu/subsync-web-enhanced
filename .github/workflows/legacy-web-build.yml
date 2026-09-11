@@ -181,7 +181,7 @@ jobs:
 
       - name: Install legacy web JavaScript dependencies
         working-directory: web
-        run: npm install --ignore-scripts --no-audit --no-fund
+        run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Build browser application bundle
         working-directory: web
