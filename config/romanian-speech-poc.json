@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "whisperCpp": {
+    "repository": "ggml-org/whisper.cpp",
+    "commit": "02612981545f58188a44de99b8a4710793714629",
+    "license": "MIT"
+  },
+  "model": {
+    "name": "tiny-q5_1",
+    "language": "ro",
+    "multilingual": true,
+    "sourceRevision": "fb5ed9369c26eaf08392504d8446da431e0fffb9",
+    "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/fb5ed9369c26eaf08392504d8446da431e0fffb9/ggml-tiny-q5_1.bin",
+    "sha256": "818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7"
+  },
+  "fixture": {
+    "tts": "espeak-ng",
+    "voice": "ro",
+    "text": "Aceasta este o probă în limba română. Subtitrarea trebuie sincronizată corect.",
+    "expectedNormalizedWords": [
+      "aceasta",
+      "proba",
+      "limba",
+      "romana",
+      "subtitrarea",
+      "sincronizata",
+      "corect"
+    ],
+    "minimumExpectedWords": 4
+  }
+}
