@@ -1,0 +1,124 @@
+name: Mobile WebKit Compatibility
+
+on:
+  push:
+    branches:
+      - "test/mobile-webkit-compat"
+    paths:
+      - "web/src/**"
+      - "web/public/**"
+      - "web/package.json"
+      - "web/package-lock.json"
+      - "scripts/generate-web-metadata.py"
+      - "scripts/stage-web-app.py"
+      - "tests/web/run-mobile-webkit.py"
+      - "tests/fixtures/prepare-en-ro-assets.py"
+      - "tests/fixtures/prepare-piper-fixture-voice.py"
+      - "tests/fixtures/generate-en-ro-e2e.py"
+      - "config/english-romanian-assets.json"
+      - ".github/workflows/mobile-webkit.yml"
+  pull_request:
+    branches:
+      - "main"
+    paths:
+      - "web/src/**"
+      - "web/public/**"
+      - "web/package.json"
+      - "web/package-lock.json"
+      - "scripts/generate-web-metadata.py"
+      - "scripts/stage-web-app.py"
+      - "tests/web/run-mobile-webkit.py"
+      - "tests/fixtures/prepare-en-ro-assets.py"
+      - "tests/fixtures/prepare-piper-fixture-voice.py"
+      - "tests/fixtures/generate-en-ro-e2e.py"
+      - "config/english-romanian-assets.json"
+      - ".github/workflows/mobile-webkit.yml"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  webkit-iphone:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download known-good WASM
+        uses: actions/download-artifact@v4
+        with:
+          name: legacy-wasm
+          path: web/scripts
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: 34633224194
+
+      - name: Generate reproducible web metadata
+        run: python3 scripts/generate-web-metadata.py --hash "$GITHUB_SHA" --version "2.0.0-dev"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install pinned JavaScript dependencies
+        working-directory: web
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Build browser bundle
+        working-directory: web
+        run: npm run build
+
+      - name: Stage PWA
+        run: python3 scripts/stage-web-app.py --hash "$GITHUB_SHA"
+
+      - name: Install deterministic fixture dependencies
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python3 -m pip install --disable-pip-version-check 'piper-tts[http]==1.8.0' playwright==1.55.0
+
+      - name: Prepare pinned English Romanian fixture inputs
+        run: |
+          python3 tests/fixtures/prepare-en-ro-assets.py
+          python3 tests/fixtures/prepare-piper-fixture-voice.py
+
+      - name: Start pinned Piper fixture server
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 -m piper.http_server             -m en_US-joe-medium             --data-dir tests/generated/piper             --host 127.0.0.1             --port 5000             > tests/generated/en-ro-e2e/piper-http.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:5000/info > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat tests/generated/en-ro-e2e/piper-http.log
+          exit 1
+
+      - name: Generate English audio and Romanian subtitle fixture
+        run: python3 tests/fixtures/generate-en-ro-e2e.py
+
+      - name: Install Playwright WebKit
+        run: python3 -m playwright install --with-deps webkit
+
+      - name: Exercise primary workflow with iPhone-like WebKit
+        run: python3 tests/web/run-mobile-webkit.py
+
+      - name: Upload WebKit diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: subsync2-mobile-webkit-diagnostics
+          path: |
+            tests/generated/mobile-webkit-primary-workflow.json
+            tests/generated/mobile-webkit-output.srt
+          if-no-files-found: warn
+          retention-days: 7

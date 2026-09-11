@@ -188,8 +188,49 @@ Next:
 18. expand realistic MKV coverage;
 19. return to Romanian-audio support near completion.
 
+## Mobile WebKit / iPhone-like compatibility
+
+CI run `34646549007`: **PASS** using Playwright WebKit with the iPhone 14 device profile and the staged PWA under the same repository subpath shape used by GitHub Pages.
+
+Confirmed in that WebKit run:
+- PWA loaded without the unsupported-browser screen;
+- service worker reached ready state;
+- Romanian SRT and English MKV loaded through the real file inputs;
+- synchronization completed successfully;
+- 25 synchronization points;
+- correlation shown: `99.99 %`;
+- formula shown: `1.0037x-7.686`;
+- max change shown: `0:07:653`;
+- downloaded `reference-english.srt`;
+- saved first-timestamp correction: `-7.654 s`;
+- Romanian text/diacritics preserved;
+- zero console errors;
+- zero page errors;
+- zero HTTP failures.
+
+This is strong WebKit compatibility evidence, but it is **not** a physical-iPhone Safari test. Playwright's iPhone profile provides Safari/WebKit user-agent/device emulation, while the Linux WebKit runtime is not identical to iOS and reported `maxTouchPoints=0`.
+
+## Preview deployment
+
+PR #8 merged the manual GitHub Pages preview workflow and subpath-safe PWA support.
+
+The first preview build completed successfully, including the authoritative WASM/PWA artifact, but the deploy job stopped at `actions/configure-pages` because GitHub Pages is not enabled for the repository.
+
+This is an account/repository setting blocker, not an application/build failure. GitHub's configure-pages action cannot enable Pages using the workflow's normal `GITHUB_TOKEN`; enabling Pages requires repository administration permission or a separate privileged token. Production auto-deploy remains disabled.
+
+## Testing status
+
+Completed additionally:
+16. WebKit/iPhone-like full primary-flow E2E, including downloaded corrected SRT.
+
+Next:
+17. enable GitHub Pages for the repository with GitHub Actions as the source, then rerun the manual preview;
+18. test the resulting HTTPS preview on a physical iPhone/Safari;
+19. expand realistic MKV coverage;
+20. return to Romanian-audio support near completion.
+
 ## Open blockers
 
-- historical real-world MKV failure class is not yet reproduced;
-- preview/manual deployment is not yet configured;
-- mobile Safari/iPhone behavior is not yet measured.
+- GitHub Pages is not enabled at repository-settings level, so the manual preview cannot publish yet;
+- physical iPhone/Safari behavior is not yet measured;
+- historical real-world MKV failure class is not yet reproduced.
