@@ -62,15 +62,30 @@ async function run() {
     assert(wasmBinary.byteLength > 0, 'extractor.wasm is empty');
 
     phase('module-init:start');
-    module = await gizmo({
-      wasmBinary,
-      locateFile: path => '/web/scripts/' + path,
-      print: text => console.log('[wasm]', text),
-      printErr: text => console.warn('[wasm]', text),
-      monitorRunDependencies: left => phase('module-run-dependencies', { left }),
-      onRuntimeInitialized: () => phase('module-runtime-initialized'),
-      onAbort: reason => phase('module-abort', { reason: String(reason) }),
+    const moduleWrapper = await new Promise((resolve, reject) => {
+      try {
+        const candidate = gizmo({
+          wasmBinary,
+          locateFile: path => '/web/scripts/' + path,
+          print: text => console.log('[wasm]', text),
+          printErr: text => console.warn('[wasm]', text),
+          monitorRunDependencies: left => phase('module-run-dependencies', { left }),
+          onRuntimeInitialized: () => phase('module-runtime-initialized'),
+          onAbort: reason => {
+            phase('module-abort', { reason: String(reason) });
+            reject(new Error('Emscripten aborted: ' + String(reason)));
+          },
+        });
+
+        // Emscripten 1.39.11 MODULARIZE returns a legacy thenable, not a
+        // standards-compliant Promise. Resolving a Promise directly with that
+        // same thenable recursively assimilates it, so wrap the instance.
+        candidate.then(instance => resolve({ instance }));
+      } catch (error) {
+        reject(error);
+      }
     });
+    module = moduleWrapper.instance;
     phase('module-init:done');
 
     const FS = module.FS;
