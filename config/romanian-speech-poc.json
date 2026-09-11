@@ -6,12 +6,12 @@
     "license": "MIT"
   },
   "model": {
-    "name": "tiny-q5_1",
+    "name": "base-q5_1",
     "language": "ro",
     "multilingual": true,
-    "sourceRevision": "fb5ed9369c26eaf08392504d8446da431e0fffb9",
-    "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/fb5ed9369c26eaf08392504d8446da431e0fffb9/ggml-tiny-q5_1.bin",
-    "sha256": "818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7"
+    "sourceRevision": "f281eb45af861ab5e5297d23694b7d46e090c02c",
+    "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/f281eb45af861ab5e5297d23694b7d46e090c02c/ggml-base-q5_1.bin",
+    "sha256": "422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898"
   },
   "fixture": {
     "tts": "espeak-ng",
