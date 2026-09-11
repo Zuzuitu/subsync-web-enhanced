@@ -330,6 +330,79 @@ async function runSubtitleReference(module) {
   }
 }
 
+async function runLegacyRomanianSubtitle(module) {
+  const FS = module.FS;
+  const file = await fetchAsFile(
+    '/tests/generated/target-windows-1250.srt',
+    'target-windows-1250.srt',
+    'application/x-subrip'
+  );
+
+  mkdirp(FS, '/srt-cp1250');
+  FS.mount(FS.filesystems.WORKERFS, { files: [file] }, '/srt-cp1250');
+
+  let demux;
+  let subtitleDec;
+  let packets = 0;
+  const subtitles = [];
+  const words = [];
+
+  try {
+    demux = new module.Demux('/srt-cp1250/target-windows-1250.srt');
+    const streams = demux.getStreamsInfo();
+    const subtitle = streams.find(stream => stream.type === 'subtitle/text');
+    assert(subtitle, 'Windows-1250 Romanian SRT was not recognized');
+
+    subtitleDec = new module.SubtitleDec();
+    subtitleDec.setEncoding('Windows-1250');
+    subtitleDec.setMinWordLen(1);
+    subtitleDec.addSubsListener(event => subtitles.push(event));
+    subtitleDec.addWordsListener(word => words.push(word));
+    demux.connectDec(subtitleDec, subtitle.no);
+
+    demux.start();
+    while (demux.step()) {
+      packets += 1;
+      if (packets > 10000) {
+        throw new Error('Windows-1250 SRT demux safety limit exceeded');
+      }
+    }
+    demux.stop();
+
+    const subtitleText = subtitles.map(item => item.text || '').join('\n');
+    const wordText = words.map(item => item.text || '').join(' ');
+
+    for (const value of ['Română', 'ă', 'â', 'î', 'ş', 'ţ', 'Ş', 'Ţ']) {
+      assert(
+        subtitleText.includes(value) || wordText.includes(value),
+        'Windows-1250 Romanian character/text was not preserved: ' + value
+      );
+    }
+
+    phase('srt-cp1250:done', {
+      packets,
+      subtitles: subtitles.length,
+      words: words.length,
+      romanianWindows1250: true,
+      streams,
+    });
+
+    return {
+      packets,
+      subtitles: subtitles.length,
+      words: words.length,
+      romanianWindows1250: true,
+      streams,
+    };
+  } finally {
+    if (demux) demux.delete();
+    if (subtitleDec) subtitleDec.delete();
+    try {
+      FS.unmount('/srt-cp1250');
+    } catch (_) {}
+  }
+}
+
 async function initModule() {
   const wasmResponse = await fetch('/web/scripts/extractor.wasm', { cache: 'no-store' });
   phase('wasm-prefetch:response', {
@@ -438,6 +511,7 @@ async function run() {
     }
 
     const srt = await runSubtitleReference(module);
+    const legacyRomanianSrt = await runLegacyRomanianSubtitle(module);
 
     finish('pass', {
       model: {
@@ -446,6 +520,7 @@ async function run() {
       },
       references,
       srt,
+      legacyRomanianSrt,
     });
   } catch (error) {
     const normalized = normalizeError(module, error);

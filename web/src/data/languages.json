@@ -34,7 +34,7 @@
   {"code3": "nor", "code2": "no", "name": "Norwegian", "enc": ["Windows-1252", "ISO-8859-1"]},
   {"code3": "pol", "code2": "pl", "name": "Polish", "enc": ["Windows-1250", "ISO-8859-2"]},
   {"code3": "por", "code2": "pt", "name": "Portuguese", "enc": ["Windows-1252", "ISO-8859-1"], "extraCodes": ["pob"]},
-  {"code3": "rum", "code2": "ro", "name": "Romanian", "enc": ["Windows-1250", "ISO-8859-2"]},
+  {"code3": "rum", "code2": "ro", "name": "Romanian", "enc": ["Windows-1250", "ISO-8859-2"], "extraCodes": ["ron"]},
   {"code3": "rus", "code2": "ru", "name": "Russian", "enc": ["Windows-1251", "ISO-8859-5", "KOI8-R"]},
   {"code3": "slo", "code2": "sk", "name": "Slovak", "enc": ["Windows-1250", "ISO-8859-2"]},
   {"code3": "slv", "code2": "sl", "name": "Slovenian", "enc": ["Windows-1250", "ISO-8859-2"]},

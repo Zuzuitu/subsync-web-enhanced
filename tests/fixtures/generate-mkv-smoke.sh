@@ -14,6 +14,21 @@ Română: ă â î ș ț Ă Â Î Ș Ț.
 Șapte țări își păstrează diacriticele corect.
 SRT
 
+python3 - "$OUT_DIR/target-windows-1250.srt" <<'PY'
+from pathlib import Path
+import sys
+
+text = """1
+00:00:00,200 --> 00:00:00,900
+Română: ă â î ş ţ Ă Â Î Ş Ţ.
+
+2
+00:00:01,100 --> 00:00:01,800
+Şapte ţări îşi păstrează diacriticele vechi corect.
+"""
+Path(sys.argv[1]).write_bytes(text.encode("cp1250"))
+PY
+
 make_video_audio_mkv() {
   local output="$1"
   local sample_rate="$2"

@@ -21,6 +21,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate canonical project state and invariants
         run: python3 scripts/verify-project-invariants.py
+      - name: Validate Romanian language aliases
+        run: node tests/js/language-codes.js
       - name: Validate legacy web package metadata
         run: |
           python3 - <<'PY'
