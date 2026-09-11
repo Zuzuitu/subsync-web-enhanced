@@ -1,8 +1,11 @@
 import Gizmo from '../gizmowrap.js';
 import Assets from './assets.js';
 import settings from '../settings.js';
-import languages from '../data/languages.json';
 import Logger from '../logger.js';
+const {
+  findLanguage,
+  canonicalizeLanguageCode,
+} = require('../language.js');
 const logger = Logger.logger.get('[Pipeline]');
 
 export default class Pipeline {
@@ -10,23 +13,29 @@ export default class Pipeline {
   constructor(path) {
     this.demux = new Gizmo.instance.Demux(path);
     this.streams = this.demux.getStreamsInfo();
-    const lang = getLangFromPath(path);
-    if (lang) {
-      for (const stream of this.streams) {
-        stream.lang = stream.lang || lang;
+
+    const pathLang = getLangFromPath(path);
+    for (const stream of this.streams) {
+      const detectedLang = stream.lang || pathLang;
+      if (detectedLang) {
+        stream.lang = canonicalizeLanguageCode(detectedLang);
       }
     }
   }
 
   makePipeline(stream, params, path) {
     let output = null;
+
+    stream.lang = canonicalizeLanguageCode(stream.lang);
+    const otherLang = canonicalizeLanguageCode(params.otherLang);
+
     if (stream.type === 'audio') {
       output = this.makeSpeechPipeline(stream);
     } else if (stream.type === 'subtitle/text') {
       output = this.makeSubPipeline(stream, path);
     }
 
-    const langInfo = stream.lang && languages.find(lang => lang.code3 === stream.lang);
+    const langInfo = findLanguage(stream.lang);
     if (langInfo && langInfo.ngrams) {
       logger.log(`switching to ${langInfo.ngrams}-gram for language ${langInfo.name}`);
       output.setMinWordLen(langInfo.ngrams);
@@ -35,9 +44,9 @@ export default class Pipeline {
       output = this.ngramSplitter;
     }
 
-    if (stream.lang && params.otherLang && stream.lang !== params.otherLang) {
+    if (stream.lang && otherLang && stream.lang !== otherLang) {
       try {
-        var dict = Assets.loadDictionary(stream.lang, params.otherLang, settings.minWordLen);
+        var dict = Assets.loadDictionary(stream.lang, otherLang, settings.minWordLen);
         logger.log(`loaded dict with ${dict.size()} entries`);
         this.translator = new Gizmo.instance.Translator(dict);
         this.translator.setMinWordsSim(settings.minWordsSim);
@@ -58,7 +67,7 @@ export default class Pipeline {
     if (enc) {
       this.dec.setEncoding(enc);
     }
-    const lang = stream.lang && languages.find(lang => lang.code3 === stream.lang);
+    const lang = findLanguage(stream.lang);
     if (lang && lang.rightToLeft) {
       logger.log('switching to right-to-left for language', lang.name)
       this.dec.setRightToLeft(true);
@@ -72,7 +81,7 @@ export default class Pipeline {
       const enc = Gizmo.instance.detectCharEncoding(path, 32*1024*1024);
       logger.log(`detecting character encoding: ${enc}`);
       if (enc === 'ascii') {
-        const lang = stream.lang && languages.find(lang => lang.code3 === stream.lang);
+        const lang = findLanguage(stream.lang);
         if (lang && lang.enc && lang.enc.length) {
           logger.log(`detected encoding ${lang.enc[0]} for language ${lang.code3}`);
           return lang.enc[0];
@@ -84,6 +93,7 @@ export default class Pipeline {
   }
 
   makeSpeechPipeline(stream) {
+    stream.lang = canonicalizeLanguageCode(stream.lang);
     if (!stream.lang) {
       throw {
         message: 'Language not selected',
@@ -145,8 +155,7 @@ function getLangFromPath(path) {
   const ents = path.split('.');
   const code = ents.length >= 2 && ents[ents.length - 2].match(/[a-zA-Z]{2,3}$/g);
   if (code && code.length) {
-    const c = code[0].toLowerCase();
-    const lang = languages.find(l => c === l.code3 || c === l.code2 || (l.extraCodes && l.extraCodes.includes(c)));
+    const lang = findLanguage(code[0]);
     return lang && lang.code3;
   }
 }
