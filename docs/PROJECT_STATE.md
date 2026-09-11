@@ -214,9 +214,22 @@ This is strong WebKit compatibility evidence, but it is **not** a physical-iPhon
 
 PR #8 merged the manual GitHub Pages preview workflow and subpath-safe PWA support.
 
-The first preview build completed successfully, including the authoritative WASM/PWA artifact, but the deploy job stopped at `actions/configure-pages` because GitHub Pages is not enabled for the repository.
+GitHub Pages was enabled at repository settings level with **GitHub Actions** as the source.
 
-This is an account/repository setting blocker, not an application/build failure. GitHub's configure-pages action cannot enable Pages using the workflow's normal `GITHUB_TOKEN`; enabling Pages requires repository administration permission or a separate privileged token. Production auto-deploy remains disabled.
+After Pages enablement, the first retry reached the deploy job but was rejected before runner steps executed when targeting the default `github-pages` environment from the dedicated `deploy/pages-preview` branch.
+
+PR #11 changed only the preview deployment environment to the dedicated `subsync2-pages-preview` environment. CI passed and PR #11 merged at `c8b4f7d6feba3d2fe32143b3fe1e83c5524506c4`.
+
+Authoritative preview run `34650472508`: **PASS**.
+- authoritative WASM/PWA build: PASS;
+- primary ENG audio + RO subtitles UI flow: PASS;
+- `actions/configure-pages@v5`: PASS;
+- Pages artifact upload: PASS;
+- `actions/deploy-pages@v4`: PASS;
+- deployed commit: `c8b4f7d6feba3d2fe32143b3fe1e83c5524506c4`;
+- public HTTPS preview: `https://zuzuitu.github.io/subsync-web-enhanced/`.
+
+Production auto-deploy remains disabled. This URL is the deliberate preview target for physical-iPhone validation.
 
 ## Testing status
 
@@ -224,13 +237,11 @@ Completed additionally:
 16. WebKit/iPhone-like full primary-flow E2E, including downloaded corrected SRT.
 
 Next:
-17. enable GitHub Pages for the repository with GitHub Actions as the source, then rerun the manual preview;
-18. test the resulting HTTPS preview on a physical iPhone/Safari;
-19. expand realistic MKV coverage;
-20. return to Romanian-audio support near completion.
+17. test the public HTTPS preview on a physical iPhone/Safari;
+18. expand realistic MKV coverage;
+19. return to Romanian-audio support near completion.
 
 ## Open blockers
 
-- GitHub Pages is not enabled at repository-settings level, so the manual preview cannot publish yet;
 - physical iPhone/Safari behavior is not yet measured;
 - historical real-world MKV failure class is not yet reproduced.
