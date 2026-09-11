@@ -34,7 +34,7 @@ async function initModule(factory, wasmUrl) {
   const response = await fetch(wasmUrl, { cache: 'no-store' });
   assert(response.ok, `Failed to fetch ${wasmUrl}: HTTP ${response.status}`);
   const wasmBinary = await response.arrayBuffer();
-  return await new Promise((resolve, reject) => {
+  const wrapper = await new Promise((resolve, reject) => {
     try {
       const candidate = factory({
         wasmBinary,
@@ -43,11 +43,12 @@ async function initModule(factory, wasmUrl) {
         printErr: text => console.warn('[wasm]', text),
         onAbort: reason => reject(new Error('Emscripten aborted: ' + String(reason))),
       });
-      candidate.then(instance => resolve(instance));
+      candidate.then(instance => resolve({ instance }));
     } catch (error) {
       reject(error);
     }
   });
+  return wrapper.instance;
 }
 
 phase('worker-start');
