@@ -121,31 +121,47 @@ Compatibility note: Emscripten 1.39.11 MODULARIZE returns a legacy thenable. Kee
 
 ## Browser application / PWA status
 
-The original engine repository does not contain the deployed HTML shell. The historical web shell and hosted assets live separately in `sc0ty/subsync-webpage`. SubSync2 keeps the engine as technical truth and builds a new reviewed PWA shell around it rather than treating the old deployment HTML as engine source.
+PR #6 merged to `main` at `9560b05a832b6a060e8eabacb6744fa9868f4f3c`.
 
-Branch `feat/pwa-shell` now contains:
-- responsive installable PWA shell;
+The merged PWA contains:
+- responsive installable browser shell;
 - web manifest and service worker;
 - visible sc0ty/Michał Szymaniak attribution and GPL v3 notice;
 - local-processing/privacy messaging;
 - reproducible generation of `web/src/data/assets.json` and `web/version.json`;
+- pinned `web/package-lock.json` with `npm ci` in CI;
 - staging of pinned `speech-eng.zip` and `dict-eng-rum.zip` with SHA-256 verification;
 - no ~40 MB speech model committed to git;
-- browser shell smoke coverage.
+- service-worker cache cleanup restricted to SubSync2 cache names;
+- browser shell smoke coverage;
+- full primary workflow exercised through the real PWA UI.
 
-Fast PWA run `34621345460`: **PASS**.
-Observed:
-- browser bundle built successfully;
-- service worker became ready;
+Fast PWA and governance checks on PR #6: **PASS**.
+
+Authoritative Legacy WebAssembly Build run `34633224194`: **PASS** on freshly compiled WASM and the staged PWA.
+
+Confirmed through the actual PWA UI:
+`select RO SRT + select ENG MKV -> select rum/eng -> Start -> synchronize -> Save subtitles -> download corrected SRT`.
+
+Measured UI-flow result:
+- synchronization points shown: `23`;
+- correlation shown: `99.99 %`;
+- formula shown: `1.0003x-7.568`;
+- max change shown: `0:07:564`;
+- downloaded file: `reference-english.srt`;
+- saved first-timestamp correction: `-7.565 s`;
+- Romanian fixture tokens and diacritics preserved;
+- service worker ready;
 - zero console errors;
 - zero page errors;
-- zero HTTP failures;
-- staged PWA artifact produced successfully.
+- zero HTTP failures.
 
-The authoritative workflow is being extended to drive the real PWA UI through:
-`select RO SRT + select ENG MKV -> Start -> synchronize -> Save subtitles -> validate corrected SRT`.
+The generated truth was a +8.0 s subtitle offset, so the downloaded SRT correction is within the expected range without weakening synchronization thresholds.
 
-JavaScript dependency locking is not yet complete. The legacy package tree currently installs successfully, but `web/package-lock.json` is still ignored and must be pinned before the browser build is called fully reproducible.
+CI improvements merged with the PWA:
+- native Emscripten dependency workspace is cleared before `npm ci`, avoiding root-owned `node_modules` conflicts;
+- obsolete Legacy WebAssembly runs cancel automatically through workflow concurrency;
+- documentation-only checkpoint changes no longer trigger the expensive legacy WASM build.
 
 ## Testing status
 
@@ -161,14 +177,12 @@ Completed:
 9. authoritative freshly compiled WASM E2E;
 10. merge of the primary ENG->RO regression through PR #5;
 11. reproducible primary asset-index/version generation;
-12. PWA shell build and browser smoke.
-
-In progress:
-13. authoritative full PWA user-flow E2E including saved corrected SRT;
-14. JavaScript dependency lock for deterministic browser bundle.
+12. PWA shell build and browser smoke;
+13. deterministic JavaScript dependency locking with `package-lock.json` + `npm ci`;
+14. authoritative full PWA user-flow E2E including downloaded corrected SRT;
+15. PWA shell merge through PR #6.
 
 Next:
-15. merge the PWA shell through PR after all authoritative checks are green;
 16. add a deliberate preview/manual deployment path;
 17. test mobile Safari/iPhone;
 18. expand realistic MKV coverage;
@@ -176,8 +190,6 @@ Next:
 
 ## Open blockers
 
-- full PWA UI synchronization/save E2E has not yet been recorded green;
-- JavaScript dependency graph is not yet lockfile-pinned;
 - historical real-world MKV failure class is not yet reproduced;
 - preview/manual deployment is not yet configured;
 - mobile Safari/iPhone behavior is not yet measured.
