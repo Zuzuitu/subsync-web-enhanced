@@ -2,6 +2,7 @@
 import functools
 import http.server
 import json
+import os
 import re
 import shutil
 import socketserver
@@ -16,8 +17,13 @@ DIST = ROOT / "web" / "dist"
 FIXTURE = ROOT / "tests" / "generated" / "en-ro-e2e"
 SRT_IN = FIXTURE / "target.rum.srt"
 MKV_IN = FIXTURE / "reference-english.mkv"
-RESULT = ROOT / "tests" / "generated" / "web-primary-workflow.json"
-SAVED = ROOT / "tests" / "generated" / "web-primary-workflow-output.srt"
+BROWSER_ENGINE = os.environ.get("BROWSER_ENGINE", "chromium").lower()
+if BROWSER_ENGINE not in {"chromium", "webkit"}:
+    raise SystemExit(f"Unsupported BROWSER_ENGINE: {BROWSER_ENGINE}")
+
+suffix = "" if BROWSER_ENGINE == "chromium" else f"-{BROWSER_ENGINE}"
+RESULT = ROOT / "tests" / "generated" / f"web-primary-workflow{suffix}.json"
+SAVED = ROOT / "tests" / "generated" / f"web-primary-workflow-output{suffix}.srt"
 
 for path in (SRT_IN, MKV_IN):
     if not path.is_file() or path.stat().st_size == 0:
@@ -44,24 +50,26 @@ server = socketserver.ThreadingTCPServer(("127.0.0.1", 0), handler)
 server.daemon_threads = True
 threading.Thread(target=server.serve_forever, daemon=True).start()
 
-browser_path = (
-    shutil.which("google-chrome")
-    or shutil.which("google-chrome-stable")
-    or shutil.which("chromium")
-    or shutil.which("chromium-browser")
-)
+browser_path = None
+if BROWSER_ENGINE == "chromium":
+    browser_path = (
+        shutil.which("google-chrome")
+        or shutil.which("google-chrome-stable")
+        or shutil.which("chromium")
+        or shutil.which("chromium-browser")
+    )
 url = f"http://127.0.0.1:{server.server_address[1]}/{pages_base}/"
 
 try:
     with sync_playwright() as p:
-        launch = {
-            "headless": True,
-            "args": ["--no-sandbox", "--disable-dev-shm-usage"],
-        }
-        if browser_path:
-            launch["executable_path"] = browser_path
+        browser_type = getattr(p, BROWSER_ENGINE)
+        launch = {"headless": True}
+        if BROWSER_ENGINE == "chromium":
+            launch["args"] = ["--no-sandbox", "--disable-dev-shm-usage"]
+            if browser_path:
+                launch["executable_path"] = browser_path
 
-        browser = p.chromium.launch(**launch)
+        browser = browser_type.launch(**launch)
         context = browser.new_context(accept_downloads=True)
         page = context.new_page()
 
@@ -194,7 +202,8 @@ try:
         details = {
             "url": url,
             "pagesBasePath": "/" + pages_base + "/",
-            "browserExecutable": browser_path or "playwright-bundled-chromium",
+            "browserEngine": BROWSER_ENGINE,
+            "browserExecutable": browser_path or f"playwright-bundled-{BROWSER_ENGINE}",
             "status": "pass",
             "pointsText": points,
             "correlationText": correlation,

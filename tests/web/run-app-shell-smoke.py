@@ -3,6 +3,7 @@ import functools
 import hashlib
 import http.server
 import json
+import os
 import shutil
 import socketserver
 import threading
@@ -13,7 +14,12 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parents[2]
 DIST = ROOT / "web" / "dist"
 CFG = json.loads((ROOT / "config" / "english-romanian-assets.json").read_text(encoding="utf-8"))
-RESULT = ROOT / "tests" / "generated" / "web-app-smoke.json"
+BROWSER_ENGINE = os.environ.get("BROWSER_ENGINE", "chromium").lower()
+if BROWSER_ENGINE not in {"chromium", "webkit"}:
+    raise SystemExit(f"Unsupported BROWSER_ENGINE: {BROWSER_ENGINE}")
+
+suffix = "" if BROWSER_ENGINE == "chromium" else f"-{BROWSER_ENGINE}"
+RESULT = ROOT / "tests" / "generated" / f"web-app-smoke{suffix}.json"
 
 required_files = [
     "index.html",
@@ -49,21 +55,26 @@ server = socketserver.ThreadingTCPServer(("127.0.0.1", 0), handler)
 server.daemon_threads = True
 threading.Thread(target=server.serve_forever, daemon=True).start()
 
-browser_path = (
-    shutil.which("google-chrome")
-    or shutil.which("google-chrome-stable")
-    or shutil.which("chromium")
-    or shutil.which("chromium-browser")
-)
+browser_path = None
+if BROWSER_ENGINE == "chromium":
+    browser_path = (
+        shutil.which("google-chrome")
+        or shutil.which("google-chrome-stable")
+        or shutil.which("chromium")
+        or shutil.which("chromium-browser")
+    )
 url = f"http://127.0.0.1:{server.server_address[1]}/"
 
 try:
     with sync_playwright() as p:
-        launch = {"headless": True, "args": ["--no-sandbox", "--disable-dev-shm-usage"]}
-        if browser_path:
-            launch["executable_path"] = browser_path
+        browser_type = getattr(p, BROWSER_ENGINE)
+        launch = {"headless": True}
+        if BROWSER_ENGINE == "chromium":
+            launch["args"] = ["--no-sandbox", "--disable-dev-shm-usage"]
+            if browser_path:
+                launch["executable_path"] = browser_path
 
-        browser = p.chromium.launch(**launch)
+        browser = browser_type.launch(**launch)
         page = browser.new_page()
         console_errors = []
         page_errors = []
@@ -105,7 +116,8 @@ try:
 
         details = {
             "url": url,
-            "browserExecutable": browser_path or "playwright-bundled-chromium",
+            "browserEngine": BROWSER_ENGINE,
+            "browserExecutable": browser_path or f"playwright-bundled-{BROWSER_ENGINE}",
             "serviceWorkerReady": service_worker_ready,
             "consoleErrors": console_errors,
             "pageErrors": page_errors,
