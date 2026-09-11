@@ -1,0 +1,85 @@
+name: English Audio Romanian Subtitles E2E
+
+on:
+  push:
+    branches:
+      - "test/english-romanian-e2e"
+    paths:
+      - "config/english-romanian-assets.json"
+      - "tests/fixtures/prepare-en-ro-assets.py"
+      - "tests/fixtures/generate-en-ro-e2e.py"
+      - "tests/wasm/en-ro-e2e-worker.js"
+      - "tests/wasm/en-ro-e2e.html"
+      - "tests/wasm/run-en-ro-e2e.py"
+      - ".github/workflows/en-ro-e2e-fast.yml"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  browser-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download known-good WASM engine from PR 4
+        uses: actions/download-artifact@v4
+        with:
+          name: legacy-wasm
+          path: web/scripts
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: 34604589321
+
+      - name: Verify engine
+        shell: bash
+        run: |
+          set -euxo pipefail
+          test -s web/scripts/extractor.js
+          test -s web/scripts/extractor.wasm
+          test -s web/scripts/correlator.js
+          test -s web/scripts/correlator.wasm
+
+      - name: Install deterministic fixture dependencies
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg espeak-ng
+
+      - name: Prepare pinned original English and Romanian assets
+        run: python3 tests/fixtures/prepare-en-ro-assets.py
+
+      - name: Generate English audio and offset Romanian subtitles
+        run: python3 tests/fixtures/generate-en-ro-e2e.py
+
+      - name: Install browser runner
+        shell: bash
+        run: |
+          python3 -m pip install --disable-pip-version-check playwright==1.55.0
+          if ! command -v google-chrome >/dev/null \
+             && ! command -v google-chrome-stable >/dev/null \
+             && ! command -v chromium >/dev/null \
+             && ! command -v chromium-browser >/dev/null; then
+            python3 -m playwright install --with-deps chromium
+          fi
+
+      - name: Run English audio Romanian subtitles end to end
+        run: python3 tests/wasm/run-en-ro-e2e.py
+
+      - name: Upload E2E diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: english-audio-romanian-subs-e2e
+          path: |
+            tests/generated/en-ro-e2e/browser-en-ro-e2e.json
+            tests/generated/en-ro-e2e/fixture.json
+            tests/generated/en-ro-e2e/asset-metadata.json
+          if-no-files-found: warn
+          retention-days: 7

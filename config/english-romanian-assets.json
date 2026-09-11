@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "release": {
+    "repository": "sc0ty/subsync",
+    "tag": "assets"
+  },
+  "assetIndex": {
+    "releaseAssetId": 49186110,
+    "filename": "assets.json",
+    "url": "https://github.com/sc0ty/subsync/releases/download/assets/assets.json",
+    "sha256": "f25ccee51728c6632fdb66a33744e33945cb054a562c4ff600afc03ced605da4"
+  },
+  "speechEnglish": {
+    "releaseAssetId": 14727496,
+    "filename": "speech-eng.zip",
+    "url": "https://github.com/sc0ty/subsync/releases/download/assets/speech-eng.zip",
+    "sha256": "b96fa77cc3567c0351d1a1dae2cd87cb38ae815834903cc1e680e48b6cbd45a5",
+    "version": "1.0.0"
+  },
+  "dictionaryEnglishRomanian": {
+    "releaseAssetId": 39441884,
+    "filename": "dict-eng-rum.zip",
+    "url": "https://github.com/sc0ty/subsync/releases/download/assets/dict-eng-rum.zip",
+    "sha256": "04350f06586fc06082142e7a8e9b32f961782bc08341755594a0c4be3b57cfc4",
+    "version": "1.1.1"
+  }
+}
