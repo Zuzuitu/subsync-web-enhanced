@@ -118,12 +118,15 @@ try:
             raise SystemExit("Save subtitles stayed disabled after successful synchronization")
         save_button.click()
 
-        popup = page.locator("#subsync_app .popup")
+        popup = page.locator("#subsync_app .popup").last
         popup.wait_for(state="visible", timeout=10_000)
         popup_text = popup.inner_text()
-        format_links = popup.locator("dl a")
+        format_links = popup.locator("a:not(.popup_close)")
         if format_links.count() < 1:
-            raise SystemExit("Save subtitles popup did not expose any output format")
+            raise SystemExit(
+                "Save subtitles popup did not expose any output format; popup text: "
+                + popup_text
+            )
 
         with page.expect_download(timeout=30_000) as download_info:
             format_links.first.click()
