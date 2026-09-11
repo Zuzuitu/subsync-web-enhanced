@@ -8,6 +8,7 @@ on:
       - "web/**"
       - "config/legacy-build-pins.json"
       - "config/test-fixture-pins.json"
+      - "config/english-romanian-assets.json"
       - ".github/workflows/legacy-web-build.yml"
       - "docs/PROJECT_STATE.md"
       - "tests/wasm/**"
@@ -20,6 +21,7 @@ on:
       - "web/**"
       - "config/legacy-build-pins.json"
       - "config/test-fixture-pins.json"
+      - "config/english-romanian-assets.json"
       - ".github/workflows/legacy-web-build.yml"
 
 permissions:
@@ -135,6 +137,40 @@ jobs:
       - name: Exercise canonical MKV matrix and Romanian SRT through browser WASM
         run: python3 tests/wasm/run-browser-smoke.py
 
+      - name: Install pinned neural fixture voice runtime
+        run: python3 -m pip install --disable-pip-version-check 'piper-tts[http]==1.8.0'
+
+      - name: Prepare pinned English Romanian production-path assets
+        run: |
+          python3 tests/fixtures/prepare-en-ro-assets.py
+          python3 tests/fixtures/prepare-piper-fixture-voice.py
+
+      - name: Start pinned Piper fixture server
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 -m piper.http_server \
+            -m en_US-joe-medium \
+            --data-dir tests/generated/piper \
+            --host 127.0.0.1 \
+            --port 5000 \
+            > tests/generated/en-ro-e2e/piper-http.log 2>&1 &
+          echo $! > tests/generated/en-ro-e2e/piper-http.pid
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:5000/info > tests/generated/en-ro-e2e/piper-info.json; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat tests/generated/en-ro-e2e/piper-http.log
+          exit 1
+
+      - name: Generate English audio and offset Romanian subtitles
+        run: python3 tests/fixtures/generate-en-ro-e2e.py
+
+      - name: Exercise English audio Romanian subtitles end to end
+        run: python3 tests/wasm/run-en-ro-e2e.py
+
       - name: Upload WebAssembly artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -157,5 +193,20 @@ jobs:
             tests/generated/browser-wasm-smoke.json
             tests/generated/speech-ita.sha256
             tests/generated/speech-model/manifest.json
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload English Romanian E2E diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: english-audio-romanian-subs-e2e
+          path: |
+            tests/generated/en-ro-e2e/browser-en-ro-e2e.json
+            tests/generated/en-ro-e2e/fixture.json
+            tests/generated/en-ro-e2e/asset-metadata.json
+            tests/generated/en-ro-e2e/piper-fixture.json
+            tests/generated/en-ro-e2e/piper-info.json
+            tests/generated/en-ro-e2e/piper-http.log
           if-no-files-found: warn
           retention-days: 7

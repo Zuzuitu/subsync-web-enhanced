@@ -137,6 +137,23 @@ if en_ro_assets["speechEnglish"].get("version") != "1.0.0":
 if en_ro_assets["dictionaryEnglishRomanian"].get("version") != "1.1.1":
     raise SystemExit("Unexpected English-Romanian dictionary asset version")
 
+fixture_voice = en_ro_assets.get("englishFixtureVoice", {})
+if fixture_voice.get("provider") != "Piper":
+    raise SystemExit("English fixture voice provider must be Piper")
+if fixture_voice.get("revision") != "v1.0.0":
+    raise SystemExit("English fixture voice must stay pinned to v1.0.0")
+if fixture_voice.get("voice") != "en_US-joe-medium":
+    raise SystemExit("Unexpected English fixture voice")
+if fixture_voice.get("datasetLicense") != "CC0":
+    raise SystemExit("English fixture voice dataset must remain CC0")
+if fixture_voice.get("modelSha256") != "58afce0321b8d9c46d7cdf9c16500cc55a793b4220212dba6b70fb788b3baf06":
+    raise SystemExit("Unexpected English fixture voice model SHA-256")
+if fixture_voice.get("configSha256") != "3d6d5410b3795cb1950595247ef8f06190719e6fdbfa3a2356d8ec368e1aad33":
+    raise SystemExit("Unexpected English fixture voice config SHA-256")
+for key in ("modelSha256", "configSha256"):
+    if not re.fullmatch(r"[0-9a-f]{64}", fixture_voice.get(key, "")):
+        raise SystemExit(f"English fixture voice {key} must be a full SHA-256")
+
 dockerfile = (ROOT / "web" / "Dockerfile").read_text(encoding="utf-8")
 first_instruction = next(
     (line.strip() for line in dockerfile.splitlines() if line.strip()),

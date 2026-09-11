@@ -7,6 +7,7 @@ on:
     paths:
       - "config/english-romanian-assets.json"
       - "tests/fixtures/prepare-en-ro-assets.py"
+      - "tests/fixtures/prepare-piper-fixture-voice.py"
       - "tests/fixtures/generate-en-ro-e2e.py"
       - "tests/wasm/en-ro-e2e-worker.js"
       - "tests/wasm/en-ro-e2e.html"
@@ -57,28 +58,18 @@ jobs:
         run: python3 tests/fixtures/prepare-en-ro-assets.py
 
       - name: Prepare pinned neural English fixture voice
-        shell: bash
-        run: |
-          set -euxo pipefail
-          mkdir -p tests/generated/piper tests/generated/en-ro-e2e
-          curl --fail --location --retry 5 --retry-delay 3             https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/joe/medium/en_US-joe-medium.onnx             --output tests/generated/piper/en_US-joe-medium.onnx
-          curl --fail --location --retry 5 --retry-delay 3             https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/joe/medium/en_US-joe-medium.onnx.json             --output tests/generated/piper/en_US-joe-medium.onnx.json
-          echo '58afce0321b8d9c46d7cdf9c16500cc55a793b4220212dba6b70fb788b3baf06  tests/generated/piper/en_US-joe-medium.onnx'             | sha256sum --check
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          cfg = json.loads(Path("tests/generated/piper/en_US-joe-medium.onnx.json").read_text())
-          assert cfg["piper_version"] == "1.0.0"
-          assert cfg["language"]["code"] == "en_US"
-          assert cfg["dataset"] == "joe"
-          PY
-          sha256sum tests/generated/piper/en_US-joe-medium.onnx.json             | tee tests/generated/en-ro-e2e/piper-config.sha256
+        run: python3 tests/fixtures/prepare-piper-fixture-voice.py
 
       - name: Start pinned Piper fixture server
         shell: bash
         run: |
           set -euxo pipefail
-          python3 -m piper.http_server             -m en_US-joe-medium             --data-dir tests/generated/piper             --host 127.0.0.1             --port 5000             > tests/generated/en-ro-e2e/piper-http.log 2>&1 &
+          python3 -m piper.http_server \
+            -m en_US-joe-medium \
+            --data-dir tests/generated/piper \
+            --host 127.0.0.1 \
+            --port 5000 \
+            > tests/generated/en-ro-e2e/piper-http.log 2>&1 &
           echo $! > tests/generated/en-ro-e2e/piper-http.pid
           for i in $(seq 1 60); do
             if curl --fail --silent http://127.0.0.1:5000/info > tests/generated/en-ro-e2e/piper-info.json; then
@@ -96,7 +87,10 @@ jobs:
         shell: bash
         run: |
           python3 -m pip install --disable-pip-version-check playwright==1.55.0
-          if ! command -v google-chrome >/dev/null              && ! command -v google-chrome-stable >/dev/null              && ! command -v chromium >/dev/null              && ! command -v chromium-browser >/dev/null; then
+          if ! command -v google-chrome >/dev/null \
+             && ! command -v google-chrome-stable >/dev/null \
+             && ! command -v chromium >/dev/null \
+             && ! command -v chromium-browser >/dev/null; then
             python3 -m playwright install --with-deps chromium
           fi
 
@@ -112,8 +106,8 @@ jobs:
             tests/generated/en-ro-e2e/browser-en-ro-e2e.json
             tests/generated/en-ro-e2e/fixture.json
             tests/generated/en-ro-e2e/asset-metadata.json
+            tests/generated/en-ro-e2e/piper-fixture.json
             tests/generated/en-ro-e2e/piper-info.json
-            tests/generated/en-ro-e2e/piper-config.sha256
             tests/generated/en-ro-e2e/piper-http.log
           if-no-files-found: warn
           retention-days: 7
