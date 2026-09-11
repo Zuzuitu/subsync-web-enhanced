@@ -1,5 +1,9 @@
 name: Legacy WebAssembly Build
 
+concurrency:
+  group: legacy-wasm-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   pull_request:
     branches: [main]
@@ -10,7 +14,6 @@ on:
       - "config/test-fixture-pins.json"
       - "config/english-romanian-assets.json"
       - ".github/workflows/legacy-web-build.yml"
-      - "docs/PROJECT_STATE.md"
       - "tests/wasm/**"
       - "tests/fixtures/**"
   push:
@@ -171,6 +174,37 @@ jobs:
       - name: Exercise English audio Romanian subtitles end to end
         run: python3 tests/wasm/run-en-ro-e2e.py
 
+      - name: Generate reproducible web metadata
+        run: python3 scripts/generate-web-metadata.py --hash "$GITHUB_SHA" --version "2.0.0-dev"
+
+      - name: Reset native dependency workspace before npm ci
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo rm -rf web/node_modules
+
+      - name: Set up Node for browser application
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install legacy web JavaScript dependencies
+        working-directory: web
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Build browser application bundle
+        working-directory: web
+        run: npm run build
+
+      - name: Stage installable PWA with pinned assets
+        run: python3 scripts/stage-web-app.py --hash "$GITHUB_SHA"
+
+      - name: Exercise staged PWA shell
+        run: python3 tests/web/run-app-shell-smoke.py
+
+      - name: Exercise primary workflow through real PWA UI
+        run: python3 tests/web/run-primary-workflow.py
+
       - name: Upload WebAssembly artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -208,5 +242,26 @@ jobs:
             tests/generated/en-ro-e2e/piper-fixture.json
             tests/generated/en-ro-e2e/piper-info.json
             tests/generated/en-ro-e2e/piper-http.log
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload authoritative PWA artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: subsync2-pwa-authoritative
+          path: web/dist
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload PWA browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: subsync2-pwa-diagnostics
+          path: |
+            tests/generated/web-app-smoke.json
+            tests/generated/web-primary-workflow.json
+            tests/generated/web-primary-workflow-output.srt
           if-no-files-found: warn
           retention-days: 7
