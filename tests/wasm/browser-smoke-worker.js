@@ -140,9 +140,43 @@ async function runSpeechReference(module, model, spec) {
 
     const streams = demux.getStreamsInfo();
     const duration = demux.getDuration();
-    const audio = streams.find(stream => stream.type === 'audio');
-    assert(audio, label + ': no audio stream');
-    phase(label + ':audio-stream', { stream: audio, duration, streams });
+    const audioStreams = streams.filter(stream => stream.type === 'audio');
+    const subtitleStreams = streams.filter(stream => stream.type.indexOf('subtitle') === 0);
+
+    assert(audioStreams.length > 0, label + ': no audio stream');
+
+    if (spec.minAudioTracks != null) {
+      assert(
+        audioStreams.length >= spec.minAudioTracks,
+        label + ': expected at least ' + spec.minAudioTracks +
+          ' audio tracks, got ' + audioStreams.length
+      );
+    }
+
+    let audio = audioStreams[0];
+    if (spec.language) {
+      audio = audioStreams.find(stream => stream.lang === spec.language);
+      assert(audio, label + ': expected audio language ' + spec.language);
+    }
+
+    if (spec.expectedCodec) {
+      assert(
+        audio.codec === spec.expectedCodec,
+        label + ': expected codec ' + spec.expectedCodec + ', got ' + audio.codec
+      );
+    }
+
+    if (spec.expectSubtitle) {
+      assert(subtitleStreams.length > 0, label + ': expected embedded subtitle stream');
+    }
+
+    phase(label + ':audio-stream', {
+      stream: audio,
+      duration,
+      streams,
+      audioTracks: audioStreams.length,
+      subtitleTracks: subtitleStreams.length,
+    });
 
     phase(label + ':speech-pipeline:start');
     speechRec = new module.SpeechRecognition();
@@ -197,6 +231,8 @@ async function runSpeechReference(module, model, spec) {
       packets,
       words: words.length,
       audioStream: audio,
+      audioTracks: audioStreams.length,
+      subtitleTracks: subtitleStreams.length,
       streams,
     };
   } finally {
@@ -317,19 +353,62 @@ async function run() {
 
     const model = await loadSpeechModel(module);
 
-    const mkv = await runSpeechReference(module, model, {
-      label: 'mkv',
-      url: '/tests/generated/reference-aac.mkv',
-      name: 'reference-aac.mkv',
-      type: 'video/x-matroska',
-    });
+    const specs = [
+      {
+        label: 'mkv-aac',
+        url: '/tests/generated/reference-aac.mkv',
+        name: 'reference-aac.mkv',
+        type: 'video/x-matroska',
+        language: 'ita',
+        expectedCodec: 'aac',
+      },
+      {
+        label: 'mkv-ac3',
+        url: '/tests/generated/reference-ac3.mkv',
+        name: 'reference-ac3.mkv',
+        type: 'video/x-matroska',
+        language: 'ita',
+        expectedCodec: 'ac3',
+      },
+      {
+        label: 'mkv-eac3',
+        url: '/tests/generated/reference-eac3.mkv',
+        name: 'reference-eac3.mkv',
+        type: 'video/x-matroska',
+        language: 'ita',
+        expectedCodec: 'eac3',
+      },
+      {
+        label: 'mkv-multitrack',
+        url: '/tests/generated/reference-multitrack.mkv',
+        name: 'reference-multitrack.mkv',
+        type: 'video/x-matroska',
+        language: 'ita',
+        expectedCodec: 'ac3',
+        minAudioTracks: 2,
+      },
+      {
+        label: 'mkv-embedded-subs',
+        url: '/tests/generated/reference-embedded-subs.mkv',
+        name: 'reference-embedded-subs.mkv',
+        type: 'video/x-matroska',
+        language: 'ita',
+        expectedCodec: 'aac',
+        expectSubtitle: true,
+      },
+      {
+        label: 'wav',
+        url: '/tests/generated/reference-audio.wav',
+        name: 'reference-audio.wav',
+        type: 'audio/wav',
+        expectedCodec: 'pcm_s16le',
+      },
+    ];
 
-    const audio = await runSpeechReference(module, model, {
-      label: 'wav',
-      url: '/tests/generated/reference-audio.wav',
-      name: 'reference-audio.wav',
-      type: 'audio/wav',
-    });
+    const references = {};
+    for (const spec of specs) {
+      references[spec.label] = await runSpeechReference(module, model, spec);
+    }
 
     const srt = await runSubtitleReference(module);
 
@@ -338,8 +417,7 @@ async function run() {
         sampleformat: model.sampleformat,
         samplerate: model.samplerate,
       },
-      mkv,
-      audio,
+      references,
       srt,
     });
   } catch (error) {
