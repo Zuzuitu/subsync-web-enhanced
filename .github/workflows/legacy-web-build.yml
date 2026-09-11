@@ -7,6 +7,7 @@ on:
       - "gizmo/**"
       - "web/**"
       - "config/legacy-build-pins.json"
+      - "config/test-fixture-pins.json"
       - ".github/workflows/legacy-web-build.yml"
       - "docs/PROJECT_STATE.md"
       - "tests/wasm/**"
@@ -18,6 +19,7 @@ on:
       - "gizmo/**"
       - "web/**"
       - "config/legacy-build-pins.json"
+      - "config/test-fixture-pins.json"
       - ".github/workflows/legacy-web-build.yml"
 
 permissions:
@@ -97,11 +99,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          docker run --rm \
-            -v "$GITHUB_WORKSPACE:/src" \
-            -w /src/web \
-            subsync-web-build \
-            emmake make -j4
+          docker run --rm             -v "$GITHUB_WORKSPACE:/src"             -w /src/web             subsync-web-build             emmake make -j4
 
       - name: Verify WebAssembly artifacts
         shell: bash
@@ -111,14 +109,9 @@ jobs:
           test -s web/scripts/extractor.wasm
           test -s web/scripts/correlator.js
           test -s web/scripts/correlator.wasm
-          sha256sum \
-            web/scripts/extractor.js \
-            web/scripts/extractor.wasm \
-            web/scripts/correlator.js \
-            web/scripts/correlator.wasm \
-            | tee web/scripts/SHA256SUMS
+          sha256sum             web/scripts/extractor.js             web/scripts/extractor.wasm             web/scripts/correlator.js             web/scripts/correlator.wasm             | tee web/scripts/SHA256SUMS
 
-      - name: Generate deterministic MKV + SRT smoke fixtures
+      - name: Generate deterministic MKV + Romanian SRT fixtures
         shell: bash
         run: |
           set -euxo pipefail
@@ -128,18 +121,18 @@ jobs:
           fi
           bash tests/fixtures/generate-mkv-smoke.sh
 
+      - name: Prepare pinned sc0ty speech fixture
+        run: python3 tests/fixtures/prepare-sc0ty-speech-model.py
+
       - name: Install browser smoke test runner
         shell: bash
         run: |
           python3 -m pip install --disable-pip-version-check playwright==1.55.0
-          if ! command -v google-chrome >/dev/null \
-             && ! command -v google-chrome-stable >/dev/null \
-             && ! command -v chromium >/dev/null \
-             && ! command -v chromium-browser >/dev/null; then
+          if ! command -v google-chrome >/dev/null              && ! command -v google-chrome-stable >/dev/null              && ! command -v chromium >/dev/null              && ! command -v chromium-browser >/dev/null; then
             python3 -m playwright install --with-deps chromium
           fi
 
-      - name: Exercise MKV + external SRT through browser WORKERFS and WASM
+      - name: Exercise canonical MKV matrix and Romanian SRT through browser WASM
         run: python3 tests/wasm/run-browser-smoke.py
 
       - name: Upload WebAssembly artifacts
@@ -162,5 +155,7 @@ jobs:
           name: mkv-wasm-smoke-diagnostics
           path: |
             tests/generated/browser-wasm-smoke.json
+            tests/generated/speech-ita.sha256
+            tests/generated/speech-model/manifest.json
           if-no-files-found: warn
           retention-days: 7

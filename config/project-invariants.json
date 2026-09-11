@@ -44,7 +44,18 @@
     "pwaTarget": true,
     "primaryBugTarget": "direct MKV + SRT reliability",
     "multiUploadNearTermPriority": false,
-    "preserveSynchronizationSemanticsDuringExtractorFixes": true
+    "preserveSynchronizationSemanticsDuringExtractorFixes": true,
+    "primaryLanguagePriority": "Romanian",
+    "romanian": {
+      "subtitleSupportRequired": true,
+      "audioSpeechRecognitionRequired": true,
+      "acceptedLanguageCodes": [
+        "ro",
+        "rum",
+        "ron"
+      ],
+      "preserveDiacritics": true
+    }
   },
   "evidence": {
     "noInventedResults": true,
@@ -64,7 +75,8 @@
       "E-AC3",
       "multiple-audio-tracks",
       "embedded-subtitles"
-    ]
+    ],
+    "romanianUtf8SubtitleRegressionRequired": true
   },
   "deployment": {
     "productionConfigured": false,

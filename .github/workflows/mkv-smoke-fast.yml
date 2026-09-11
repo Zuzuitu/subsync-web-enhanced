@@ -7,6 +7,7 @@ on:
     paths:
       - "tests/wasm/**"
       - "tests/fixtures/**"
+      - "config/test-fixture-pins.json"
       - ".github/workflows/mkv-smoke-fast.yml"
   workflow_dispatch:
 
@@ -41,7 +42,7 @@ jobs:
           test -s web/scripts/correlator.wasm
           sha256sum web/scripts/extractor.js web/scripts/extractor.wasm
 
-      - name: Generate deterministic MKV + SRT fixtures
+      - name: Generate deterministic MKV + Romanian SRT fixtures
         shell: bash
         run: |
           set -euxo pipefail
@@ -51,60 +52,18 @@ jobs:
           fi
           bash tests/fixtures/generate-mkv-smoke.sh
 
-      - name: Prepare original sc0ty Italian speech model
-        shell: bash
-        run: |
-          set -euxo pipefail
-          mkdir -p tests/generated
-          curl --fail --location --retry 3 \
-            https://github.com/sc0ty/subsync/releases/download/assets/speech-ita.zip \
-            --output tests/generated/speech-ita.zip
-          sha256sum tests/generated/speech-ita.zip | tee tests/generated/speech-ita.sha256
-
-          rm -rf tests/generated/speech-model
-          mkdir -p tests/generated/speech-model
-          unzip -q tests/generated/speech-ita.zip -d tests/generated/speech-model
-
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-
-          root = Path("tests/generated/speech-model")
-          files = sorted(
-              str(path.relative_to(root)).replace("\\", "/")
-              for path in root.rglob("*")
-              if path.is_file()
-          )
-          speech = [path for path in files if path.endswith(".speech")]
-          if len(speech) != 1:
-              raise SystemExit(f"Expected one .speech descriptor, found {speech}")
-
-          manifest = {
-              "source": "sc0ty/subsync release asset speech-ita.zip",
-              "releaseAssetId": 14727504,
-              "descriptor": speech[0],
-              "files": files,
-          }
-          (root / "manifest.json").write_text(
-              json.dumps(manifest, indent=2) + "\n",
-              encoding="utf-8",
-          )
-          print(json.dumps(manifest, indent=2))
-          print((root / speech[0]).read_text(encoding="utf-8"))
-          PY
+      - name: Prepare pinned sc0ty speech fixture
+        run: python3 tests/fixtures/prepare-sc0ty-speech-model.py
 
       - name: Install browser smoke test runner
         shell: bash
         run: |
           python3 -m pip install --disable-pip-version-check playwright==1.55.0
-          if ! command -v google-chrome >/dev/null \
-             && ! command -v google-chrome-stable >/dev/null \
-             && ! command -v chromium >/dev/null \
-             && ! command -v chromium-browser >/dev/null; then
+          if ! command -v google-chrome >/dev/null              && ! command -v google-chrome-stable >/dev/null              && ! command -v chromium >/dev/null              && ! command -v chromium-browser >/dev/null; then
             python3 -m playwright install --with-deps chromium
           fi
 
-      - name: Compare MKV and extracted audio through full speech pipeline
+      - name: Compare canonical MKV matrix and Romanian SRT through browser WASM
         run: python3 tests/wasm/run-browser-smoke.py
 
       - name: Upload smoke diagnostics
