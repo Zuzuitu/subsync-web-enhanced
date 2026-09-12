@@ -1,670 +1,381 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-12 22:22 Europe/Rome
+LAST_UPDATED: 2026-09-12 23:10 Europe/Rome
 
 ## Canonical status
 
 This file is the human-readable technical checkpoint for SubSync2.
-Repository truth overrides chat memory. Before material changes, read:
+Repository truth overrides chat memory. Before material changes, read in this order:
 1. `docs/PROJECT_STATE.md`
 2. `config/project-invariants.json`
 3. `AGENTS.md`
 4. relevant current implementation
 
-## Current handoff checkpoint
+Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
 
-Romanian-ASR functional merge on `main`: `146aaaf9ec7f45d46e625644be30f4aa12108b0d` (PR #22, `Add genuine local Romanian audio recognition`). For the current `main` tip, always read the repository at session start rather than relying on a checkpoint-pinned tip SHA.
+## Current status
 
-Public preview: `https://zuzuitu.github.io/subsync-web-enhanced/`.
-Latest successful preview deployment: run `34662280482`, commit `6f32c78e231c0b5711d01231cde2807a3322d627`.
+Repository: `Zuzuitu/subsync-web-enhanced`
 
-The public preview is intentionally behind current main. It includes the restored original-language catalog, but not the later runtime/UI changes from PR #17 (language download/cache UX), PR #18 (stage-specific diagnostics), nor the merged Romanian-audio Whisper path from PR #22. Do not claim those changes are live until a deliberate preview deployment is performed and verified.
+Upstream: `sc0ty/subsync`
 
-Completed in this session:
-- restored and validated the original sc0ty language catalog;
-- fixed the deterministic MKV split-window seek gap;
-- added language asset download/progress/cache management;
-- added evidence-backed stage-specific synchronization diagnostics;
-- added and passed >=128 MiB direct-MKV browser stress in Chromium and iPhone-like WebKit;
-- implemented genuine local Romanian audio recognition with a pinned Whisper model and an isolated WebAssembly SIMD module;
-- passed Romanian-audio synchronization end to end in Chromium and iPhone-like WebKit without weakening canonical synchronization thresholds.
+Pinned upstream baseline: `c888da7257d57bf039523c9f7015feacb4b95dc3`
 
-Still open:
-- historical real-world failing MKV reproduction requires a representative failing file;
-- physical-iPhone validation of the new Romanian-audio path has not yet been performed;
-- batch/multi-upload remains deferred.
+Public preview: `https://zuzuitu.github.io/subsync-web-enhanced/`
 
-PR #22 merged to `main` at `146aaaf9ec7f45d46e625644be30f4aa12108b0d`.
-Final PR #22 governance head before the docs-only handoff update: `1ce2ced6a9800705cca83d1bf7f186744e0dca4b`.
+Latest deliberate product preview deployment:
+- Deploy PWA Preview run `34716967459`: **PASS**;
+- deployed product commit: `f7296ad6ecbd5f0d56772fd845b4d14f925180ab`;
+- GitHub Pages artifact/deployment: **PASS**;
+- complete pinned original sc0ty catalog mirrored and signature-verified: **226 packages** = 9 speech models + 217 dictionaries;
+- mirrored payload: **528,928,835 bytes**.
 
-Final all-green validation on that head:
-- Legacy WebAssembly Build run `34712933245`: **PASS**;
-- CI pull-request run `34712933240`: **PASS**;
-- MKV WASM Fast Diagnostic run `34712933228`: **PASS**;
-- Mobile WebKit Compatibility run `34712933271`: **PASS**;
-- Large-file Browser Stress run `34712933299`: **PASS**.
+Current `main` after merging the persistent live-Pages regression is
+`3057324ce541767d25074f32467f03b459c417ae` (PR #25). PR #25 changes only
+test/workflow tooling; it does not change the shipped PWA runtime or product
+assets, so a second product redeploy is not required for that merge. Main-push
+CI run `34718933042`: **PASS**.
 
-The final Legacy run re-confirmed the isolated Romanian Whisper SIMD build,
-no-shared-memory assertions, canonical MKV matrix, ENG-audio + RO-subtitle
-E2E, PWA staging, Romanian-audio Chromium E2E, and Romanian-audio
-iPhone-like WebKit E2E on the final governance head.
+The public preview is **not** the older pre-Romanian build anymore. It now
+contains the language-download/cache UX, stage-specific diagnostics and the
+genuine Romanian-audio Whisper path from PR #22.
 
+## Immediate milestone
 
-### Merged-main release candidate validation
+All automated release-candidate, deployment and live-public-site validation is
+green. The only remaining validation required for the Romanian-audio milestone
+is a **physical iPhone/Safari Romanian-audio test** against the public preview.
 
-Release-candidate regression was re-run from the exact merged-main commit
-`46372bb9e4f3ae4cf6d12a8b640aed33d5ade172`, not only from the PR head.
+Do not claim physical-iPhone Romanian-audio support is confirmed until the user
+actually runs this test and reports the result.
 
-All required merged-main gates are green:
-- CI run `34715999591`: **PASS**;
-- Legacy WebAssembly Build run `34716200123`: **PASS**;
-- MKV WASM Fast Diagnostic run `34716202061`: **PASS**;
-- Mobile WebKit Compatibility run `34716200576`: **PASS**;
-- Large-file Browser Stress run `34716202978`: **PASS**.
-
-The merged-main Legacy run rebuilt the legacy extractor/correlator and the
-isolated Romanian Whisper module from pinned sources. It re-confirmed:
-- no shared WebAssembly memory requirement;
-- Romanian Whisper runtime reports `WASM_SIMD = 1`;
-- canonical MKV matrix and split-window seek regression;
-- ENG-audio + RO-subtitle E2E;
-- staged PWA shell;
-- language download/cache management;
-- pinned upstream language-asset loading;
-- primary real-PWA workflow;
-- Romanian-audio real-PWA E2E in Chromium and iPhone-like WebKit.
-
-Merged-main Romanian-audio E2E in both Chromium and WebKit produced:
-- **140** usable Romanian reference words;
-- **23** synchronization points;
-- **99.99 %** displayed correlation;
-- formula `0.9990x-8.234`;
-- saved first-cue timing correction **-8.243 s** for the +8.0 s fixture;
-- model lifecycle `Downloading -> Verifying SHA-256 -> Storing locally -> Ready`;
-- Romanian diacritics preserved in the saved SRT;
-- zero console errors, page errors, and HTTP failures.
-
-The >=128 MiB merged-main stress regression also passed in Chromium and
-iPhone-like WebKit with the canonical 143,952,449-byte (137.28 MiB) direct
-MKV fixture. Observed descendant-process peak RSS was 1071.08 MiB in
-Chromium and 1779.86 MiB in WebKit. These remain Linux CI process-tree
-baselines, not physical-iPhone or exact browser-tab memory measurements.
-
-This merged-main validation is the release-candidate evidence required before
-the next deliberate GitHub Pages preview deployment.
-
-Next sequence:
-1. deliberately deploy the validated release candidate to the preview branch;
-2. verify the deployed Pages shell, Whisper assets/model delivery, same-origin paths, service worker/cache behavior, and preserved original-language catalog;
-3. validate the Romanian-audio workflow on a physical iPhone/Safari device;
-4. consider batch/multi-upload only after single-file reliability is solid.
-
-Production auto-deploy remains disabled.
+Batch/multi-upload remains deferred until the single-file path is stable on the
+physical device.
 
 ## Product goal
 
-Revive and modernize sc0ty/SubSync as a browser-first PWA while preserving the original synchronization algorithm where technically sound.
+Revive and modernize sc0ty/SubSync as a browser-first installable PWA while
+preserving the original synchronization algorithm and original language catalog
+where technically sound.
 
-**Primary near-term workflow: English reference audio + Romanian subtitles.**
+Primary workflows:
+- English reference audio + Romanian subtitles using the original sc0ty
+  PocketSphinx/dictionary path;
+- Romanian reference audio + Romanian subtitles using isolated local Whisper
+  speech recognition and the original SubSync correlation/timing logic.
 
-Genuine Romanian audio speech recognition was merged through PR #22 and runs through local browser Whisper inference. Multi-upload is not a near-term priority.
+Media remains browser-local. Do not introduce a backend media-upload workaround
+or a paid API/service without explicit user approval.
 
-## Repository and governance
+## Governance and invariants
 
-- Repository: `Zuzuitu/subsync-web-enhanced`
-- Upstream: `sc0ty/subsync`
-- Pinned baseline: `c888da7257d57bf039523c9f7015feacb4b95dc3`
-- License: GNU GPL v3
-- sc0ty / Michał Szymaniak attribution is mandatory.
-- Material changes: branch -> PR -> CI green -> merge.
-- Production auto-deploy remains disabled.
+- repository truth > chat memory;
+- material changes: branch -> PR -> CI green -> merge;
+- do not make material commits directly on `main`;
+- production auto-deploy remains disabled;
+- preview deployment is deliberate/manual when product changes require it;
+- do not weaken invariants or synchronization thresholds to make CI green;
+- reproduce -> isolate -> regression -> smallest justified fix -> CI -> checkpoint;
+- do not invent test results or root causes;
+- preserve GPLv3 and visible credit to Michał Szymaniak / sc0ty;
+- preserve the original sc0ty language catalog;
+- keep media processing browser-first/local;
+- do not replace PocketSphinx globally with Whisper;
+- do not migrate the whole legacy extractor to modern LLVM merely to optimize Romanian ASR;
+- do not claim iPhone-like WebKit CI is equivalent to physical iPhone Safari.
 
-## Romanian subtitle status
+Canonical synchronization thresholds remain unchanged:
+- `minPointsNo = 20`
+- `minCorrelation = 0.9999`
+- `maxPointDist = 2`
+- `minWordProb = 0.3`
+- `minWordLen = 5`
+- `minWordsSim = 0.6`
 
-Confirmed:
-- `ro`, `rum`, `ron` canonicalize to internal `rum`;
-- UTF-8 Romanian diacritics survive WASM subtitle decoding;
-- Windows-1250 Romanian subtitles are regression-tested;
-- embedded Matroska `ron` subtitle metadata is recognized;
-- PR #4 merged to `main` at `a592e12cd0cab30ceacb30b85dbf10ee9598b7fe`.
+The Romanian regression deliberately uses 24 subtitle cues. The former 16-cue
+fixture was mathematically incapable of satisfying `minPointsNo=20`; the
+correct fix was increasing fixture evidence, not lowering the threshold. Tests
+must reject Romanian fixtures with 20 or fewer cues for this regression.
 
-The original sc0ty release has no Romanian PocketSphinx model. SubSync2 therefore keeps the original PocketSphinx path unchanged for its nine original speech languages and uses an isolated Whisper WebAssembly SIMD module only for canonical Romanian audio (`rum`).
+## Original sc0ty language catalog
+
+Original speech models preserved:
+- `chi`
+- `dut`
+- `eng`
+- `fre`
+- `ger`
+- `gre`
+- `ita`
+- `rus`
+- `spa`
+
+Total original catalog:
+- **9 speech models**;
+- **217 dictionary packages**.
+
+Original asset publication remains pinned/signature-verified. The deliberate
+Pages deploy mirrors the complete catalog under same-origin `assets/data/`,
+while browser IDBFS stores packages actually downloaded by the user.
+
+Live Public Pages representative-language validation after the Romanian release
+candidate:
+- run `34718016222`: **PASS**;
+- mirror manifest: 226 packages / 528,928,835 bytes;
+- Italian dictionary + speech: HTTP 200;
+- French dictionary + speech: HTTP 200;
+- Spanish dictionary + speech: HTTP 200;
+- zero console/page errors.
+
+The tiny representative fixtures intentionally lack enough evidence to
+synchronize. Their purpose is live catalog/delivery/model-loading validation,
+not per-language recognition accuracy.
 
 ## Architecture
 
-Primary English reference path:
+### English reference audio + Romanian subtitles
+
 `MKV ENG -> WORKERFS -> FFmpeg Demux -> AudioDec -> Resampler -> PocketSphinx ENG -> words`
 
-Romanian reference path:
-`MKV RON/RUM -> WORKERFS -> legacy FFmpeg Demux/AudioDec/Resampler -> PcmSink -> isolated whisper.cpp WASM SIMD -> words`
-
-The Romanian module is single-threaded, requires WebAssembly SIMD, does not require shared WebAssembly memory, and keeps media/model inference local in the browser.
-
-Subtitle path:
-`RO SRT -> SubtitleDec -> original sc0ty ENG<->RO dictionary -> translated comparison words`
-
-Synchronization:
-`reference words + subtitle comparison words -> original SubSync correlator -> timing formula`
-
-## Romanian audio speech recognition
-
-PR #22 merged genuine Romanian reference-audio recognition without
-pretending another PocketSphinx model is Romanian.
-
-Pinned production components:
-- engine: `ggml-org/whisper.cpp` v1.5.4;
-- engine commit: `0b9af32a8b3fa7e2ae5f15a9a08f5b10394993f5`;
-- model: `ggml-tiny-q5_1.bin`;
-- model revision: `5359861c739e955e79d9a303bcbc70fb988958b1`;
-- model SHA-256: `818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7`;
-- model size: 32,152,673 bytes (~30.7 MiB);
-- Romanian canonical language: `rum`, Whisper language: `ro`;
-- isolated toolchain: `emscripten/emsdk:3.1.50`, pinned by container digest in `config/romanian-asr.json`;
-- runtime: single-thread WebAssembly SIMD, no pthread/shared-memory requirement.
-
-The legacy extractor remains on Emscripten 1.39.11-fastcomp. FFmpeg,
-SphinxBase, PocketSphinx and the original nine sc0ty speech models are not
-migrated to the modern LLVM toolchain. A small legacy `PcmSink` bridges
-decoded/resampled 16 kHz mono float PCM to the isolated Romanian Whisper
-module.
-
-Authoritative Romanian-audio evidence:
-- Legacy WebAssembly Build run `34712143001`: **PASS**;
-- product-code evidence head: `ea5f46ca0221ade587257b97c8306f4b63dd10ef`;
-- Chromium Romanian-audio real-PWA E2E: **PASS**;
-- iPhone-like WebKit Romanian-audio real-PWA E2E: **PASS**;
-- canonical synchronization thresholds remained unchanged
-  (`minPointsNo=20`, `minCorrelation=0.9999`, `maxPointDist=2`,
-  `minWordProb=0.3`, `minWordLen=5`, `minWordsSim=0.6`);
-- deterministic fixture: 24 Romanian subtitle cues with a known +8.0 s shift;
-- 132 usable Romanian reference words in both Chromium and WebKit;
-- saved first-cue correction: **-8.372 s** in both browser engines;
-- Romanian diacritics verified in the saved SRT;
-- model lifecycle observed in both engines:
-  download -> SHA-256 verify -> local store -> ready;
-- zero console errors, page errors or HTTP failures in both successful runs.
-
-The earlier 16-cue fixture could never satisfy the unchanged
-`minPointsNo=20` bucket requirement. It reached 16 correlation buckets out
-of 16 possible cues. The regression fixture was corrected to 24 cues instead
-of weakening the product threshold, and the test now refuses fixtures with
-20 or fewer cues.
-
-These browser runs are strong compatibility evidence but do **not** constitute
-a physical-iPhone test of Romanian audio. Physical iPhone/Safari validation is
-still required after deliberate preview deployment.
-
-Third-party license notices for the Romanian path are recorded in
-`THIRD_PARTY_NOTICES.md`.
-
-## Pinned primary-workflow assets
-
-Original sc0ty assets:
-- `speech-eng.zip` v1.0.0 — SHA-256 `b96fa77cc3567c0351d1a1dae2cd87cb38ae815834903cc1e680e48b6cbd45a5`
-- `dict-eng-rum.zip` v1.1.1 — SHA-256 `04350f06586fc06082142e7a8e9b32f961782bc08341755594a0c4be3b57cfc4`
-- original `assets.json` — SHA-256 `f25ccee51728c6632fdb66a33744e33945cb054a562c4ff600afc03ced605da4`
-
-CI-only speech fixture:
-- Piper `en_US-joe-medium`, revision `v1.0.0`
-- model SHA-256 `58afce0321b8d9c46d7cdf9c16500cc55a793b4220212dba6b70fb788b3baf06`
-- config SHA-256 `3d6d5410b3795cb1950595247ef8f06190719e6fdbfa3a2356d8ec368e1aad33`
-- source voice dataset: CC0
-
-Piper is used only to generate deterministic CI audio. It is not shipped in the PWA and is not a production speech dependency.
-
-## English audio + Romanian subtitle E2E
-
-Fast browser/WASM run `34619486104`: **PASS**.
-
-Fixture:
-- direct MKV with English audio;
-- Romanian external SRT;
-- known subtitle shift: +8.0 s;
-- full original English speech model;
-- full original ENG<->RO dictionary;
-- unchanged product thresholds: minPoints=20, minCorrelation=0.9999, maxPointDist=2 s, minWordProb=0.3, minWordLen=5, minWordsSim=0.6.
-
-Measured:
-- 77 English reference words;
-- 31/33 intended target words recognized in their correct speech segment;
-- 279 translated subtitle comparison words;
-- 24 correlated subtitle buckets/points;
-- correlation factor `0.999912507825241`;
-- max distance `0.3305198550 s`;
-- formula `y = 1.0007240772x - 7.5714645386`;
-- expected truth `y = 1.0x - 8.0`;
-- result: PASS without threshold weakening.
-
-This proves the primary ENG-audio + RO-subtitle architecture end to end on a deterministic direct-MKV browser fixture.
+`RO SRT -> SubtitleDec -> original sc0ty ENG<->RO dictionary -> comparison words`
+
+`reference words + subtitle words -> original SubSync correlator -> timing formula -> corrected SRT`
+
+This workflow is confirmed end to end and remains the original-sc0ty path.
+
+### Romanian reference audio + Romanian subtitles
+
+`MKV RON/RUM -> WORKERFS -> legacy FFmpeg Demux -> AudioDec -> Resampler -> PcmSink -> isolated whisper.cpp WASM SIMD -> Romanian words`
+
+`RO SRT -> SubtitleDec -> Romanian subtitle words`
 
-Authoritative Legacy WebAssembly Build run `34620017397`: **PASS** on freshly compiled WASM. PR #5 merged this regression to `main` at `a2acdfca162b8fe53bc0ac792ebf7cafe1c9829e`.
+`reference words + subtitle words -> original SubSync correlator -> timing formula -> corrected SRT`
+
+Romanian aliases `ro`, `rum`, `ron` canonicalize to internal `rum`; Whisper
+language is `ro`.
 
-## Original sc0ty language catalog restoration
+## Romanian ASR implementation
 
-The first SubSync2 PWA milestone deliberately staged only the assets required for the primary product path:
-- `speech/eng`;
-- `dict/eng-rum`.
-
-Although the UI retained the broader legacy language list, asset validation therefore rejected other speech languages and language pairs. Do not describe the pre-restoration public preview as full original-language parity.
-
-The pinned original sc0ty `assets` release contains:
-- **9 speech models**: `chi`, `dut`, `eng`, `fre`, `ger`, `gre`, `ita`, `rus`, `spa`;
-- **217 dictionary packages**;
-- about **504 MiB** total across speech models and dictionaries.
-
-PR #13 restored this pinned catalog to the browser build without changing the original synchronization algorithm or product thresholds. It merged to `main` at `6f32c78e231c0b5711d01231cde2807a3322d627`.
-
-Final PR #13 validation:
-- CI run `34661678278`: **PASS**;
-- Mobile WebKit Compatibility run `34661678268`: **PASS**;
-- authoritative Legacy WebAssembly Build run `34661678270`: **PASS**.
-
-Security and delivery design:
-- the original `assets.json` remains pinned by SHA-256 `f25ccee51728c6632fdb66a33744e33945cb054a562c4ff600afc03ced605da4`;
-- sc0ty's original RSA asset-verification public key is vendored from pinned upstream commit `c888da7257d57bf039523c9f7015feacb4b95dc3` and pinned by SHA-256 `71523aa370bca38c2af77b36e6fece5f7340963df5c0fc3024c9784e6c6de436`;
-- mirrored ZIP packages are verified against their original `.asc` signatures with RSA PKCS#1 v1.5 + SHA-256 before publication;
-- browser asset URLs remain same-origin under `assets/data/`;
-- ordinary CI/PWA artifacts remain small and still stage only the primary ENG speech + ENG↔RO dictionary;
-- the **deliberate GitHub Pages preview deploy** mirrors the complete verified original catalog before upload, so the browser can fetch additional models/dictionaries on demand and IDBFS can persist those actually used.
-
-A direct-browser attempt to fetch GitHub Release asset URLs cross-origin was tested and failed with browser `TypeError: Failed to fetch` (CORS). That approach was discarded rather than worked around with a media/backend service.
-
-Representative browser validation, fast PWA run `34661554867`: **PASS**.
-- `dict/eng-ita` v1.1.2 signature verified; 961,607 bytes;
-- `speech/ita` v1.0.0 signature verified; 8,539,884 bytes;
-- both were served from the same-origin staged site and fetched by the actual PWA with HTTP 200;
-- no console errors;
-- no page errors.
-
-The tiny Italian fixtures intentionally did not provide enough correlation evidence and ended in `Couldn't synchronize`. This test proves catalog restoration, signature verification, browser delivery, extraction and model/dictionary loading for representative non-primary assets; it does **not** claim that every original language has already passed a full recognition/correlation E2E.
-
-### Full original-language preview deployment
-
-Preview run `34662280482`: **PASS** for commit `6f32c78e231c0b5711d01231cde2807a3322d627`.
-
-Confirmed deployment evidence:
-- authoritative WASM/PWA build: PASS;
-- canonical MKV + Romanian SRT browser/WASM matrix: PASS;
-- ENG-audio + RO-subtitle E2E: PASS;
-- upstream-language smoke: PASS;
-- full original sc0ty asset mirror: PASS;
-- **226 signed packages** mirrored and verified: 9 speech models + 217 dictionaries;
-- verified mirrored payload: **528,928,835 bytes** (~504.4 MiB);
-- GitHub Pages artifact upload: PASS;
-- GitHub Pages deployment: PASS;
-- public preview remains `https://zuzuitu.github.io/subsync-web-enhanced/`.
-
-This means the public preview now publishes the complete pinned original sc0ty speech/dictionary catalog. It does **not** mean every one of the 226 packages has individually passed a full synchronization E2E; representative non-primary loading is validated, while full per-language behavioral coverage remains future work.
-
-### Public Pages representative-language validation
-
-Live public Pages smoke run `34663120776`: **PASS** against `https://zuzuitu.github.io/subsync-web-enhanced/`.
-
-The test first validated the deployed mirror manifest itself:
-- 226 packages present;
-- 528,928,835 bytes total;
-- pinned asset-index SHA-256 matched;
-- pinned sc0ty signing-key SHA-256 matched;
-- every manifest entry reported signature verification.
-
-The actual deployed PWA then exercised both dictionary-loading and speech-model-loading paths for three non-primary languages:
-- Italian: `dict-eng-ita.zip` HTTP 200 and `speech-ita.zip` HTTP 200;
-- French: `dict-eng-fre.zip` HTTP 200 and `speech-fre.zip` HTTP 200;
-- Spanish: `dict-eng-spa.zip` HTTP 200 and `speech-spa.zip` HTTP 200.
-
-Across all six live asset-loading paths:
-- zero console errors;
-- zero page errors;
-- same-origin public Pages asset delivery succeeded.
-
-The test fixtures are intentionally tiny and the audio fixtures are silence, so their final UI state is `Couldn't synchronize`. This is expected and is **not** evidence of a language failure. This live smoke proves public deployment, lookup, download, extraction/model initialization paths for representative non-primary languages; it does not claim full recognition/correlation E2E for those languages.
-
-## Original historical MKV issue
-
-Historical observation: some direct MKV + SRT files failed while extracted audio + the same SRT succeeded.
-
-The exact historical root cause is still unconfirmed.
-
-Current negative evidence:
-- AAC, AC3, E-AC3, multiple audio tracks, and embedded subtitles pass the deterministic browser/WASM matrix;
-- generated direct MKV with English audio + Romanian SRT passes end to end;
-- H.264 + stereo AAC passes;
-- HEVC/H.265 + E-AC3 5.1 passes;
-- reversed audio-track order with the desired English 5.1 track second passes;
-- a 125.064 s direct-MKV time-window seek fixture passes after the seek-gap fix below.
-
-### Confirmed split-window seek reliability bug and fix
-
-While expanding realistic MKV coverage, a separate deterministic reliability bug was reproduced in the parallel reference-window path used for longer media.
-
-Baseline diagnostic run `34666168345` used the previous known-good WASM binary. On a 125.064 s H.264/AAC MKV with 10 s video keyframes:
-- requested seek: `62.5 s`;
-- `Demux.getPosition()` immediately reported `62.5 s`;
-- first/minimum packet position actually observed after reading: **`70.0 s`**.
-
-Because `Synchronizer` splits longer references into adjacent worker time windows, a forward seek to the next video keyframe can skip reference audio at the beginning of a worker window and create an uncovered gap between workers.
-
-PR #16 changes only `Demux::seek()` from the default FFmpeg seek flags to `AVSEEK_FLAG_BACKWARD`, preventing a worker from jumping forward beyond its requested start.
-
-Authoritative freshly compiled WASM run `34666292346`: **PASS** with strict seek regression enabled.
-Measured on the same fixture:
-- requested seek: `62.5 s`;
-- minimum observed packet position: **`60.0 s`**;
-- maximum observed position in the test window: `68.0 s`;
-- processed packets in the seek window: `134`;
-- no forward gap past the requested start.
-
-The same authoritative run also passed:
-- H.264 video + stereo AAC;
-- HEVC/H.265 video + E-AC3 5.1;
-- reversed multitrack selection where the English 5.1 stream is second;
-- the existing AAC / AC3 / E-AC3 / embedded-subtitle / Romanian subtitle regressions;
-- the primary ENG-audio + RO-subtitle E2E and PWA regressions.
-
-This is a **confirmed MKV reliability bug** fixed by PR #16. It is a plausible contributor to some long-media failures, but it is **not** claimed as the confirmed root cause of the historical real-world MKV report until a representative historical failing file is reproduced.
-
-The 125 s fixture is intentionally only ~519 KiB, so it validates duration and seek-window behavior but **does not** prove large-file browser memory-pressure reliability.
-
-Do not claim MKV itself is generally broken. Remaining reproduction work should focus on large real files, browser memory behavior, unusual container metadata, and a representative historical failing MKV.
-
-## Build
-
-Legacy WebAssembly is reproducible in GitHub Actions:
-- Emscripten `1.39.11-fastcomp`
-- FFmpeg `n4.2`
-- SphinxBase `4ffc4b79515fd18f7adfbf80c20f3c0ecb9edccd`
-- PocketSphinx `ab6d6471800966990e12fdb6ed27ae36323cf2c4`
-
-Outputs:
-- `extractor.js/.wasm`
-- `correlator.js/.wasm`
-- `whisper.js/.wasm` (Romanian-only isolated SIMD module)
-
-Compatibility note: Emscripten 1.39.11 MODULARIZE returns a legacy thenable. Keep the instance wrapped as `{ instance }` across Promise/async boundaries.
-
-## Browser application / PWA status
-
-PR #6 merged to `main` at `9560b05a832b6a060e8eabacb6744fa9868f4f3c`.
-
-The merged PWA contains:
-- responsive installable browser shell;
-- web manifest and service worker;
-- visible sc0ty/Michał Szymaniak attribution and GPL v3 notice;
-- local-processing/privacy messaging;
-- reproducible generation of `web/src/data/assets.json` and `web/version.json`;
-- pinned `web/package-lock.json` with `npm ci` in CI;
-- staging of pinned `speech-eng.zip` and `dict-eng-rum.zip` with SHA-256 verification;
-- no ~40 MB speech model committed to git;
-- service-worker cache cleanup restricted to SubSync2 cache names;
-- browser shell smoke coverage;
-- full primary workflow exercised through the real PWA UI.
-
-Fast PWA and governance checks on PR #6: **PASS**.
-
-Authoritative Legacy WebAssembly Build run `34633224194`: **PASS** on freshly compiled WASM and the staged PWA.
-
-Confirmed through the actual PWA UI:
-`select RO SRT + select ENG MKV -> select rum/eng -> Start -> synchronize -> Save subtitles -> download corrected SRT`.
-
-Measured UI-flow result:
-- synchronization points shown: `23`;
-- correlation shown: `99.99 %`;
-- formula shown: `1.0003x-7.568`;
-- max change shown: `0:07:564`;
-- downloaded file: `reference-english.srt`;
-- saved first-timestamp correction: `-7.565 s`;
-- Romanian fixture tokens and diacritics preserved;
-- service worker ready;
+PR #22 `Add genuine local Romanian audio recognition` merged to `main` at
+`146aaaf9ec7f45d46e625644be30f4aa12108b0d`.
+
+Pinned engine:
+- `ggml-org/whisper.cpp`
+- tag `v1.5.4`
+- commit `0b9af32a8b3fa7e2ae5f15a9a08f5b10394993f5`
+
+Pinned model:
+- `ggml-tiny-q5_1.bin`
+- revision `5359861c739e955e79d9a303bcbc70fb988958b1`
+- SHA-256 `818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7`
+- size `32,152,673` bytes (~30.7 MiB)
+- browser asset `asr/rum`
+
+Toolchains:
+- legacy extractor: Emscripten `1.39.11-fastcomp`, preserving FFmpeg n4.2,
+  SphinxBase and PocketSphinx compatibility;
+- isolated Romanian Whisper module: pinned `emscripten/emsdk:3.1.50` image from
+  `config/romanian-asr.json`;
+- single-threaded WASM SIMD;
+- no pthreads;
+- no SharedArrayBuffer requirement;
+- no shared WebAssembly memory.
+
+Do not restart the rejected whole-extractor LLVM migration without new evidence.
+Previous reproduction showed incompatibilities in SphinxBase, FFmpeg 4.2 and
+old/new Emscripten/Whisper SIMD combinations.
+
+Romanian model lifecycle:
+`download -> SHA-256 verify -> store in IDBFS -> ready -> reuse locally`
+
+The service worker intentionally avoids duplicating large `assets/data/`
+packages in Cache Storage; language/model persistence is handled by application
+IDBFS.
+
+Third-party notices are recorded in `THIRD_PARTY_NOTICES.md` for whisper.cpp
+and the Whisper model. Piper voices remain CI-only fixtures, not production
+runtime dependencies.
+
+## Merged-main release-candidate validation
+
+Release-candidate regression was run from exact merged-main commit
+`46372bb9e4f3ae4cf6d12a8b640aed33d5ade172`.
+
+All required gates passed:
+- CI `34715999591`: **PASS**;
+- Legacy WebAssembly Build `34716200123`: **PASS**;
+- MKV WASM Fast Diagnostic `34716202061`: **PASS**;
+- Mobile WebKit Compatibility `34716200576`: **PASS**;
+- Large-file Browser Stress `34716202978`: **PASS**.
+
+Fresh Legacy validation re-confirmed:
+- legacy extractor/correlator build;
+- isolated Whisper SIMD build;
+- no-shared-memory assertions;
+- runtime `WASM_SIMD = 1`;
+- canonical MKV matrix and split-window seek regression;
+- ENG-audio + RO-subtitle E2E;
+- PWA shell;
+- language download/cache UX;
+- pinned upstream language loading;
+- primary real-PWA flow;
+- Romanian-audio Chromium E2E;
+- Romanian-audio iPhone-like WebKit E2E.
+
+Merged-main Romanian E2E in both Chromium and WebKit:
+- 140 usable Romanian reference words;
+- 23 synchronization points;
+- displayed correlation 99.99%;
+- formula `0.9990x-8.234`;
+- saved timing correction `-8.243 s` for the known +8.0 s fixture;
+- model lifecycle download -> verify -> store -> ready;
+- Romanian diacritics preserved;
+- zero console errors, page errors and HTTP failures.
+
+## Deliberate preview deployment and live public verification
+
+The validated release candidate was deliberately deployed through
+`deploy/pages-preview` after all merged-main gates were green.
+
+Deploy run `34716967459`: **PASS**.
+
+Deployed product commit:
+`f7296ad6ecbd5f0d56772fd845b4d14f925180ab`.
+
+The deploy rebuilt the authoritative browser engines and PWA, then mirrored the
+complete signature-verified original sc0ty catalog before GitHub Pages upload.
+Production auto-deploy was not enabled.
+
+### Live public Romanian-audio E2E
+
+A dedicated regression now exercises genuine Romanian audio end to end against
+the **actual public GitHub Pages URL**, rather than only local staging.
+
+Initial live run `34718135955`: **PASS**.
+
+Measured public-site result:
+- browser: Chromium;
+- reference language detected/canonicalized to `rum`;
+- **135** usable Romanian reference words;
+- **21** synchronization points;
+- displayed correlation **99.99%**;
+- formula `1.0022x-8.410`;
+- saved timing correction **-8.391 s** for the +8.0 s fixture;
+- `whisper.js`: HTTP 200;
+- `whisper.wasm`: HTTP 200;
+- pinned `ggml-tiny-q5_1.bin`: HTTP 200;
+- model lifecycle: downloading -> verifying SHA-256 -> storing locally -> ready;
+- Romanian diacritics preserved in the saved SRT;
 - zero console errors;
 - zero page errors;
 - zero HTTP failures.
 
-The generated truth was a +8.0 s subtitle offset, so the downloaded SRT correction is within the expected range without weakening synchronization thresholds.
+PR #25 made this live-Pages Romanian regression permanent. Its validation was
+full green before merge:
+- Public Pages Language Smoke `34718281001`: **PASS**;
+- Legacy WebAssembly Build `34718281098`: **PASS**;
+- governance CI: **PASS**.
 
-CI improvements merged with the PWA:
-- native Emscripten dependency workspace is cleared before `npm ci`, avoiding root-owned `node_modules` conflicts;
-- obsolete Legacy WebAssembly runs cancel automatically through workflow concurrency;
-- documentation-only checkpoint changes no longer trigger the expensive legacy WASM build.
+PR #25 merged at
+`3057324ce541767d25074f32467f03b459c417ae`; main-push CI `34718933042` is
+**PASS**. Because PR #25 contains test/workflow tooling only, no additional PWA
+redeploy is necessary after that merge.
 
-## Testing status
+## MKV reliability status
 
-Completed:
-1. governance and build pins;
-2. reproducible legacy WASM build;
-3. initial MKV codec/track matrix;
-4. full demux/decode/resample/legacy speech path;
-5. Romanian UTF-8 subtitles;
-6. Romanian Windows-1250 subtitles;
-7. `ro/rum/ron` canonicalization;
-8. fast browser E2E for ENG audio + RO subtitles;
-9. authoritative freshly compiled WASM E2E;
-10. merge of the primary ENG->RO regression through PR #5;
-11. reproducible primary asset-index/version generation;
-12. PWA shell build and browser smoke;
-13. deterministic JavaScript dependency locking with `package-lock.json` + `npm ci`;
-14. authoritative full PWA user-flow E2E including downloaded corrected SRT;
-15. PWA shell merge through PR #6.
+Historical observation: some real direct MKV + SRT files failed while extracted
+audio + the same SRT worked. The exact historical root cause remains unconfirmed
+without a representative original failing file.
 
-Completed additionally:
-16. deliberate/manual GitHub Pages preview deployment path;
-17. public HTTPS preview deployment;
-18. physical iPhone/Safari validation reported successful by the user.
+Confirmed deterministic reliability fix:
+- split-window seek could jump forward to a later keyframe and leave a gap;
+- `Demux::seek()` now uses `AVSEEK_FLAG_BACKWARD`;
+- requested 62.5 s seek previously observed first packet at 70.0 s;
+- fixed fresh-WASM regression observed packet coverage from 60.0 s around the
+  requested start;
+- do not present this as the universal root cause of every historical MKV.
 
-Next:
-19. expand realistic MKV coverage;
-20. reproduce/isolate the historical real-world direct-MKV failure class if a representative file is available;
-21. genuine Romanian-audio support is implemented and covered by Chromium/WebKit real-PWA E2E; physical-iPhone Romanian-audio validation remains.
+Current matrix includes successful deterministic coverage for:
+- AAC;
+- AC3;
+- E-AC3;
+- H.264 + stereo AAC;
+- HEVC/H.265 + E-AC3 5.1;
+- multiple/reversed audio tracks;
+- embedded subtitles;
+- Romanian subtitles;
+- split-window seeking.
 
-## Mobile WebKit / iPhone-like compatibility
+## Large-file browser stress
 
-CI run `34646549007`: **PASS** using Playwright WebKit with the iPhone 14 device profile and the staged PWA under the same repository subpath shape used by GitHub Pages.
-
-Confirmed in that WebKit run:
-- PWA loaded without the unsupported-browser screen;
-- service worker reached ready state;
-- Romanian SRT and English MKV loaded through the real file inputs;
-- synchronization completed successfully;
-- 25 synchronization points;
-- correlation shown: `99.99 %`;
-- formula shown: `1.0037x-7.686`;
-- max change shown: `0:07:653`;
-- downloaded `reference-english.srt`;
-- saved first-timestamp correction: `-7.654 s`;
-- Romanian text/diacritics preserved;
-- zero console errors;
-- zero page errors;
-- zero HTTP failures.
-
-This is strong WebKit compatibility evidence, but it is **not** a physical-iPhone Safari test. Playwright's iPhone profile provides Safari/WebKit user-agent/device emulation, while the Linux WebKit runtime is not identical to iOS and reported `maxTouchPoints=0`.
-
-## Preview deployment
-
-PR #8 merged the manual GitHub Pages preview workflow and subpath-safe PWA support.
-
-GitHub Pages was enabled at repository settings level with **GitHub Actions** as the source.
-
-After Pages enablement, the first retry reached the deploy job but was rejected before runner steps executed when targeting the default `github-pages` environment from the dedicated `deploy/pages-preview` branch.
-
-PR #11 changed only the preview deployment environment to the dedicated `subsync2-pages-preview` environment. CI passed and PR #11 merged at `c8b4f7d6feba3d2fe32143b3fe1e83c5524506c4`.
-
-Authoritative preview run `34650472508`: **PASS**.
-- authoritative WASM/PWA build: PASS;
-- primary ENG audio + RO subtitles UI flow: PASS;
-- `actions/configure-pages@v5`: PASS;
-- Pages artifact upload: PASS;
-- `actions/deploy-pages@v4`: PASS;
-- deployed commit: `c8b4f7d6feba3d2fe32143b3fe1e83c5524506c4`;
-- public HTTPS preview: `https://zuzuitu.github.io/subsync-web-enhanced/`.
-
-Production auto-deploy remains disabled. This URL is the deliberate preview target.
-
-### Hosting decision from this session
-
-For the current preview milestone, **GitHub Pages remains the selected host**.
-
-Rationale:
-- the repository already has a deliberate/manual GitHub Pages workflow and subpath-safe PWA support;
-- the staged PWA bundles the pinned original sc0ty `speech-eng.zip` asset, whose release asset size is `39,638,792` bytes (~37.8 MiB);
-- Cloudflare Pages currently limits an individual static site asset to **25 MiB**, so the current artifact cannot be deployed there unchanged;
-- moving that asset to R2/origin storage or changing asset delivery would be a separate architecture/deployment decision and is not needed for the current iPhone-validation milestone.
-
-GitHub Pages repository configuration used:
-- Pages source: **GitHub Actions**;
-- HTTPS: enabled;
-- no custom domain configured yet;
-- no Jekyll/Static HTML starter workflow is used;
-- dedicated deployment environment: `subsync2-pages-preview`.
-
-Cloudflare Pages is therefore deferred, not rejected permanently.
-
-## Physical iPhone / Safari validation
-
-On 2026-09-12, after the successful public Pages deployment, the user tested the preview on a physical iPhone and reported **success**.
-
-Confirmed evidence is limited to the user's successful real-device result. No additional per-step metrics, memory figures, console logs, timing values, or codec/container characteristics were reported in this session, so do not invent them.
-
-This closes the immediate "physical iPhone/Safari not yet measured" blocker for the primary workflow at a high level. It does **not** replace future stress coverage for long files, memory pressure, unusual MKV metadata, seeking, H.264/H.265 combinations, channel layouts, or additional codecs.
-
-## Testing status
-
-Completed additionally:
-16. WebKit/iPhone-like full primary-flow E2E, including downloaded corrected SRT;
-17. manual GitHub Pages preview deployment;
-18. successful public HTTPS deployment;
-19. physical iPhone/Safari validation reported successful by the user.
-
-Completed additionally:
-20. representative non-primary language validation against the live public Pages preview (Italian, French, Spanish dictionary + speech asset paths).
-
-Completed additionally:
-21. realistic MKV coverage expansion and deterministic split-window seek-gap fix: H.264/AAC stereo, HEVC/E-AC3 5.1, reversed multitrack, 125 s seek-window coverage;
-22. language-asset download/cache UX with progress, IDBFS reuse and deliberate cache cleanup;
-23. stage-specific synchronization diagnostics with evidence-backed failure explanations.
-
-Completed additionally:
-24. historical real-world direct-MKV failure remains reproduction-dependent on a representative failing file;
-25. explicit >=128 MiB direct-MKV browser stress coverage in Chromium and iPhone-like WebKit, with process-RSS baselines.
-
-Next:
-26. genuine Romanian-audio speech recognition implemented with pinned local/browser Whisper and deterministic Chromium/WebKit coverage;
-27. perform final release-candidate regression + deliberate preview deployment and physical-iPhone validation of the Romanian-audio path;
-28. consider batch/multi-upload only after single-file reliability is solid.
-
-## Language asset UX and cache management
-
-PR #17 merged to `main` at `2cf6d5c9178ecacc4c72fcf4aef73262fac5a9ce`.
-
-Implemented:
-- language ZIP downloads are asynchronous in the extractor worker;
-- the synchronization UI reports `Downloading -> Extracting -> Ready`;
-- later runs report `Cached` and reuse IDBFS without re-downloading the ZIP;
-- per-package cache metadata records version, byte size and cache timestamp;
-- Advanced Options lists downloaded speech/dictionary packages;
-- users can deliberately clear downloaded language data and the deletion persists across reloads.
-
-Regression evidence on the final PR head:
-- CI run `34669111365`: **PASS**;
-- Mobile WebKit Compatibility run `34669111331`: **PASS**;
-- Legacy WebAssembly Build run `34669111359`: **PASS**;
-- PWA Shell Fast Build run `34669108885`: **PASS**.
-
-The browser regression proves first-run download/extraction, second-run IDBFS reuse with no language-ZIP refetch, and persistent cache deletion after reload.
-
-## Stage-specific synchronization diagnostics
-
-PR #18 merged to `main` at `b9d6ea535f6992d81b9e9008912b3ea06af9fe0c`.
-
-The PWA no longer relies only on a generic `Couldn't synchronize` result. It now tracks and surfaces evidence for:
-- initialization;
-- language-data loading;
-- media pipeline open;
-- demux/container read;
-- audio decoding;
-- audio resampling;
-- speech recognition;
-- subtitle decoding;
-- dictionary/translation;
-- processing;
-- correlation.
-
-The UI also reports counts for decoded subtitle cues, subtitle words and reference words. For no-result cases it can explain evidence-backed outcomes such as:
-- no subtitle cues decoded;
-- no usable subtitle words;
-- no usable reference words;
-- too few synchronization points;
-- correlation below threshold;
-- synchronization points too far apart.
-
-Native exception `module` fields remain the authoritative stage evidence where available; fallback diagnoses are explicitly based on observed counts/status and are not presented as unproven root causes.
-
-Regression evidence on the final PR head:
-- CI run `34685301209`: **PASS**;
-- PWA Shell Fast Build run `34685258696`: **PASS**;
-- Mobile WebKit Compatibility run `34685301225`: **PASS**;
-- Legacy WebAssembly Build run `34685301223`: **PASS**.
-
-The non-primary silence fixture specifically verifies that the PWA identifies the speech-recognition stage and explains that no usable reference words were produced.
-
-## Large-file browser / memory stress coverage
-
-Large-file browser stress run `34688234561`: **PASS**.
-
-The canonical stress fixture is generated locally in CI and is not committed:
-- direct Matroska file;
-- H.264 1280x720 high-byte-rate video;
+Canonical generated direct-MKV fixture:
+- H.264 1280x720;
 - English AAC reference audio;
-- duration: `90.064 s`;
-- file size: **143,952,449 bytes (137.28 MiB)**.
+- duration 90.064 s;
+- 143,952,449 bytes = 137.28 MiB.
 
-The real staged PWA selects the MKV through the browser file input, reads stream metadata through WORKERFS, selects the intended English audio stream, loads the normal pinned ENG↔RO dictionary and English speech model, and processes the direct MKV to a normal terminal state.
+Merged-main stress run `34716202978`: **PASS** in Chromium and iPhone-like
+WebKit.
 
-Chromium result:
-- stream metadata load: `0.093 s`;
-- terminal state reached in `5.351 s`;
-- descendant-process peak RSS observed: **1160.16 MiB**;
-- zero console errors;
-- zero page errors;
-- zero HTTP failures.
+Observed process-tree RSS on Linux CI for that RC:
+- Chromium peak: 1071.08 MiB;
+- WebKit peak: 1779.86 MiB.
 
-iPhone-like WebKit result:
-- stream metadata load: `0.834 s`;
-- terminal state reached in `13.620 s`;
-- descendant-process peak RSS observed: **1807.29 MiB**;
-- zero console errors;
-- zero page errors;
-- zero HTTP failures.
+These values are regression baselines only. They are not exact browser-tab
+memory and are not physical-iPhone memory measurements. The synthetic stress
+audio intentionally produces no useful speech words; the test measures direct
+MKV/WORKERFS/browser survival rather than speech accuracy.
 
-The synthetic sine reference intentionally produces zero usable recognized words, so the expected user-visible outcome is `Couldn't synchronize` with the evidence-backed speech-recognition diagnosis. The test is a file-size / WORKERFS / browser-survival regression, not a speech-accuracy test.
+## PWA / cache / diagnostics status
 
-Memory numbers are **process-tree RSS measurements on Linux CI**, not exact tab memory and not physical-iPhone measurements. They are recorded as a baseline for regression comparison; no arbitrary hard RSS cap is claimed yet. In particular, the higher WebKit baseline is a watch item for future physical-device stress validation, not proof of an iOS crash.
+Implemented and regression-tested:
+- installable PWA shell;
+- subpath-safe GitHub Pages hosting;
+- service worker with SubSync2-scoped cache cleanup;
+- language/model download progress;
+- IDBFS reuse across runs;
+- deliberate language-data cache cleanup;
+- same-origin original-language asset delivery;
+- stage-specific diagnostics for initialization, language assets, pipeline,
+  demux, decode, resample, speech recognition, subtitles, dictionary,
+  processing and correlation;
+- evidence counts for decoded subtitles, subtitle words, reference words and
+  synchronization points;
+- corrected SRT download.
 
-## Product direction decided in this session
+Failure diagnostics must distinguish observed evidence from an unproven root
+cause. Native exception module/stage information is authoritative when present.
 
-SubSync2 is **not** intended to be only the old SubSync wrapped in a browser. The product direction is to preserve the useful behavior and language coverage of sc0ty/SubSync, then add meaningful modern capabilities around it.
+## Physical iPhone status
 
-Already differentiating SubSync2 from the historical version:
-- installable browser-first PWA;
-- local media processing in the browser without server media upload;
-- physical iPhone/Safari operation;
-- reproducible/pinned WASM toolchain and browser builds;
-- automated MKV, Romanian subtitle, WebKit and full-PWA regressions;
-- Romanian alias/encoding/diacritics hardening;
-- signed/pinned original-language asset publication;
-- controlled HTTPS preview deployment;
-- explicit privacy and upstream attribution.
+The earlier primary ENG-audio + RO-subtitle workflow was successfully tested by
+the user on a physical iPhone/Safari device.
 
-Improvement order agreed:
-1. preserve and validate original sc0ty language compatibility;
-2. expand realistic MKV reliability coverage: H.264/H.265 container combinations, stereo/5.1, AAC/AC3/E-AC3, multiple tracks, seeking, long files, memory pressure and unusual metadata;
-3. improve model/dictionary UX: required asset, download size/progress, locally cached state and cache cleanup;
-4. improve diagnostics so failures identify the actual stage (demux, decode, audio, speech model, dictionary, correlation) instead of only generic errors;
-5. preserve the implemented genuine Romanian-audio Whisper path and its deterministic Chromium/WebKit regressions;
-6. consider multi-upload/batch only after the single-file path is demonstrably reliable.
+The new genuine **Romanian-audio** path has strong iPhone-like WebKit CI evidence
+and live GitHub Pages Chromium evidence, but it has **not yet been validated on
+a physical iPhone/Safari device**.
 
-Original-language compatibility is now a project guardrail: future work must not silently drop the original pinned speech/dictionary catalog while improving SubSync2.
+Required physical test on the current public preview:
+1. open the public preview in real iPhone Safari;
+2. select a Romanian SRT and a matching MKV with Romanian audio;
+3. run synchronization;
+4. on first use observe Romanian Whisper model download/verify/store/ready;
+5. save the corrected SRT and verify practical alignment;
+6. repeat the same workflow once to confirm model reuse from local cache;
+7. report PASS/FAIL and, on failure, provide the visible stage/diagnostic text.
+
+Do not mark this milestone complete until that real-device result is reported.
+
+## Next sequence
+
+1. Perform the physical iPhone/Safari Romanian-audio test against the deployed preview.
+2. If it passes, record the physical-device result in this checkpoint and treat the current single-file Romanian path as release-stable at this milestone.
+3. If it fails, use the existing stage diagnostics and live-site evidence to reproduce and apply the smallest justified fix.
+4. Only after single-file reliability is solid, consider batch/multi-upload and further product modernization.
 
 ## Open blockers
 
-- historical real-world MKV failure class is not yet reproduced;
-- not every original language/model pair has a dedicated full synchronization E2E, despite the complete signed catalog now being deployed;
-- physical-iPhone/Safari validation of Romanian audio remains pending until a deliberate preview release candidate is deployed.
+- physical-iPhone/Safari validation of genuine Romanian audio is pending on the already-deployed release candidate;
+- the historical real-world MKV failure class remains reproduction-dependent on a representative failing file;
+- not every original sc0ty language/model pair has a dedicated full recognition/correlation E2E, although the complete signed catalog is deployed and representative live loading is validated;
+- batch/multi-upload remains deliberately deferred.
