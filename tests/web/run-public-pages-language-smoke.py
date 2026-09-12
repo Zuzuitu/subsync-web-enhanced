@@ -90,7 +90,7 @@ def wait_for_terminal(page, timeout=180_000):
           const text = document.querySelector('#subsync_app')?.innerText || '';
           const popup = Array.from(document.querySelectorAll('#subsync_app .popup'))
             .map(node => node.innerText || '')
-            .join('\n');
+            .join(String.fromCharCode(10));
           return [
             'Subtitles synchronized',
             'No need to synchronize',
