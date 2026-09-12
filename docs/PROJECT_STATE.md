@@ -13,7 +13,7 @@ Repository truth overrides chat memory. Before material changes, read:
 
 ## Current handoff checkpoint
 
-Canonical main: `146aaaf9ec7f45d46e625644be30f4aa12108b0d`. PR #22 (`Add genuine local Romanian audio recognition`) is merged.
+Romanian-ASR functional merge on `main`: `146aaaf9ec7f45d46e625644be30f4aa12108b0d` (PR #22, `Add genuine local Romanian audio recognition`). For the current `main` tip, always read the repository at session start rather than relying on a checkpoint-pinned tip SHA.
 
 Public preview: `https://zuzuitu.github.io/subsync-web-enhanced/`.
 Latest successful preview deployment: run `34662280482`, commit `6f32c78e231c0b5711d01231cde2807a3322d627`.
