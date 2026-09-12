@@ -12,9 +12,11 @@ on:
       - "web/package-lock.json"
       - "web/.gitignore"
       - "scripts/generate-web-metadata.py"
+      - "scripts/mirror-upstream-assets.py"
       - "scripts/stage-web-app.py"
       - "tests/web/**"
       - "config/english-romanian-assets.json"
+      - "config/sc0ty-assets-public-key.pem"
       - ".github/workflows/pwa-shell-fast.yml"
   workflow_dispatch:
 
