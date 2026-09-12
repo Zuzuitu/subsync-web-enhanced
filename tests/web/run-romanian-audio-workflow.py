@@ -23,6 +23,7 @@ SRT_IN = FIXTURE_DIR / "target.rum.srt"
 MKV_IN = FIXTURE_DIR / "reference-romanian.mkv"
 RESULT = FIXTURE_DIR / f"{args.browser}-romanian-audio.json"
 SAVED = FIXTURE_DIR / f"{args.browser}-output.rum.srt"
+MIN_CORRELATION_BUCKETS = 20
 
 class QuietHandler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
@@ -85,6 +86,14 @@ try:
             http_failures.append({"status": response.status, "url": response.url})
                 if response.status >= 400 else None
         ))
+
+        fixture = json.loads((FIXTURE_DIR / "fixture.json").read_text(encoding="utf-8"))
+        cue_count = len(fixture.get("phrases", []))
+        if cue_count <= MIN_CORRELATION_BUCKETS:
+            raise SystemExit(
+                f"Romanian E2E fixture has only {cue_count} cues; "
+                f"canonical correlation requires {MIN_CORRELATION_BUCKETS}"
+            )
 
         page.goto(url, wait_until="load")
         page.wait_for_selector("#subsync_app", timeout=30_000)
@@ -149,8 +158,7 @@ try:
                 "assetTransitions": page.evaluate("window.__roAsrTransitions"),
                 "responses": responses,
                 "consoleMessages": console_messages,
-                "consoleMessages": console_messages,
-            "consoleErrors": console_errors,
+                "consoleErrors": console_errors,
                 "pageErrors": page_errors,
                 "httpFailures": http_failures,
             }
