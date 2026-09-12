@@ -103,19 +103,26 @@ jobs:
               ch for ch in unicodedata.normalize("NFKD", raw)
               if not unicodedata.combining(ch)
           )
+          # The CI voice is deliberately synthetic (eSpeak-NG), so this
+          # feasibility gate checks stable Romanian lexical evidence rather
+          # than pretending to measure production ASR accuracy.
           keyword_groups = [
               ("roman",),
-              ("film",),
-              ("subtitr",),
-              ("sincron",),
               ("limba",),
+              ("test",),
+              ("pentru",),
+              ("este",),
           ]
           hits = [
               group[0]
               for group in keyword_groups
               if any(token in normalized for token in group)
           ]
-          if len(hits) < 3:
+          if data.get("result", {}).get("language") != "ro":
+              raise SystemExit(
+                  "whisper.cpp did not report Romanian as the recognition language"
+              )
+          if len(hits) < 4:
               raise SystemExit(
                   "Romanian recognition evidence too weak; matched: "
                   + ", ".join(hits)
@@ -140,6 +147,10 @@ jobs:
           walk(data)
           if timestamp_keys < 1:
               raise SystemExit("Full JSON output did not expose timestamp evidence")
+          if token_records < 10:
+              raise SystemExit(
+                  f"Full JSON output exposed too few timestamped tokens: {token_records}"
+              )
 
           evidence = {
               "status": "pass",
