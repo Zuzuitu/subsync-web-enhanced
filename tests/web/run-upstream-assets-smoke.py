@@ -240,6 +240,19 @@ try:
         speech_state, speech_popup = wait_for_terminal_or_failure(page, timeout=120_000)
         speech_responses = assert_asset_response(responses, "speech-ita.zip")
 
+        if "Diagnostics" not in speech_state:
+            raise SystemExit("Speech-model smoke did not expose synchronization diagnostics")
+        if "No usable reference words were produced" not in speech_state:
+            raise SystemExit(
+                "Silence fixture did not explain the missing reference-word evidence: "
+                + speech_state
+            )
+        if "Speech recognition" not in speech_state:
+            raise SystemExit(
+                "Silence fixture did not identify the speech-recognition stage: "
+                + speech_state
+            )
+
         details = {
             "url": url,
             "status": "pass",
