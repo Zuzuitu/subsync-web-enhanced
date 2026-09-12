@@ -170,38 +170,6 @@ replacements = [
 """
     ),
     (
-"""    if (n_processors == 1) {
-        return whisper_full(ctx, params, samples, n_samples);
-    }
-    int ret = 0;
-""",
-"""    if (n_processors == 1) {
-        return whisper_full(ctx, params, samples, n_samples);
-    }
-#if defined(SUBSYNC2_WHISPER_SINGLE_THREAD)
-    (void) ctx;
-    (void) params;
-    (void) samples;
-    (void) n_samples;
-    return -1;
-#else
-    int ret = 0;
-"""
-    ),
-    (
-"""    return ret;
-}
-
-int whisper_full_n_segments_from_state(struct whisper_state * state) {
-""",
-"""    return ret;
-#endif
-}
-
-int whisper_full_n_segments_from_state(struct whisper_state * state) {
-"""
-    ),
-    (
 """    for (int32_t k = 1; k <= n_threads; k++) {
 """,
 """#if defined(SUBSYNC2_WHISPER_SINGLE_THREAD)
@@ -236,6 +204,28 @@ for old, new in replacements:
             + f" (expected 1, found {count})"
         )
     whisper = whisper.replace(old, new, 1)
+
+parallel_start = whisper.find("int whisper_full_parallel(")
+parallel_end = whisper.find(
+    "\nint whisper_full_n_segments_from_state",
+    parallel_start,
+)
+if parallel_start < 0 or parallel_end < 0:
+    raise SystemExit("Could not isolate whisper_full_parallel in pinned whisper.cpp")
+
+parallel_stub = """int whisper_full_parallel(
+        struct whisper_context * ctx,
+        struct whisper_full_params params,
+        const float * samples,
+        int n_samples,
+        int n_processors) {
+    if (n_processors != 1) {
+        return -1;
+    }
+    return whisper_full(ctx, params, samples, n_samples);
+}
+"""
+whisper = whisper[:parallel_start] + parallel_stub + whisper[parallel_end:]
 
 if "std::thread" in whisper:
     raise SystemExit("whisper.cpp still contains std::thread after single-thread preparation")
