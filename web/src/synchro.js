@@ -1,4 +1,4 @@
-import { wrap } from 'comlink';
+import { wrap, proxy } from 'comlink';
 import webworkify from 'webworkify';
 import Subtitles from './subtitle.js';
 import settings from './settings.js';
@@ -14,9 +14,23 @@ export default class Synchronizer {
     this.extractors = [];
   }
 
+  async ensureSubExtractorInitialized() {
+    await this.subExtractor.init(settings, 'SubExtractor');
+  }
+
   async getFileInfo(file) {
-    const firstTime = await this.subExtractor.init(settings, 'SubExtractor')
+    await this.ensureSubExtractorInitialized();
     return await this.subExtractor.getFileInfo(file);
+  }
+
+  async getCachedAssets() {
+    await this.ensureSubExtractorInitialized();
+    return await this.subExtractor.getCachedAssets();
+  }
+
+  async clearCachedAssets() {
+    await this.ensureSubExtractorInitialized();
+    return await this.subExtractor.clearCachedAssets();
   }
 
   async run(sub, ref, listener) {
@@ -42,7 +56,7 @@ export default class Synchronizer {
         ...refExtractors.map((ex, i) => ex.init(settings.serialize(), `RefExtractor${i}`)),
       ]);
 
-      if (await this.preloadAssets(sub, ref)) {
+      if (await this.preloadAssets(sub, ref, listener)) {
         await Promise.all(refExtractors.map(ex => ex.syncfs()));
       }
 
@@ -108,7 +122,7 @@ export default class Synchronizer {
     }
   }
 
-  async preloadAssets(sub, ref) {
+  async preloadAssets(sub, ref, listener) {
     const assets = [];
     if (sub.lang && ref.lang && sub.lang !== ref.lang) {
       assets.push({ type: 'dict', params: [sub.lang, ref.lang].sort() });
@@ -118,7 +132,12 @@ export default class Synchronizer {
     }
     if (assets.length) {
       logger.log('preloading assets', assets);
-      await this.subExtractor.preloadAssets(assets);
+      const progressCb = proxy(event => {
+        if (listener && listener.onAssetProgress) {
+          listener.onAssetProgress(event);
+        }
+      });
+      await this.subExtractor.preloadAssets(assets, progressCb);
       return true;
     }
   }

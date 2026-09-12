@@ -6,6 +6,7 @@ import { Overlay } from './overlay.jsx';
 import Router from '../router.js';
 import Synchronizer from '../synchro.js';
 import settings from '../settings.js';
+import languages from '../data/languages.json';
 import { timeStampFmt, timeStampFractionFmt, lineFormulaFmt, streamTypeName } from '../utils.js';
 import Logger from '../logger.js';
 const logger = Logger.logger.get('[SyncScreen]');
@@ -16,6 +17,7 @@ export default class SyncScreen {
     this.subReady = false;
     this.errors = {};
     this.updateTimer = null;
+    this.assetStates = {};
     this.startTime = performance.now();
 
     <div this='el'>
@@ -24,6 +26,10 @@ export default class SyncScreen {
         <span this='state'>{i18n`Initializing...`}</span>
         <ProgressBar this='progressBar' />
       </p>
+      <div this='assetPanel' class='asset_panel' hidden>
+        <strong>Language data</strong>
+        <ul this='assetList' />
+      </div>
       <dl>
         <dt this='errorsTitle' hidden>{i18n`Errors:`}</dt>
         <dd this='errorsBody' hidden>
@@ -105,7 +111,50 @@ export default class SyncScreen {
     clearTimeout(this.updateTimer);
   }
 
+  onAssetProgress(event) {
+    if (!event || !event.asset || !event.asset.name) {
+      return;
+    }
+
+    this.assetStates[event.asset.name] = event;
+    this.assetPanel.hidden = false;
+    this.renderAssetProgress();
+
+    if (event.state === 'downloading') {
+      this.setState('Preparing language data...');
+      if (event.totalBytes) {
+        this.progressBar.value = Math.min(1, (event.loadedBytes || 0) / event.totalBytes);
+      }
+    } else if (event.state === 'extracting') {
+      this.setState('Extracting language data...');
+      this.progressBar.value = 1;
+    } else if (event.state === 'cached') {
+      this.setState('Using cached language data...');
+      this.progressBar.value = 1;
+    } else if (event.state === 'ready') {
+      this.setState('Language data ready');
+      this.progressBar.value = 1;
+    }
+  }
+
+  renderAssetProgress() {
+    this.assetList.textContent = '';
+    for (const name of Object.keys(this.assetStates)) {
+      const event = this.assetStates[name];
+      const item = document.createElement('li');
+      item.dataset.assetName = name;
+      item.dataset.assetState = event.state || 'unknown';
+
+      const label = document.createElement('strong');
+      label.textContent = assetLabel(event.asset);
+      item.appendChild(label);
+      item.appendChild(document.createTextNode(': ' + assetStateText(event)));
+      this.assetList.appendChild(item);
+    }
+  }
+
   onSyncStarted() {
+    this.progressBar.value = 0;
     this.setState(i18n`Synchronizing...`);
     this.updateTimer = setInterval(() => this.updateStatus(Synchronizer.instance.getStatus()), 1000);
     this.stopBtn.disabled = false;
@@ -249,4 +298,50 @@ function syncErrorToString(source, err) {
   } else {
     return i18n`Unexpected error occurred`;
   }
+}
+
+
+function assetLabel(asset) {
+  const langName = code => {
+    const lang = languages.find(item => item.code3 === code);
+    return lang ? lang.name : code;
+  };
+
+  if (asset.type === 'speech') {
+    return `${langName(asset.params[0])} speech model`;
+  }
+  if (asset.type === 'dict') {
+    return `${asset.params.map(langName).join(' ↔ ')} dictionary`;
+  }
+  return asset.name;
+}
+
+function assetStateText(event) {
+  const bytes = event.totalBytes || event.loadedBytes || null;
+  const size = bytes ? ` · ${formatBytes(bytes)}` : '';
+
+  if (event.state === 'cached') {
+    return 'Cached' + size;
+  }
+  if (event.state === 'ready') {
+    return 'Ready' + size;
+  }
+  if (event.state === 'extracting') {
+    return 'Extracting' + size;
+  }
+  if (event.state === 'downloading') {
+    if (event.totalBytes) {
+      const percent = Math.round(100 * (event.loadedBytes || 0) / event.totalBytes);
+      return `Downloading ${formatBytes(event.loadedBytes || 0)} / ${formatBytes(event.totalBytes)} (${percent}%)`;
+    }
+    return `Downloading ${formatBytes(event.loadedBytes || 0)}`;
+  }
+  return event.state || 'Preparing';
+}
+
+function formatBytes(bytes) {
+  const value = Number(bytes) || 0;
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KiB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MiB`;
 }

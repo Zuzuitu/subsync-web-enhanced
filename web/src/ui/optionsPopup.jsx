@@ -3,6 +3,8 @@ import i18n from 'es2015-i18n-tag';
 import { Overlay, OverlayItem } from './overlay.jsx';
 import { infoButton } from './components.jsx';
 import settings from '../settings.js';
+import Synchronizer from '../synchro.js';
+import languages from '../data/languages.json';
 import { version } from '../../version.json';
 
 export default class OptionsPopup extends OverlayItem {
@@ -11,49 +13,74 @@ export default class OptionsPopup extends OverlayItem {
     super(i18n`Advanced options`, true);
     const descriptions = getDescriptions();
 
-    <div this='content'>
+    // Own the option view instances explicitly. Relying on nested custom JSX
+    // `this=` refs leaves these views undefined with the current REDOM JSX
+    // transform even though refs on native DOM elements work correctly.
+    this.windowSize = new MinNumberOption({ min: 5, step: 1 });
+    this.jobsNo = new NumberOption({ min: 1, step: 1 });
+    this.maxPointDist = new NumberOption({ min: 0, step: 0.01 });
+    this.minPointsNo = new NumberOption({ min: 0, step: 1 });
+    this.minWordLen = new NumberOption({ min: 0, step: 1 });
+    this.minWordsSim = new NumberOption({ min: 0, max: 1, step: 0.01 });
+    this.minCorrelation = new NumberOption({ min: 0, max: 1, step: 0.00001 });
+    this.minWordProb = new NumberOption({ min: 0, max: 1, step: 0.01 });
+
+    // Keep cache UI references explicit too. This popup predates the current
+    // browser build and nested JSX refs are not reliable here.
+    this.cacheSummary = <p>Checking downloaded language data...</p>;
+    this.cacheList = <ul />;
+    this.clearCacheBtn = <button disabled>Clear downloaded language data</button>;
+    this.clearCacheBtn.onclick = this.clearLanguageCache.bind(this);
+
+    this.content = <div>
       <dl class='options'>
         <dt>{i18n`Max adjustment`} ({i18n`min`}):</dt>
         <dd>
-          <MinNumberOption this='windowSize' min={5} step={1} />
+          {this.windowSize}
           {infoButton(i18n`Max adjustment`, descriptions.windowSize)}
         </dd>
         <dt>{i18n`Extractor jobs no`}:</dt>
         <dd>
-          <NumberOption this='jobsNo' min={1} step={1} />
+          {this.jobsNo}
           {infoButton(i18n`Extractor jobs no`, descriptions.jobsNo)}
         </dd>
         <dt>{i18n`Max points distance`}:</dt>
         <dd>
-          <NumberOption this='maxPointDist' min={0} step={0.01} />
+          {this.maxPointDist}
           {infoButton(i18n`Max points distance`, descriptions.maxPointDist)}
         </dd>
         <dt>{i18n`Min points no`}:</dt>
         <dd>
-          <NumberOption this='minPointsNo' min={0} step={1} />
+          {this.minPointsNo}
           {infoButton(i18n`Min points no`, descriptions.minPointsNo)}
         </dd>
         <dt>{i18n`Min word length`}:</dt>
         <dd>
-          <NumberOption this='minWordLen' min={0} step={1} />
+          {this.minWordLen}
           {infoButton(i18n`Min word length`, descriptions.minWordLen)}
         </dd>
         <dt>{i18n`Min words similarity`}:</dt>
         <dd>
-          <NumberOption this='minWordsSim' min={0} max={1} step={0.01} />
+          {this.minWordsSim}
           {infoButton(i18n`Min words similarity`, descriptions.minWordsSim)}
         </dd>
         <dt>{i18n`Min correlation factor`}:</dt>
         <dd>
-          <NumberOption this='minCorrelation' min={0} max={1} step={0.00001} />
+          {this.minCorrelation}
           {infoButton(i18n`Min correlation factor`, descriptions.minCorrelation)}
         </dd>
         <dt>{i18n`Min speech recognition score`}:</dt>
         <dd>
-          <NumberOption this='minWordProb' min={0} max={1} step={0.01} />
+          {this.minWordProb}
           {infoButton(i18n`Min speech recognition score`, descriptions.minWordProb)}
         </dd>
       </dl>
+      <section class='language_cache'>
+        <h2>Language data</h2>
+        {this.cacheSummary}
+        {this.cacheList}
+        {this.clearCacheBtn}
+      </section>
       <p><em>subsync version {version}</em></p>
       <div class='buttons'>
         <button onclick={this.save.bind(this)} class='highlight'>{i18n`OK`}</button>
@@ -65,6 +92,7 @@ export default class OptionsPopup extends OverlayItem {
     this.jobsNo.setDefaultValue(settings.defaultJobsNo);
     this.keys = settings.keys.filter(key => key in this);
     this.init(settings);
+    this.refreshLanguageCache();
   }
 
   init(settings) {
@@ -79,6 +107,56 @@ export default class OptionsPopup extends OverlayItem {
     }
     settings.save();
     this.hide();
+  }
+
+  async refreshLanguageCache() {
+    try {
+      const assets = await Synchronizer.instance.getCachedAssets();
+      this.cacheList.textContent = '';
+
+      if (!assets.length) {
+        this.cacheSummary.textContent = 'No downloaded language data.';
+        this.clearCacheBtn.disabled = true;
+        return;
+      }
+
+      const knownBytes = assets.reduce((sum, asset) => sum + (asset.bytes || 0), 0);
+      const unknownCount = assets.filter(asset => !asset.bytes).length;
+      this.cacheSummary.textContent =
+        `${assets.length} cached package${assets.length === 1 ? '' : 's'}` +
+        (knownBytes ? ` · ${formatBytes(knownBytes)} recorded` : '') +
+        (unknownCount ? ` · ${unknownCount} legacy size unknown` : '');
+
+      for (const asset of assets) {
+        const item = document.createElement('li');
+        item.dataset.cachedAsset = asset.name;
+        item.textContent = assetLabel(asset) +
+          (asset.bytes ? ` · ${formatBytes(asset.bytes)}` : '');
+        this.cacheList.appendChild(item);
+      }
+      this.clearCacheBtn.disabled = false;
+    } catch (error) {
+      this.cacheSummary.textContent = 'Could not read downloaded language data.';
+      this.clearCacheBtn.disabled = true;
+    }
+  }
+
+  async clearLanguageCache() {
+    if (!window.confirm(
+      'Remove downloaded speech models and dictionaries from this browser? They can be downloaded again when needed.'
+    )) {
+      return;
+    }
+
+    this.clearCacheBtn.disabled = true;
+    this.cacheSummary.textContent = 'Clearing downloaded language data...';
+    try {
+      await Synchronizer.instance.clearCachedAssets();
+      await this.refreshLanguageCache();
+    } catch (error) {
+      Overlay.showErrorPopup('Could not clear language data', error);
+      await this.refreshLanguageCache();
+    }
   }
 }
 
@@ -135,4 +213,27 @@ function getDescriptions() {
     minCorrelation: i18n`Minimum correlation factor, between 0.0 and 1.0. Used to determine synchronization result. If correlation factor is smaller than this, synchronization will fail.`,
     minWordProb: i18n`Minimum speech recognition score, between 0.0 and 1.0. Words transcribed with smaller score will be rejected.`,
   }
+}
+
+
+function assetLabel(asset) {
+  const langName = code => {
+    const lang = languages.find(item => item.code3 === code);
+    return lang ? lang.name : code;
+  };
+
+  if (asset.type === 'speech') {
+    return `${langName(asset.params[0])} speech model`;
+  }
+  if (asset.type === 'dict') {
+    return `${asset.params.map(langName).join(' ↔ ')} dictionary`;
+  }
+  return asset.name;
+}
+
+function formatBytes(bytes) {
+  const value = Number(bytes) || 0;
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KiB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MiB`;
 }
