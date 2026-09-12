@@ -4,7 +4,6 @@
 #include "media/resampler.h"
 #include "media/avout.h"
 #include "media/speechrec.h"
-#include "media/whisperspeechrec.h"
 #include "media/stream.h"
 #include "text/ngrams.h"
 #include "text/translator.h"
@@ -319,16 +318,6 @@ EMSCRIPTEN_BINDINGS(gizmo_media)
 	speechRec.function("addWordsListener", &addWordsListener<SpeechRecognition>);
 	speechRec.function("connectTranslator", &connectWordSink<SpeechRecognition, Translator>);
 	speechRec.function("connectNgramSplitter", &connectWordSink<SpeechRecognition, NgramSplitter>);
-
-	em::class_<WhisperSpeechRecognition, em::base<AVOutput>> whisperSpeechRec("WhisperSpeechRecognition");
-	whisperSpeechRec.smart_ptr_constructor<>("WhisperSpeechRecognition", &make_shared<WhisperSpeechRecognition>);
-	whisperSpeechRec.function("setModelPath", &WhisperSpeechRecognition::setModelPath);
-	whisperSpeechRec.function("setLanguage", &WhisperSpeechRecognition::setLanguage);
-	whisperSpeechRec.function("setMinWordProb", &WhisperSpeechRecognition::setMinWordProb);
-	whisperSpeechRec.function("setMinWordLen", &WhisperSpeechRecognition::setMinWordLen);
-	whisperSpeechRec.function("addWordsListener", &addWordsListener<WhisperSpeechRecognition>);
-	whisperSpeechRec.function("connectTranslator", &connectWordSink<WhisperSpeechRecognition, Translator>);
-	whisperSpeechRec.function("connectNgramSplitter", &connectWordSink<WhisperSpeechRecognition, NgramSplitter>);
 
 	em::class_<NgramSplitter> ngramSplitter("NgramSplitter");
 	ngramSplitter.smart_ptr_constructor<>("NgramSplitter", &make_shared<NgramSplitter, size_t>);
