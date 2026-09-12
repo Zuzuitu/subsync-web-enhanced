@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-12 20:40 Europe/Rome
+LAST_UPDATED: 2026-09-12 21:58 Europe/Rome
 
 ## Canonical status
 
@@ -34,8 +34,22 @@ Still open:
 - physical-iPhone validation of the new Romanian-audio path has not yet been performed;
 - batch/multi-upload remains deferred.
 
+Final PR #22 governance head before merge: `1ce2ced6a9800705cca83d1bf7f186744e0dca4b`.
+
+Final all-green validation on that head:
+- Legacy WebAssembly Build run `34712933245`: **PASS**;
+- CI pull-request run `34712933240`: **PASS**;
+- MKV WASM Fast Diagnostic run `34712933228`: **PASS**;
+- Mobile WebKit Compatibility run `34712933271`: **PASS**;
+- Large-file Browser Stress run `34712933299`: **PASS**.
+
+The final Legacy run re-confirmed the isolated Romanian Whisper SIMD build,
+no-shared-memory assertions, canonical MKV matrix, ENG-audio + RO-subtitle
+E2E, PWA staging, Romanian-audio Chromium E2E, and Romanian-audio
+iPhone-like WebKit E2E on the final governance head.
+
 Next sequence:
-1. finish PR #22 governance/CI cleanup and merge only with all required checks green;
+1. merge PR #22 now that the final PR head has all required checks green;
 2. run the full release-candidate regression suite from merged `main`;
 3. deliberately deploy the release candidate to the preview branch;
 4. validate the Romanian-audio workflow on a physical iPhone/Safari device;
