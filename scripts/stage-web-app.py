@@ -37,7 +37,7 @@ for src in PUBLIC.iterdir():
 
 scripts_out = DIST / "scripts"
 scripts_out.mkdir(parents=True, exist_ok=True)
-for name in ("subsync.js", "extractor.wasm", "correlator.wasm", "whisper.wasm"):
+for name in ("subsync.js", "extractor.wasm", "correlator.wasm", "whisper.js", "whisper.wasm"):
     src = WEB / "scripts" / name
     if not src.is_file() or src.stat().st_size == 0:
         raise SystemExit(f"Missing web build artifact: {src.relative_to(ROOT)}")
