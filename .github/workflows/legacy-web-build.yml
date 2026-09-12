@@ -56,12 +56,15 @@ jobs:
           from pathlib import Path
 
           pins = json.loads(Path("config/legacy-build-pins.json").read_text())
+          romanian_asr = json.loads(Path("config/romanian-asr.json").read_text())
           values = {
               "FFMPEG_REF": pins["ffmpeg"]["ref"],
               "SPHINXBASE_SHA": pins["sphinxbase"]["sha"],
               "POCKETSPHINX_SHA": pins["pocketsphinx"]["sha"],
               "WHISPERCPP_SHA": pins["whispercpp"]["sha"],
               "EMSCRIPTEN_VERSION": pins["emscripten"]["version"],
+              "ROMANIAN_ASR_IMAGE": romanian_asr["toolchain"]["image"],
+              "ROMANIAN_ASR_EMSCRIPTEN_VERSION": romanian_asr["toolchain"]["version"],
           }
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as f:
               for key, value in values.items():
@@ -122,6 +125,25 @@ jobs:
           set -euxo pipefail
           docker run --rm             -v "$GITHUB_WORKSPACE:/src"             -w /src/web             subsync-web-build             emmake make -j4
 
+      - name: Build pinned Romanian Whisper SIMD toolchain
+        shell: bash
+        run: |
+          set -euxo pipefail
+          docker pull "$ROMANIAN_ASR_IMAGE"
+          docker tag "$ROMANIAN_ASR_IMAGE" subsync-whisper-build
+          test "$(docker run --rm subsync-whisper-build emcc --version | head -n1 | awk '{print $NF}')" = "$ROMANIAN_ASR_EMSCRIPTEN_VERSION"
+          docker run --rm subsync-whisper-build emcc --version
+
+      - name: Build isolated Romanian Whisper SIMD WebAssembly
+        shell: bash
+        run: |
+          set -euxo pipefail
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/src" \
+            -w /src/web \
+            subsync-whisper-build \
+            emmake make -f Makefile.whisper -j4
+
       - name: Verify WebAssembly artifacts
         shell: bash
         run: |
@@ -130,10 +152,45 @@ jobs:
           test -s web/scripts/extractor.wasm
           test -s web/scripts/correlator.js
           test -s web/scripts/correlator.wasm
-          sha256sum             web/scripts/extractor.js             web/scripts/extractor.wasm             web/scripts/correlator.js             web/scripts/correlator.wasm             | tee web/scripts/SHA256SUMS
+          test -s web/scripts/whisper.js
+          test -s web/scripts/whisper.wasm
+          sha256sum \
+            web/scripts/extractor.js \
+            web/scripts/extractor.wasm \
+            web/scripts/correlator.js \
+            web/scripts/correlator.wasm \
+            web/scripts/whisper.js \
+            web/scripts/whisper.wasm \
+            | tee web/scripts/SHA256SUMS
 
-      - name: Assert Romanian extractor does not require shared WebAssembly memory
-        run: python3 tests/wasm/assert-unshared-memory.py web/scripts/extractor.wasm
+      - name: Assert browser WebAssembly modules do not require shared memory
+        run: |
+          python3 tests/wasm/assert-unshared-memory.py web/scripts/extractor.wasm
+          python3 tests/wasm/assert-unshared-memory.py web/scripts/whisper.wasm
+
+      - name: Verify Romanian Whisper SIMD runtime
+        shell: bash
+        run: |
+          set -euxo pipefail
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/src" \
+            -w /src/web \
+            subsync-whisper-build \
+            node - <<'NODE'
+          const factory = require('./scripts/whisper.js');
+          factory().then(module => {
+            const recognition = new module.RomanianWhisperRecognition();
+            const info = recognition.systemInfo();
+            console.log(info);
+            recognition.delete();
+            if (!info.includes('WASM_SIMD = 1')) {
+              throw new Error('Romanian Whisper module did not report WASM SIMD support');
+            }
+          }).catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
 
       - name: Generate deterministic MKV + Romanian SRT fixtures
         shell: bash
@@ -277,6 +334,8 @@ jobs:
             web/scripts/extractor.wasm
             web/scripts/correlator.js
             web/scripts/correlator.wasm
+            web/scripts/whisper.js
+            web/scripts/whisper.wasm
             web/scripts/SHA256SUMS
           if-no-files-found: error
           retention-days: 7
