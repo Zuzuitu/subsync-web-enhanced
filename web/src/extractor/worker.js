@@ -34,15 +34,37 @@ class Extractor {
     }
   }
 
-  async preloadAssets(assets) {
+  async preloadAssets(assets, progressCb) {
     try {
       await Filesystem.syncfs(true);
+      const results = [];
       for (const asset of assets) {
-        await Assets.preloadAsset(asset);
+        results.push(await Assets.preloadAsset(asset, progressCb));
       }
       await Filesystem.syncfs(false);
+      return results;
     } catch (e) {
       handleException('preloadAssets:', e);
+    }
+  }
+
+  async getCachedAssets() {
+    try {
+      await Filesystem.syncfs(true);
+      return Assets.getCachedAssets();
+    } catch (e) {
+      handleException('getCachedAssets:', e);
+    }
+  }
+
+  async clearCachedAssets() {
+    try {
+      await Filesystem.syncfs(true);
+      const result = Assets.clearCachedAssets();
+      await Filesystem.syncfs(false);
+      return result;
+    } catch (e) {
+      handleException('clearCachedAssets:', e);
     }
   }
 
