@@ -4,6 +4,15 @@ on:
   push:
     branches:
       - "test/mkv-wasm-reproduction"
+      - "test/realistic-mkv-matrix"
+    paths:
+      - "tests/wasm/**"
+      - "tests/fixtures/**"
+      - "config/test-fixture-pins.json"
+      - ".github/workflows/mkv-smoke-fast.yml"
+  pull_request:
+    branches:
+      - "main"
     paths:
       - "tests/wasm/**"
       - "tests/fixtures/**"
@@ -23,14 +32,14 @@ jobs:
       - name: Checkout diagnostic branch
         uses: actions/checkout@v4
 
-      - name: Download known-good WASM engine from PR #2
+      - name: Download known-good authoritative WASM engine
         uses: actions/download-artifact@v4
         with:
           name: legacy-wasm
           path: web/scripts
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository }}
-          run-id: 34564019526
+          run-id: 34633224194
 
       - name: Verify downloaded engine
         shell: bash
@@ -75,5 +84,6 @@ jobs:
             tests/generated/browser-wasm-smoke.json
             tests/generated/speech-ita.sha256
             tests/generated/speech-model/manifest.json
+            tests/generated/mkv-fixture-manifest.json
           if-no-files-found: warn
           retention-days: 7
