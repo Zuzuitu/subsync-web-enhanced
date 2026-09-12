@@ -44,6 +44,34 @@ export default class Filesystem {
     }
   }
 
+  static removeFileIfExists(path) {
+    if (Filesystem.isFile(path)) {
+      Gizmo.instance.FS.unlink(path);
+      return true;
+    }
+    return false;
+  }
+
+  static removeTree(path) {
+    const FS = Gizmo.instance.FS;
+    if (!Filesystem.isDir(path)) {
+      return false;
+    }
+
+    for (const name of FS.readdir(path)) {
+      if (name === '.' || name === '..') continue;
+      const child = Filesystem.join(path, name);
+      const stat = FS.stat(child);
+      if (FS.isDir(stat.mode)) {
+        Filesystem.removeTree(child);
+      } else {
+        FS.unlink(child);
+      }
+    }
+    FS.rmdir(path);
+    return true;
+  }
+
   static join() {
     return Gizmo.instance.FS.joinPath(arguments);
   }
