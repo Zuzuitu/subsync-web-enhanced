@@ -98,17 +98,27 @@ export default class Assets {
     if (Filesystem.isFile(path)) {
       const metadata = Assets.readCacheMetadata();
       const cached = metadata[name] || {};
-      report({
-        state: 'cached',
-        cached: true,
-        loadedBytes: cached.bytes || null,
-        totalBytes: cached.bytes || null,
-      });
-      return {
-        name,
-        state: 'cached',
-        bytes: cached.bytes || null,
-      };
+      const versionMatches = cached.version === description.version;
+      const metadataRequired = description.type === 'binary' || !!cached.version;
+
+      if (!metadataRequired || versionMatches) {
+        report({
+          state: 'cached',
+          cached: true,
+          loadedBytes: cached.bytes || null,
+          totalBytes: cached.bytes || null,
+        });
+        return {
+          name,
+          state: 'cached',
+          bytes: cached.bytes || null,
+        };
+      }
+
+      logger.log(`cached asset ${name} is stale, replacing ${cached.version || 'unknown'} with ${description.version}`);
+      Filesystem.removeFileIfExists(path);
+      delete metadata[name];
+      Assets.writeCacheMetadata(metadata);
     }
 
     report({
