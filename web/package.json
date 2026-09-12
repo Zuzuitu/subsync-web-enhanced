@@ -63,7 +63,8 @@
   "napa": {
     "ffmpeg": "FFmpeg/FFmpeg#n4.2",
     "sphinxbase": "cmusphinx/sphinxbase#4ffc4b79515fd18f7adfbf80c20f3c0ecb9edccd",
-    "pocketsphinx": "cmusphinx/pocketsphinx#ab6d6471800966990e12fdb6ed27ae36323cf2c4"
+    "pocketsphinx": "cmusphinx/pocketsphinx#ab6d6471800966990e12fdb6ed27ae36323cf2c4",
+    "whispercpp": "ggml-org/whisper.cpp#0b9af32a8b3fa7e2ae5f15a9a08f5b10394993f5"
   },
   "devDependencies": {
     "@babel/cli": "^7.8.4",
