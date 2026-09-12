@@ -58,6 +58,97 @@ static void connectWordSink(shared_ptr<T> obj, shared_ptr<S> sink)
 	});
 }
 
+template <typename T>
+static void pushWordValues(shared_ptr<T> obj,
+        const string &text, float time, float duration, float score)
+{
+	obj->pushWord(Word(text, time, duration, score));
+}
+
+class PcmSink : public AVOutput
+{
+	public:
+		PcmSink() :
+			m_timeBase(0.0),
+			m_feedCallback(em::val::undefined()),
+			m_flushCallback(em::val::undefined()),
+			m_discontinuityCallback(em::val::undefined()),
+			m_hasFeedCallback(false),
+			m_hasFlushCallback(false),
+			m_hasDiscontinuityCallback(false)
+		{}
+
+		void setFeedCallback(em::val callback)
+		{
+			m_feedCallback = callback;
+			m_hasFeedCallback = true;
+		}
+
+		void setFlushCallback(em::val callback)
+		{
+			m_flushCallback = callback;
+			m_hasFlushCallback = true;
+		}
+
+		void setDiscontinuityCallback(em::val callback)
+		{
+			m_discontinuityCallback = callback;
+			m_hasDiscontinuityCallback = true;
+		}
+
+		virtual void start(const AVStream *stream)
+		{
+			m_timeBase = av_q2d(stream->time_base);
+		}
+
+		virtual void stop()
+		{}
+
+		virtual void feed(const AVFrame *frame)
+		{
+			if (frame->format != AV_SAMPLE_FMT_FLT ||
+					frame->channels != 1 ||
+					frame->sample_rate != 16000)
+		{
+				throw EXCEPTION("unexpected Romanian Whisper PCM format")
+					.module("PcmSink", "feed")
+					.add("format", frame->format)
+					.add("channels", frame->channels)
+					.add("sampleRate", frame->sample_rate);
+			}
+
+			if (!m_hasFeedCallback)
+				return;
+
+			const float *data =
+				reinterpret_cast<const float *>(frame->data[0]);
+			em::val samples = em::val(emscripten::typed_memory_view(
+				frame->nb_samples, data));
+			m_feedCallback(samples, m_timeBase * frame->pts);
+		}
+
+		virtual void flush()
+		{
+			if (m_hasFlushCallback)
+				m_flushCallback();
+		}
+
+		virtual void discontinuity()
+		{
+			if (m_hasDiscontinuityCallback)
+				m_discontinuityCallback();
+		}
+
+	private:
+		double m_timeBase;
+		em::val m_feedCallback;
+		em::val m_flushCallback;
+		em::val m_discontinuityCallback;
+		bool m_hasFeedCallback;
+		bool m_hasFlushCallback;
+		bool m_hasDiscontinuityCallback;
+};
+
 shared_ptr<Resampler> makeResampler()
 {
 	Resampler *resampler = new Resampler();
@@ -214,6 +305,12 @@ EMSCRIPTEN_BINDINGS(gizmo_media)
 	audioRes.function("connectFormatChangeCallback", &Resampler::connectFormatChangeCallback);
 	audioRes.function("setChannelMap", &Resampler::setChannelMap);
 
+	em::class_<PcmSink, em::base<AVOutput>> pcmSink("PcmSink");
+	pcmSink.smart_ptr_constructor<>("PcmSink", &make_shared<PcmSink>);
+	pcmSink.function("setFeedCallback", &PcmSink::setFeedCallback);
+	pcmSink.function("setFlushCallback", &PcmSink::setFlushCallback);
+	pcmSink.function("setDiscontinuityCallback", &PcmSink::setDiscontinuityCallback);
+
 	em::class_<SpeechRecognition, em::base<AVOutput>> speechRec("SpeechRecognition");
 	speechRec.smart_ptr_constructor<>("SpeechRecognition", &make_shared<SpeechRecognition>);
 	speechRec.function("setParam", &SpeechRecognition::setParam);
@@ -236,6 +333,7 @@ EMSCRIPTEN_BINDINGS(gizmo_media)
 	em::class_<NgramSplitter> ngramSplitter("NgramSplitter");
 	ngramSplitter.smart_ptr_constructor<>("NgramSplitter", &make_shared<NgramSplitter, size_t>);
 	ngramSplitter.function("pushWord", &NgramSplitter::pushWord);
+	ngramSplitter.function("pushWordValues", &pushWordValues<NgramSplitter>);
 	ngramSplitter.function("addWordsListener", &addWordsListener<NgramSplitter>);
 	ngramSplitter.function("connectTranslator", &connectWordSink<NgramSplitter, Translator>);
 
@@ -249,6 +347,7 @@ EMSCRIPTEN_BINDINGS(gizmo_media)
 	translator.smart_ptr_constructor<>("Translator", &make_shared<Translator, shared_ptr<Dictionary>>);
 	translator.function("setMinWordsSim", &Translator::setMinWordsSim);
 	translator.function("pushWord", &Translator::pushWord);
+	translator.function("pushWordValues", &pushWordValues<Translator>);
 	translator.function("addWordsListener", &addWordsListener<Translator>);
 
 	em::enum_<AVSampleFormat> avSampleFormat("AVSampleFormat");
