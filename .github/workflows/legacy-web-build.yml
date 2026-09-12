@@ -144,6 +144,8 @@ jobs:
           fi
 
       - name: Exercise canonical MKV matrix and Romanian SRT through browser WASM
+        env:
+          SUBSYNC2_STRICT_SEEK: "1"
         run: python3 tests/wasm/run-browser-smoke.py
 
       - name: Install pinned neural fixture voice runtime
