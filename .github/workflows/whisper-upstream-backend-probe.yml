@@ -34,14 +34,13 @@ jobs:
           mv web/node_modules/whispercpp-tmp web/node_modules/whispercpp
           test "$(git -C web/node_modules/whispercpp rev-parse HEAD)" = "$WHISPERCPP_SHA"
 
-      - name: Build pinned LLVM WebAssembly image
+      - name: Build modern LLVM WebAssembly image
         shell: bash
         run: |
           set -euxo pipefail
-          cat > /tmp/Dockerfile <<'EOF'
-          FROM trzeci/emscripten:1.39.11-upstream@sha256:32d868121f26ede501bc9ce0f34cb66d7add50826cecc837cf19c785cd006c08
-          EOF
-          docker build -t subsync2-whisper-simd-probe -f /tmp/Dockerfile /tmp
+          docker pull emscripten/emsdk:3.1.50
+          docker tag emscripten/emsdk:3.1.50 subsync2-whisper-simd-probe
+          docker image inspect emscripten/emsdk:3.1.50 --format '{{json .RepoDigests}}'
           docker run --rm subsync2-whisper-simd-probe emcc --version
 
       - name: Prepare single-thread Whisper source
