@@ -61,7 +61,7 @@ jobs:
         run: |
           set -euxo pipefail
           cat > /tmp/Dockerfile <<'EOF'
-          FROM trzeci/emscripten:1.39.11-upstream
+          FROM trzeci/emscripten:1.39.11-upstream@sha256:32d868121f26ede501bc9ce0f34cb66d7add50826cecc837cf19c785cd006c08
           RUN sed -i \
                 -e 's|deb.debian.org/debian|archive.debian.org/debian|g' \
                 -e 's|security.debian.org/debian-security|archive.debian.org/debian-security|g' \
@@ -71,7 +71,6 @@ jobs:
               rm -rf /var/lib/apt/lists/*
           EOF
           docker build --pull -t subsync2-llvm-simd-probe -f /tmp/Dockerfile /tmp
-          docker image inspect trzeci/emscripten:1.39.11-upstream --format '{{json .RepoDigests}}'
           docker run --rm subsync2-llvm-simd-probe emcc --version
 
       - name: Enable SIMD only in probe workspace
