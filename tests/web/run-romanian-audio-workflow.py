@@ -10,7 +10,7 @@ import tempfile
 import threading
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError, sync_playwright
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--browser", choices=("chromium", "webkit"), default="chromium")
@@ -68,11 +68,17 @@ try:
         context = browser.new_context(accept_downloads=True)
         page = context.new_page()
 
+        console_messages = []
         console_errors = []
         page_errors = []
         http_failures = []
         responses = []
-        page.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)
+        def record_console(msg):
+            entry = {"type": msg.type, "text": msg.text}
+            console_messages.append(entry)
+            if msg.type == "error":
+                console_errors.append(msg.text)
+        page.on("console", record_console)
         page.on("pageerror", lambda exc: page_errors.append(str(exc)))
         page.on("response", lambda response: (
             responses.append({"status": response.status, "url": response.url}),
@@ -118,20 +124,42 @@ try:
 
         page.get_by_role("button", name="Start", exact=True).click()
 
-        page.wait_for_function(
-            """() => {
-              const text = document.querySelector('#subsync_app')?.innerText || '';
-              return [
-                'Subtitles synchronized',
-                'No need to synchronize',
-                "Couldn't synchronize",
-                'Synchronization inconclusive',
-                'Synchronization terminated',
-                'Synchronization failed'
-              ].some(value => text.includes(value));
-            }""",
-            timeout=600_000,
-        )
+        try:
+            page.wait_for_function(
+                """() => {
+                  const text = document.querySelector('#subsync_app')?.innerText || '';
+                  return [
+                    'Subtitles synchronized',
+                    'No need to synchronize',
+                    "Couldn't synchronize",
+                    'Synchronization inconclusive',
+                    'Synchronization terminated',
+                    'Synchronization failed'
+                  ].some(value => text.includes(value));
+                }""",
+                timeout=600_000,
+            )
+        except PlaywrightTimeoutError:
+            timeout_details = {
+                "status": "timeout",
+                "browser": args.browser,
+                "url": url,
+                "detectedReferenceLanguage": detected,
+                "appText": page.locator("#subsync_app").inner_text(),
+                "assetTransitions": page.evaluate("window.__roAsrTransitions"),
+                "responses": responses,
+                "consoleMessages": console_messages,
+                "consoleMessages": console_messages,
+            "consoleErrors": console_errors,
+                "pageErrors": page_errors,
+                "httpFailures": http_failures,
+            }
+            RESULT.write_text(
+                json.dumps(timeout_details, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            print(json.dumps(timeout_details, indent=2, ensure_ascii=False))
+            raise
 
         app_text = page.locator("#subsync_app").inner_text()
         if "Subtitles synchronized" not in app_text:
