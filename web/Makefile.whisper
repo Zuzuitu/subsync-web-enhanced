@@ -1,0 +1,58 @@
+WHISPER_SRC_DIR ?= $(abspath deps/src/whispercpp)
+OBJ_DIR ?= $(abspath obj/whisper-simd)
+TARGET_DIR ?= $(abspath scripts)
+TARGET_JS := $(TARGET_DIR)/whisper.js
+TARGET_WASM := $(TARGET_DIR)/whisper.wasm
+
+CFLAGS := -O3 -DNDEBUG -msimd128 -DSUBSYNC2_WHISPER_SINGLE_THREAD=1 -D_XOPEN_SOURCE=600 -I$(WHISPER_SRC_DIR)
+CXXFLAGS := $(CFLAGS) -std=c++14
+
+OBJECTS := \
+	$(OBJ_DIR)/ggml.o \
+	$(OBJ_DIR)/ggml-alloc.o \
+	$(OBJ_DIR)/ggml-backend.o \
+	$(OBJ_DIR)/ggml-quants.o \
+	$(OBJ_DIR)/whisper.o \
+	$(OBJ_DIR)/whisper-simd.o
+
+all: $(TARGET_JS)
+
+$(OBJ_DIR):
+	mkdir -p $@
+
+$(TARGET_DIR):
+	mkdir -p $@
+
+$(OBJ_DIR)/ggml.o: $(WHISPER_SRC_DIR)/ggml.c | $(OBJ_DIR)
+	emcc -c $< -o $@ -std=c11 $(CFLAGS)
+
+$(OBJ_DIR)/ggml-alloc.o: $(WHISPER_SRC_DIR)/ggml-alloc.c | $(OBJ_DIR)
+	emcc -c $< -o $@ -std=c11 $(CFLAGS)
+
+$(OBJ_DIR)/ggml-backend.o: $(WHISPER_SRC_DIR)/ggml-backend.c | $(OBJ_DIR)
+	emcc -c $< -o $@ -std=c11 $(CFLAGS)
+
+$(OBJ_DIR)/ggml-quants.o: $(WHISPER_SRC_DIR)/ggml-quants.c | $(OBJ_DIR)
+	emcc -c $< -o $@ -std=c11 $(CFLAGS)
+
+$(OBJ_DIR)/whisper.o: $(WHISPER_SRC_DIR)/whisper.cpp | $(OBJ_DIR)
+	em++ -c $< -o $@ $(CXXFLAGS)
+
+$(OBJ_DIR)/whisper-simd.o: ../gizmo/wasm/whisper-simd.cpp | $(OBJ_DIR)
+	em++ -c $< -o $@ $(CXXFLAGS)
+
+$(TARGET_JS): $(OBJECTS) | $(TARGET_DIR)
+	em++ -o $@ $(OBJECTS) \
+		-O3 -msimd128 --bind \
+		-s WASM=1 \
+		-s MODULARIZE=1 \
+		-s EXPORT_NAME=whisperGizmo \
+		-s ALLOW_MEMORY_GROWTH=1 \
+		-s ENVIRONMENT=web,worker \
+		-s FILESYSTEM=0 \
+		-s DISABLE_EXCEPTION_CATCHING=0
+
+clean:
+	rm -rf $(OBJ_DIR) $(TARGET_JS) $(TARGET_WASM)
+
+.PHONY: all clean
