@@ -60,9 +60,31 @@ def materialize(asset):
     if cached.is_file():
         shutil.copy2(cached, destination)
     else:
-        request = urllib.request.Request(asset["url"], headers={"User-Agent": "SubSync2-Web-Build"})
-        with urllib.request.urlopen(request, timeout=240) as response, destination.open("wb") as output:
-            shutil.copyfileobj(response, output)
+        urls = [asset["url"]] + list(asset.get("fallbackUrls", []))
+        errors = []
+        for url in urls:
+            partial = destination.with_name(destination.name + ".part")
+            if partial.exists():
+                partial.unlink()
+            try:
+                request = urllib.request.Request(url, headers={"User-Agent": "SubSync2-Web-Build"})
+                with urllib.request.urlopen(request, timeout=240) as response, partial.open("wb") as output:
+                    shutil.copyfileobj(response, output)
+                digest = hashlib.sha256(partial.read_bytes()).hexdigest()
+                if digest != asset["sha256"]:
+                    errors.append(f"{url}: SHA-256 mismatch {digest}")
+                    partial.unlink()
+                    continue
+                partial.replace(destination)
+                break
+            except (OSError, TimeoutError) as exc:
+                if partial.exists():
+                    partial.unlink()
+                errors.append(f"{url}: {type(exc).__name__}: {exc}")
+        else:
+            raise SystemExit(
+                f"Unable to materialize {filename} from pinned sources: " + " | ".join(errors)
+            )
 
     digest = verify(destination, asset["sha256"])
     return {

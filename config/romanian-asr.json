@@ -19,7 +19,10 @@
     "version": "tiny-q5_1@5359861c739e955e79d9a303bcbc70fb988958b1",
     "license": "MIT",
     "language": "ro",
-    "canonicalSubSyncLanguage": "rum"
+    "canonicalSubSyncLanguage": "rum",
+    "fallbackUrls": [
+      "https://github.com/eldanizguluzade/flo-whisper-models/releases/download/v2.0.0/ggml-tiny-q5_1.bin"
+    ]
   },
   "fixtureVoice": {
     "provider": "Piper",
