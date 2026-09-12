@@ -16,10 +16,12 @@ required = [
     "whisper.h",
     "ggml.c",
     "ggml.h",
+    "ggml-impl.h",
     "ggml-alloc.c",
     "ggml-alloc.h",
     "ggml-backend.c",
     "ggml-backend.h",
+    "ggml-backend-impl.h",
     "ggml-quants.c",
     "ggml-quants.h",
 ]
