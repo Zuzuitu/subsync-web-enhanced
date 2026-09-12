@@ -6,21 +6,22 @@ on:
       - feat/romanian-audio-asr
     paths:
       - ".github/workflows/whisper-upstream-backend-probe.yml"
+      - "scripts/prepare-whisper-single-thread.py"
+      - "config/legacy-build-pins.json"
 
 permissions:
   contents: read
 
 jobs:
-  # Experimental compatibility probe; not part of the production build.
-  upstream-backend:
+  whisper-simd:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Load pinned source inputs
+      - name: Load pinned Whisper source
         shell: bash
         run: |
           python3 - <<'PY'
@@ -29,87 +30,95 @@ jobs:
           from pathlib import Path
           pins = json.loads(Path("config/legacy-build-pins.json").read_text())
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as f:
-              print(f'FFMPEG_REF={pins["ffmpeg"]["ref"]}', file=f)
-              print(f'SPHINXBASE_SHA={pins["sphinxbase"]["sha"]}', file=f)
-              print(f'POCKETSPHINX_SHA={pins["pocketsphinx"]["sha"]}', file=f)
               print(f'WHISPERCPP_SHA={pins["whispercpp"]["sha"]}', file=f)
           PY
-
-      - name: Prepare exact native sources
-        shell: bash
-        run: |
-          set -euxo pipefail
           mkdir -p web/node_modules
-          git clone --depth 1 --branch "$FFMPEG_REF" https://github.com/FFmpeg/FFmpeg.git web/node_modules/ffmpeg
-          git -C web/node_modules init sphinxbase-tmp
-          git -C web/node_modules/sphinxbase-tmp remote add origin https://github.com/cmusphinx/sphinxbase.git
-          git -C web/node_modules/sphinxbase-tmp fetch --depth 1 origin "$SPHINXBASE_SHA"
-          git -C web/node_modules/sphinxbase-tmp checkout --detach FETCH_HEAD
-          mv web/node_modules/sphinxbase-tmp web/node_modules/sphinxbase
-          git -C web/node_modules init pocketsphinx-tmp
-          git -C web/node_modules/pocketsphinx-tmp remote add origin https://github.com/cmusphinx/pocketsphinx.git
-          git -C web/node_modules/pocketsphinx-tmp fetch --depth 1 origin "$POCKETSPHINX_SHA"
-          git -C web/node_modules/pocketsphinx-tmp checkout --detach FETCH_HEAD
-          mv web/node_modules/pocketsphinx-tmp web/node_modules/pocketsphinx
           git -C web/node_modules init whispercpp-tmp
           git -C web/node_modules/whispercpp-tmp remote add origin https://github.com/ggml-org/whisper.cpp.git
           git -C web/node_modules/whispercpp-tmp fetch --depth 1 origin "$WHISPERCPP_SHA"
           git -C web/node_modules/whispercpp-tmp checkout --detach FETCH_HEAD
           mv web/node_modules/whispercpp-tmp web/node_modules/whispercpp
+          test "$(git -C web/node_modules/whispercpp rev-parse HEAD)" = "$WHISPERCPP_SHA"
 
-      - name: Build Emscripten 1.39.11 upstream image
+      - name: Build pinned LLVM WebAssembly image
         shell: bash
         run: |
           set -euxo pipefail
           cat > /tmp/Dockerfile <<'EOF'
           FROM trzeci/emscripten:1.39.11-upstream@sha256:32d868121f26ede501bc9ce0f34cb66d7add50826cecc837cf19c785cd006c08
-          RUN sed -i \
-                -e 's|deb.debian.org/debian|archive.debian.org/debian|g' \
-                -e 's|security.debian.org/debian-security|archive.debian.org/debian-security|g' \
-                /etc/apt/sources.list && \
-              apt-get -o Acquire::Check-Valid-Until=false update && \
-              apt-get install -qqy --no-install-recommends automake libtool bison pkg-config && \
-              rm -rf /var/lib/apt/lists/*
           EOF
-          docker build --pull -t subsync2-llvm-simd-probe -f /tmp/Dockerfile /tmp
-          docker run --rm subsync2-llvm-simd-probe emcc --version
+          docker build -t subsync2-whisper-simd-probe -f /tmp/Dockerfile /tmp
+          docker run --rm subsync2-whisper-simd-probe emcc --version
 
-      - name: Enable SIMD only in probe workspace
-        shell: bash
+      - name: Prepare single-thread Whisper source
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path("web/Makefile")
-          text = path.read_text()
-          anchor = "-DSUBSYNC2_WHISPER_SINGLE_THREAD=1 -D_XOPEN_SOURCE=600 -I$(WHISPER_SRC_DIR)"
-          count = text.count(anchor)
-          if count != 5:
-              raise SystemExit(f"Expected five Whisper compile anchors, found {count}")
-          text = text.replace(anchor, "-msimd128 " + anchor)
-          text += "\n# Probe only: require WebAssembly SIMD at final link.\nLDFLAGS += -msimd128\n"
-          path.write_text(text)
-          PY
+          python3 scripts/prepare-whisper-single-thread.py \
+            --source web/node_modules/whispercpp \
+            --destination web/probe/whisper
 
-      - name: Build complete extractor with upstream backend
+      - name: Build isolated single-thread SIMD module
         shell: bash
         run: |
           set -euxo pipefail
+          mkdir -p web/probe/obj
+          cat > web/probe/smoke.cpp <<'CPP'
+          #include "whisper.h"
+          #include <emscripten/bind.h>
+          #include <string>
+
+          static std::string systemInfo() {
+              return whisper_print_system_info();
+          }
+
+          EMSCRIPTEN_BINDINGS(subsync2_whisper_simd_probe) {
+              emscripten::function("systemInfo", &systemInfo);
+          }
+          CPP
+
           docker run --rm \
             -v "$GITHUB_WORKSPACE:/src" \
-            -w /src/web \
-            subsync2-llvm-simd-probe \
-            emmake make -j4
+            -w /src/web/probe \
+            subsync2-whisper-simd-probe \
+            bash -lc '
+              set -euxo pipefail
+              CFLAGS="-O3 -DNDEBUG -msimd128 -DSUBSYNC2_WHISPER_SINGLE_THREAD=1 -D_XOPEN_SOURCE=600 -Iwhisper"
+              emcc -c whisper/ggml.c -o obj/ggml.o -std=c11 $CFLAGS
+              emcc -c whisper/ggml-alloc.c -o obj/ggml-alloc.o -std=c11 $CFLAGS
+              emcc -c whisper/ggml-backend.c -o obj/ggml-backend.o -std=c11 $CFLAGS
+              emcc -c whisper/ggml-quants.c -o obj/ggml-quants.o -std=c11 $CFLAGS
+              em++ -c whisper/whisper.cpp -o obj/whisper.o -std=c++14 $CFLAGS
+              em++ -c smoke.cpp -o obj/smoke.o -std=c++14 $CFLAGS
+              em++ -o whisper-probe.js \
+                obj/ggml.o obj/ggml-alloc.o obj/ggml-backend.o obj/ggml-quants.o obj/whisper.o obj/smoke.o \
+                -O3 -msimd128 --bind \
+                -s WASM=1 -s MODULARIZE=1 -s EXPORT_NAME=whisperProbe \
+                -s ALLOW_MEMORY_GROWTH=1 -s FORCE_FILESYSTEM=1
+            '
 
-      - name: Verify SIMD and unshared memory
+      - name: Verify SIMD module properties
         shell: bash
         run: |
           set -euxo pipefail
-          test -s web/scripts/extractor.wasm
-          python3 tests/wasm/assert-unshared-memory.py web/scripts/extractor.wasm
+          test -s web/probe/whisper-probe.js
+          test -s web/probe/whisper-probe.wasm
+          python3 tests/wasm/assert-unshared-memory.py web/probe/whisper-probe.wasm
           docker run --rm \
             -v "$GITHUB_WORKSPACE:/src" \
-            -w /src/web \
-            subsync2-llvm-simd-probe \
-            wasm-dis scripts/extractor.wasm -o scripts/extractor-upstream-probe.wast
-          grep -m1 -E 'v128|f32x4|i32x4' web/scripts/extractor-upstream-probe.wast
-          sha256sum web/scripts/extractor.wasm
+            -w /src/web/probe \
+            subsync2-whisper-simd-probe \
+            wasm-dis whisper-probe.wasm -o whisper-probe.wast
+          grep -m1 -E 'v128|f32x4|i32x4' web/probe/whisper-probe.wast
+          node - <<'NODE'
+          const factory = require('./web/probe/whisper-probe.js');
+          factory().then(module => {
+            const info = module.systemInfo();
+            console.log(info);
+            if (!info.includes('WASM_SIMD = 1')) {
+              throw new Error('Whisper probe did not report WASM SIMD support');
+            }
+          }).catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+          sha256sum web/probe/whisper-probe.js web/probe/whisper-probe.wasm
