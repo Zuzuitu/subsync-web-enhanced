@@ -7,6 +7,7 @@ import Router from '../router.js';
 import Synchronizer from '../synchro.js';
 import settings from '../settings.js';
 import languages from '../data/languages.json';
+import { makeFailureDiagnosis, stageLabel } from '../diagnostics.js';
 import { timeStampFmt, timeStampFractionFmt, lineFormulaFmt, streamTypeName } from '../utils.js';
 import Logger from '../logger.js';
 const logger = Logger.logger.get('[SyncScreen]');
@@ -18,6 +19,8 @@ export default class SyncScreen {
     this.errors = {};
     this.updateTimer = null;
     this.assetStates = {};
+    this.stageStates = {};
+    this.fatalError = null;
     this.startTime = performance.now();
 
     <div this='el'>
@@ -29,6 +32,14 @@ export default class SyncScreen {
       <div this='assetPanel' class='asset_panel' hidden>
         <strong>Language data</strong>
         <ul this='assetList' />
+      </div>
+      <div this='diagnosticPanel' class='diagnostic_panel' hidden>
+        <strong>Diagnostics</strong>
+        <p>
+          Stage: <span this='diagnosticStage'>-</span>
+        </p>
+        <p this='diagnosticEvidence'>Waiting for processing evidence...</p>
+        <p this='diagnosticReason' class='diagnostic_reason' hidden />
       </div>
       <dl>
         <dt this='errorsTitle' hidden>{i18n`Errors:`}</dt>
@@ -85,6 +96,7 @@ export default class SyncScreen {
       var finished = await Synchronizer.instance.run(sub, ref, this);
     } catch (e) {
       logger.error('run:', e);
+      this.fatalError = e;
       Overlay.showErrorPopup(i18n`Synchronization failed`, e);
       var finished = false;
     }
@@ -153,6 +165,24 @@ export default class SyncScreen {
     }
   }
 
+  onStageUpdate(event) {
+    if (!event || !event.stage) {
+      return;
+    }
+
+    this.stageStates[event.stage] = event;
+    this.diagnosticPanel.hidden = false;
+    const stateText = event.state === 'ready'
+      ? 'ready'
+      : event.state === 'error'
+        ? 'error'
+        : 'running';
+    this.diagnosticStage.textContent = `${stageLabel(event.stage)} — ${stateText}`;
+    setAttr(this.diagnosticStage, {
+      class: event.state === 'error' ? 'sync_fail' : '',
+    });
+  }
+
   onSyncStarted() {
     this.progressBar.value = 0;
     this.setState(i18n`Synchronizing...`);
@@ -179,6 +209,8 @@ export default class SyncScreen {
       this.progressBar.value = status.progress;
     }
 
+    this.renderDiagnosticEvidence(status);
+
     if (status && status.correlated != null) {
       this.points.textContent = status.points;
       this.correlation.textContent = (status.factor * 100).toFixed(2) + ' %';
@@ -202,6 +234,7 @@ export default class SyncScreen {
     clearTimeout(this.updateTimer);
 
     if (status.subReady) {
+      this.diagnosticReason.hidden = true;
       if (status.maxChange && status.maxChange > 0.5) {
         this.setState(i18n`Subtitles synchronized`, true, 'sync_success');
         if (Object.keys(this.errors).length) {
@@ -212,6 +245,7 @@ export default class SyncScreen {
       }
       this.saveBtn.disabled = false;
     } else if (finished) {
+      this.renderFailureDiagnosis(status);
       if (status.points > settings.minPointsNo / 2
         && status.factor > Math.pow(settings.minCorrelation, 10)
         && status.maxDistance < 2 * settings.maxPointDist) {
@@ -220,9 +254,41 @@ export default class SyncScreen {
       } else {
         this.setState(i18n`Couldn't synchronize`, false, 'sync_fail');
       }
+    } else if (this.fatalError) {
+      this.renderFailureDiagnosis(status);
+      this.setState(i18n`Synchronization failed`, false, 'sync_fail');
     } else {
       this.setState(i18n`Synchronization terminated`);
     }
+  }
+
+  renderDiagnosticEvidence(status) {
+    const diagnostics = status && status.diagnostics;
+    if (!diagnostics) {
+      return;
+    }
+    this.diagnosticPanel.hidden = false;
+    const subCount = diagnostics.subtitles || 0;
+    const subWords = diagnostics.subWords || 0;
+    const refWords = diagnostics.refWords || 0;
+    this.diagnosticEvidence.textContent =
+      `Decoded subtitles: ${subCount} · subtitle words: ${subWords} · reference words: ${refWords}`;
+  }
+
+  renderFailureDiagnosis(status) {
+    const diagnosis = makeFailureDiagnosis(status || {}, settings);
+    if (!diagnosis) {
+      return;
+    }
+    this.diagnosticPanel.hidden = false;
+    this.diagnosticStage.textContent = stageLabel(diagnosis.stage);
+    this.diagnosticReason.textContent = `${diagnosis.title}. ${diagnosis.detail}`;
+    this.diagnosticReason.hidden = false;
+    setAttr(this.diagnosticReason, {
+      class: diagnosis.kind === 'error'
+        ? 'diagnostic_reason sync_fail'
+        : 'diagnostic_reason',
+    });
   }
 
   onSyncError(src, err) {
@@ -283,6 +349,32 @@ function parseErrorsDescription(errors) {
 
 function syncErrorToString(source, err) {
   const module = typeof err.module === 'string' ? err.module : '';
+  const stage = err && err.stage;
+
+  if (stage === 'language-assets') {
+    return 'Language data could not be loaded';
+  }
+  if (stage === 'demux') {
+    return source === 'sub'
+      ? 'Could not read the subtitle container'
+      : 'Could not read the reference container';
+  }
+  if (stage === 'audio-decode') {
+    return 'Reference audio decoding failed';
+  }
+  if (stage === 'resampler') {
+    return 'Reference audio resampling failed';
+  }
+  if (stage === 'speech-recognition') {
+    return 'Speech recognition failed';
+  }
+  if (stage === 'dictionary') {
+    return 'Dictionary / translation processing failed';
+  }
+  if (stage === 'correlation') {
+    return 'Correlation failed';
+  }
+
   if (source === 'sub') {
     if (module.startsWith('SubtitleDec.decode')) {
       return i18n`Some subtitles can't be decoded (invalid encoding?)`;

@@ -334,3 +334,26 @@ noscript {
 #subsync_app .language_cache button {
   margin-top: 12px;
 }
+
+
+#subsync_app .diagnostic_panel {
+  margin: 18px 0 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(96, 165, 250, .05);
+}
+
+#subsync_app .diagnostic_panel > strong {
+  color: var(--text);
+}
+
+#subsync_app .diagnostic_panel p {
+  margin: 8px 0 0;
+}
+
+#subsync_app .diagnostic_reason {
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  color: var(--text);
+}
