@@ -3,6 +3,8 @@ import i18n from 'es2015-i18n-tag';
 import { Overlay, OverlayItem } from './overlay.jsx';
 import { infoButton } from './components.jsx';
 import settings from '../settings.js';
+import Synchronizer from '../synchro.js';
+import languages from '../data/languages.json';
 import { version } from '../../version.json';
 
 export default class OptionsPopup extends OverlayItem {
@@ -54,6 +56,14 @@ export default class OptionsPopup extends OverlayItem {
           {infoButton(i18n`Min speech recognition score`, descriptions.minWordProb)}
         </dd>
       </dl>
+      <section class='language_cache'>
+        <h2>Language data</h2>
+        <p this='cacheSummary'>Checking downloaded language data...</p>
+        <ul this='cacheList' />
+        <button this='clearCacheBtn' onclick={this.clearLanguageCache.bind(this)} disabled>
+          Clear downloaded language data
+        </button>
+      </section>
       <p><em>subsync version {version}</em></p>
       <div class='buttons'>
         <button onclick={this.save.bind(this)} class='highlight'>{i18n`OK`}</button>
@@ -65,6 +75,7 @@ export default class OptionsPopup extends OverlayItem {
     this.jobsNo.setDefaultValue(settings.defaultJobsNo);
     this.keys = settings.keys.filter(key => key in this);
     this.init(settings);
+    this.refreshLanguageCache();
   }
 
   init(settings) {
@@ -79,6 +90,56 @@ export default class OptionsPopup extends OverlayItem {
     }
     settings.save();
     this.hide();
+  }
+
+  async refreshLanguageCache() {
+    try {
+      const assets = await Synchronizer.instance.getCachedAssets();
+      this.cacheList.textContent = '';
+
+      if (!assets.length) {
+        this.cacheSummary.textContent = 'No downloaded language data.';
+        this.clearCacheBtn.disabled = true;
+        return;
+      }
+
+      const knownBytes = assets.reduce((sum, asset) => sum + (asset.bytes || 0), 0);
+      const unknownCount = assets.filter(asset => !asset.bytes).length;
+      this.cacheSummary.textContent =
+        `${assets.length} cached package${assets.length === 1 ? '' : 's'}` +
+        (knownBytes ? ` · ${formatBytes(knownBytes)} recorded` : '') +
+        (unknownCount ? ` · ${unknownCount} legacy size unknown` : '');
+
+      for (const asset of assets) {
+        const item = document.createElement('li');
+        item.dataset.cachedAsset = asset.name;
+        item.textContent = assetLabel(asset) +
+          (asset.bytes ? ` · ${formatBytes(asset.bytes)}` : '');
+        this.cacheList.appendChild(item);
+      }
+      this.clearCacheBtn.disabled = false;
+    } catch (error) {
+      this.cacheSummary.textContent = 'Could not read downloaded language data.';
+      this.clearCacheBtn.disabled = true;
+    }
+  }
+
+  async clearLanguageCache() {
+    if (!window.confirm(
+      'Remove downloaded speech models and dictionaries from this browser? They can be downloaded again when needed.'
+    )) {
+      return;
+    }
+
+    this.clearCacheBtn.disabled = true;
+    this.cacheSummary.textContent = 'Clearing downloaded language data...';
+    try {
+      await Synchronizer.instance.clearCachedAssets();
+      await this.refreshLanguageCache();
+    } catch (error) {
+      Overlay.showErrorPopup('Could not clear language data', error);
+      await this.refreshLanguageCache();
+    }
   }
 }
 
@@ -135,4 +196,27 @@ function getDescriptions() {
     minCorrelation: i18n`Minimum correlation factor, between 0.0 and 1.0. Used to determine synchronization result. If correlation factor is smaller than this, synchronization will fail.`,
     minWordProb: i18n`Minimum speech recognition score, between 0.0 and 1.0. Words transcribed with smaller score will be rejected.`,
   }
+}
+
+
+function assetLabel(asset) {
+  const langName = code => {
+    const lang = languages.find(item => item.code3 === code);
+    return lang ? lang.name : code;
+  };
+
+  if (asset.type === 'speech') {
+    return `${langName(asset.params[0])} speech model`;
+  }
+  if (asset.type === 'dict') {
+    return `${asset.params.map(langName).join(' ↔ ')} dictionary`;
+  }
+  return asset.name;
+}
+
+function formatBytes(bytes) {
+  const value = Number(bytes) || 0;
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KiB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MiB`;
 }
