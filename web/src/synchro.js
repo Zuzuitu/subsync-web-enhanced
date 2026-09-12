@@ -216,12 +216,53 @@ export default class Synchronizer {
     }
   }
 
+  recordStage(listener, stage, state, details) {
+    if (!this.diagnostics) return;
+    this.diagnostics.currentStage = stage;
+    this.diagnostics.stages[stage] = {
+      state,
+      ...(details || {}),
+    };
+    if (listener && listener.onStageUpdate) {
+      listener.onStageUpdate({
+        stage,
+        state,
+        ...(details || {}),
+      });
+    }
+  }
+
+  recordError(listener, err) {
+    const stage = err && err.stage
+      ? err.stage
+      : classifyErrorStage(err, 'unknown');
+    const entry = {
+      stage,
+      message: err && err.message ? err.message : String(err),
+      module: err && err.module ? err.module : null,
+    };
+    this.diagnostics.errors.push(entry);
+    this.recordStage(listener, stage, 'error', {
+      message: entry.message,
+      module: entry.module,
+    });
+    return err;
+  }
+
   getStatus() {
     return {
       ...this.status,
       subReady: this.status.correlated && this.gotAllSubs,
       progress: this.getProgress(),
       maxChange: this.subtitles.getMaxChange(this.status.formula),
+      diagnostics: this.diagnostics ? {
+        currentStage: this.diagnostics.currentStage,
+        stages: { ...this.diagnostics.stages },
+        errors: this.diagnostics.errors.slice(),
+        subWords: this.diagnostics.subWords,
+        refWords: this.diagnostics.refWords,
+        subtitles: this.diagnostics.subtitles,
+      } : null,
     }
   }
 
