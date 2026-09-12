@@ -1,0 +1,115 @@
+name: Romanian ASR LLVM SIMD Probe
+
+on:
+  push:
+    branches:
+      - feat/romanian-audio-asr
+    paths:
+      - ".github/workflows/whisper-upstream-backend-probe.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  upstream-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Load pinned source inputs
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          pins = json.loads(Path("config/legacy-build-pins.json").read_text())
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as f:
+              print(f'FFMPEG_REF={pins["ffmpeg"]["ref"]}', file=f)
+              print(f'SPHINXBASE_SHA={pins["sphinxbase"]["sha"]}', file=f)
+              print(f'POCKETSPHINX_SHA={pins["pocketsphinx"]["sha"]}', file=f)
+              print(f'WHISPERCPP_SHA={pins["whispercpp"]["sha"]}', file=f)
+          PY
+
+      - name: Prepare exact native sources
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p web/node_modules
+          git clone --depth 1 --branch "$FFMPEG_REF" https://github.com/FFmpeg/FFmpeg.git web/node_modules/ffmpeg
+          git -C web/node_modules init sphinxbase-tmp
+          git -C web/node_modules/sphinxbase-tmp remote add origin https://github.com/cmusphinx/sphinxbase.git
+          git -C web/node_modules/sphinxbase-tmp fetch --depth 1 origin "$SPHINXBASE_SHA"
+          git -C web/node_modules/sphinxbase-tmp checkout --detach FETCH_HEAD
+          mv web/node_modules/sphinxbase-tmp web/node_modules/sphinxbase
+          git -C web/node_modules init pocketsphinx-tmp
+          git -C web/node_modules/pocketsphinx-tmp remote add origin https://github.com/cmusphinx/pocketsphinx.git
+          git -C web/node_modules/pocketsphinx-tmp fetch --depth 1 origin "$POCKETSPHINX_SHA"
+          git -C web/node_modules/pocketsphinx-tmp checkout --detach FETCH_HEAD
+          mv web/node_modules/pocketsphinx-tmp web/node_modules/pocketsphinx
+          git -C web/node_modules init whispercpp-tmp
+          git -C web/node_modules/whispercpp-tmp remote add origin https://github.com/ggml-org/whisper.cpp.git
+          git -C web/node_modules/whispercpp-tmp fetch --depth 1 origin "$WHISPERCPP_SHA"
+          git -C web/node_modules/whispercpp-tmp checkout --detach FETCH_HEAD
+          mv web/node_modules/whispercpp-tmp web/node_modules/whispercpp
+
+      - name: Build Emscripten 1.39.11 upstream image
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cat > /tmp/Dockerfile <<'EOF'
+          FROM trzeci/emscripten:1.39.11-upstream
+          RUN sed -i \
+                -e 's|deb.debian.org/debian|archive.debian.org/debian|g' \
+                -e 's|security.debian.org/debian-security|archive.debian.org/debian-security|g' \
+                /etc/apt/sources.list && \
+              apt-get -o Acquire::Check-Valid-Until=false update && \
+              apt-get install -qqy --no-install-recommends automake libtool bison pkg-config && \
+              rm -rf /var/lib/apt/lists/*
+          EOF
+          docker build --pull -t subsync2-llvm-simd-probe -f /tmp/Dockerfile /tmp
+          docker image inspect trzeci/emscripten:1.39.11-upstream --format '{{json .RepoDigests}}'
+          docker run --rm subsync2-llvm-simd-probe emcc --version
+
+      - name: Enable SIMD only in probe workspace
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("web/Makefile")
+          text = path.read_text()
+          anchor = "-DSUBSYNC2_WHISPER_SINGLE_THREAD=1 -D_XOPEN_SOURCE=600 -I$(WHISPER_SRC_DIR)"
+          count = text.count(anchor)
+          if count != 5:
+              raise SystemExit(f"Expected five Whisper compile anchors, found {count}")
+          text = text.replace(anchor, "-msimd128 " + anchor)
+          text += "\n# Probe only: require WebAssembly SIMD at final link.\nLDFLAGS += -msimd128\n"
+          path.write_text(text)
+          PY
+
+      - name: Build complete extractor with upstream backend
+        shell: bash
+        run: |
+          set -euxo pipefail
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/src" \
+            -w /src/web \
+            subsync2-llvm-simd-probe \
+            emmake make -j4
+
+      - name: Verify SIMD and unshared memory
+        shell: bash
+        run: |
+          set -euxo pipefail
+          test -s web/scripts/extractor.wasm
+          python3 tests/wasm/assert-unshared-memory.py web/scripts/extractor.wasm
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/src" \
+            -w /src/web \
+            subsync2-llvm-simd-probe \
+            wasm-dis scripts/extractor.wasm -o scripts/extractor-upstream-probe.wast
+          grep -m1 -E 'v128|f32x4|i32x4' web/scripts/extractor-upstream-probe.wast
+          sha256sum web/scripts/extractor.wasm
