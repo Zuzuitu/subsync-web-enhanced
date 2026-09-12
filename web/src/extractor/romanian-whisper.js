@@ -21,13 +21,7 @@ async function getModule() {
       print: logger.log.bind(logger),
       printErr: logger.warn.bind(logger),
     }).then(instance => {
-      const info = instance.whisperSystemInfo();
-      if (!info || !info.includes('WASM_SIMD = 1')) {
-        throw new Error(
-          'Romanian speech recognition requires WebAssembly SIMD support.'
-        );
-      }
-      logger.log('ready', info);
+      logger.log('module ready');
       return instance;
     });
   }
@@ -38,6 +32,14 @@ export default class RomanianSpeechRecognition {
   static async create(modelBytes) {
     const module = await getModule();
     const recognition = new RomanianSpeechRecognition(module);
+    const info = recognition.recognizer.systemInfo();
+    if (!info || !info.includes('WASM_SIMD = 1')) {
+      recognition.delete();
+      throw new Error(
+        'Romanian speech recognition requires WebAssembly SIMD support.'
+      );
+    }
+    logger.log('runtime', info);
     recognition.recognizer.loadModel(modelBytes);
     return recognition;
   }
