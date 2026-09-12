@@ -49,6 +49,9 @@ include_new = """#else
 #if !(defined(__EMSCRIPTEN__) && defined(SUBSYNC2_WHISPER_SINGLE_THREAD))
 #include <pthread.h>
 #endif
+#if defined(__EMSCRIPTEN__)
+#include <sched.h>
+#endif
 #include <stdatomic.h>
 
 typedef void * thread_ret_t;
