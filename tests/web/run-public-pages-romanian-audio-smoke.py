@@ -1,0 +1,255 @@
+#!/usr/bin/env python3
+import json
+import os
+import re
+import shutil
+from pathlib import Path
+
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError, sync_playwright
+
+ROOT = Path(__file__).resolve().parents[2]
+FIXTURE_DIR = ROOT / "tests" / "generated" / "romanian-audio-e2e"
+SRT_IN = FIXTURE_DIR / "target.rum.srt"
+MKV_IN = FIXTURE_DIR / "reference-romanian.mkv"
+RESULT = FIXTURE_DIR / "public-pages-romanian-audio.json"
+SAVED = FIXTURE_DIR / "public-pages-output.rum.srt"
+PREVIEW_URL = os.environ.get(
+    "SUBSYNC2_PREVIEW_URL",
+    "https://zuzuitu.github.io/subsync-web-enhanced/",
+).rstrip("/") + "/"
+MIN_CORRELATION_BUCKETS = 20
+
+
+def parse_srt_start(text):
+    match = re.search(r"(?m)^(\d{2}):(\d{2}):(\d{2}),(\d{3})\s+-->", text)
+    if not match:
+        raise SystemExit("Could not parse first SRT cue timestamp")
+    h, m, s, ms = map(int, match.groups())
+    return h * 3600 + m * 60 + s + ms / 1000
+
+
+browser_path = (
+    shutil.which("google-chrome")
+    or shutil.which("google-chrome-stable")
+    or shutil.which("chromium")
+    or shutil.which("chromium-browser")
+)
+
+fixture = json.loads((FIXTURE_DIR / "fixture.json").read_text(encoding="utf-8"))
+cue_count = len(fixture.get("phrases", []))
+if cue_count <= MIN_CORRELATION_BUCKETS:
+    raise SystemExit(
+        f"Romanian E2E fixture has only {cue_count} cues; "
+        f"canonical correlation requires {MIN_CORRELATION_BUCKETS}"
+    )
+
+with sync_playwright() as p:
+    launch = {
+        "headless": True,
+        "args": ["--no-sandbox", "--disable-dev-shm-usage"],
+    }
+    if browser_path:
+        launch["executable_path"] = browser_path
+    browser = p.chromium.launch(**launch)
+    context = browser.new_context(accept_downloads=True)
+    page = context.new_page()
+
+    console_messages = []
+    console_errors = []
+    page_errors = []
+    http_failures = []
+    responses = []
+
+    def record_console(msg):
+        entry = {"type": msg.type, "text": msg.text}
+        console_messages.append(entry)
+        if msg.type == "error":
+            console_errors.append(msg.text)
+
+    page.on("console", record_console)
+    page.on("pageerror", lambda exc: page_errors.append(str(exc)))
+    page.on(
+        "response",
+        lambda response: (
+            responses.append({"status": response.status, "url": response.url}),
+            http_failures.append({"status": response.status, "url": response.url})
+            if response.status >= 400
+            else None,
+        ),
+    )
+
+    page.goto(PREVIEW_URL, wait_until="load", timeout=60_000)
+    page.wait_for_selector("#subsync_app", timeout=30_000)
+
+    page.evaluate("""() => {
+      window.__roAsrTransitions = [];
+      const record = () => {
+        for (const item of document.querySelectorAll('[data-asset-name="asr/rum"]')) {
+          const value = [item.dataset.assetName, item.dataset.assetState, item.textContent].join('|');
+          if (!window.__roAsrTransitions.includes(value)) {
+            window.__roAsrTransitions.push(value);
+          }
+        }
+      };
+      new MutationObserver(record).observe(document.querySelector('#subsync_app'), {
+        subtree: true, childList: true, attributes: true, characterData: true
+      });
+      record();
+    }""")
+
+    sub_input = page.locator('input[name="streams-group-sub-file"]')
+    ref_input = page.locator('input[name="streams-group-ref-file"]')
+
+    sub_input.set_input_files(str(SRT_IN))
+    sub_group = sub_input.locator("xpath=..")
+    sub_group.locator('input[type="radio"]').first.wait_for(state="attached", timeout=60_000)
+    sub_group.locator("select").first.select_option("rum")
+
+    ref_input.set_input_files(str(MKV_IN))
+    ref_group = ref_input.locator("xpath=..")
+    ref_group.locator('input[type="radio"]').first.wait_for(state="attached", timeout=60_000)
+    ref_select = ref_group.locator("select").first
+    detected = ref_select.input_value()
+    if detected != "rum":
+        raise SystemExit(f"Embedded MKV ron language did not canonicalize to rum: {detected!r}")
+    ref_select.select_option("rum")
+
+    page.get_by_role("button", name="Start", exact=True).click()
+
+    try:
+        page.wait_for_function(
+            """() => {
+              const text = document.querySelector('#subsync_app')?.innerText || '';
+              return [
+                'Subtitles synchronized',
+                'No need to synchronize',
+                "Couldn't synchronize",
+                'Synchronization inconclusive',
+                'Synchronization terminated',
+                'Synchronization failed'
+              ].some(value => text.includes(value));
+            }""",
+            timeout=600_000,
+        )
+    except PlaywrightTimeoutError:
+        details = {
+            "status": "timeout",
+            "url": PREVIEW_URL,
+            "detectedReferenceLanguage": detected,
+            "appText": page.locator("#subsync_app").inner_text(),
+            "assetTransitions": page.evaluate("window.__roAsrTransitions"),
+            "responses": responses,
+            "consoleMessages": console_messages,
+            "consoleErrors": console_errors,
+            "pageErrors": page_errors,
+            "httpFailures": http_failures,
+        }
+        RESULT.write_text(json.dumps(details, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        print(json.dumps(details, indent=2, ensure_ascii=False))
+        raise
+
+    app_text = page.locator("#subsync_app").inner_text()
+    if "Subtitles synchronized" not in app_text:
+        raise SystemExit("Public Pages Romanian audio workflow did not synchronize: " + app_text)
+
+    transitions = page.evaluate("window.__roAsrTransitions")
+    states = [entry.split("|", 2)[1] for entry in transitions]
+    for required in ("downloading", "verifying", "storing", "ready"):
+        if required not in states:
+            raise SystemExit(f"Public Romanian ASR asset lifecycle missed {required}: {states}")
+
+    model_responses = [
+        item
+        for item in responses
+        if item["url"].split("?", 1)[0].endswith("/assets/data/ggml-tiny-q5_1.bin")
+    ]
+    if not any(item["status"] == 200 for item in model_responses):
+        raise SystemExit("Public Pages Romanian Whisper model was not fetched successfully")
+
+    whisper_js = [
+        item
+        for item in responses
+        if item["url"].split("?", 1)[0].endswith("/scripts/whisper.js")
+    ]
+    whisper_wasm = [
+        item
+        for item in responses
+        if item["url"].split("?", 1)[0].endswith("/scripts/whisper.wasm")
+    ]
+    if not any(item["status"] == 200 for item in whisper_js):
+        raise SystemExit("Public Pages whisper.js was not fetched successfully")
+    if not any(item["status"] == 200 for item in whisper_wasm):
+        raise SystemExit("Public Pages whisper.wasm was not fetched successfully")
+
+    evidence_match = re.search(r"reference words:\s*(\d+)", app_text)
+    if not evidence_match:
+        raise SystemExit("Public Romanian audio workflow did not expose reference-word diagnostics")
+    reference_words = int(evidence_match.group(1))
+    if reference_words < 20:
+        raise SystemExit(f"Public Romanian ASR produced too few usable reference words: {reference_words}")
+
+    page.get_by_text("Show details", exact=True).click()
+    details_strong = page.locator("#subsync_app dd:not([hidden]) strong")
+    if details_strong.count() < 5:
+        raise SystemExit(f"Public synchronization details exposed only {details_strong.count()} values")
+    points = details_strong.nth(1).inner_text()
+    correlation = details_strong.nth(2).inner_text()
+    formula = details_strong.nth(3).inner_text()
+    max_change = details_strong.nth(4).inner_text()
+
+    save_button = page.get_by_role("button", name="Save subtitles", exact=True)
+    if save_button.is_disabled():
+        raise SystemExit("Public Romanian audio workflow did not enable subtitle save")
+    save_button.click()
+    popup = page.locator("#subsync_app .popup").last
+    popup.wait_for(state="visible", timeout=10_000)
+    links = popup.locator("a:not(.popup_close)")
+    if links.count() < 1:
+        raise SystemExit("Public save popup did not expose an output format")
+
+    with page.expect_download(timeout=30_000) as download_info:
+        links.first.click()
+    download_info.value.save_as(str(SAVED))
+
+    original = SRT_IN.read_text(encoding="utf-8")
+    output = SAVED.read_text(encoding="utf-8")
+    shift = parse_srt_start(output) - parse_srt_start(original)
+    if not (-9.5 <= shift <= -6.0):
+        raise SystemExit(f"Public Romanian audio saved timing correction out of range: {shift:.3f}s")
+
+    required_diacritics = [
+        "așteaptă", "dimineață", "împreună", "poliția",
+        "mulțumesc", "părintele", "înțelegem", "niciodată",
+    ]
+    missing = [token for token in required_diacritics if token not in output.lower()]
+    if missing:
+        raise SystemExit("Public saved Romanian subtitles lost text/diacritics: " + ", ".join(missing))
+
+    details = {
+        "status": "pass",
+        "browser": "chromium",
+        "url": PREVIEW_URL,
+        "detectedReferenceLanguage": detected,
+        "referenceWords": reference_words,
+        "assetTransitions": transitions,
+        "modelResponses": model_responses,
+        "whisperJsResponses": whisper_js,
+        "whisperWasmResponses": whisper_wasm,
+        "pointsText": points,
+        "correlationText": correlation,
+        "formulaText": formula,
+        "maxChangeText": max_change,
+        "savedTimingShiftSeconds": shift,
+        "romanianDiacriticsVerifiedInSavedSubtitle": required_diacritics,
+        "consoleErrors": console_errors,
+        "pageErrors": page_errors,
+        "httpFailures": http_failures,
+    }
+    RESULT.write_text(json.dumps(details, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    print(json.dumps(details, indent=2, ensure_ascii=False))
+
+    context.close()
+    browser.close()
+
+    if console_errors or page_errors or http_failures:
+        raise SystemExit("Public Romanian audio workflow emitted browser/runtime errors")

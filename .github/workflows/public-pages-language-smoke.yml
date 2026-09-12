@@ -6,12 +6,14 @@ on:
       - "test/public-pages-languages"
     paths:
       - "tests/web/run-public-pages-language-smoke.py"
+      - "tests/web/run-public-pages-romanian-audio-smoke.py"
       - ".github/workflows/public-pages-language-smoke.yml"
   pull_request:
     branches:
       - "main"
     paths:
       - "tests/web/run-public-pages-language-smoke.py"
+      - "tests/web/run-public-pages-romanian-audio-smoke.py"
       - ".github/workflows/public-pages-language-smoke.yml"
   workflow_dispatch:
 
@@ -21,15 +23,17 @@ permissions:
 jobs:
   public-pages-languages:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Playwright Chromium
+      - name: Install browser and Romanian fixture dependencies
         run: |
-          python3 -m pip install --disable-pip-version-check playwright==1.55.0
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python3 -m pip install --disable-pip-version-check playwright==1.55.0 'piper-tts[http]==1.8.0'
           python3 -m playwright install --with-deps chromium
 
       - name: Validate representative non-primary languages on public Pages
@@ -37,11 +41,48 @@ jobs:
           SUBSYNC2_PREVIEW_URL: https://zuzuitu.github.io/subsync-web-enhanced/
         run: python3 tests/web/run-public-pages-language-smoke.py
 
-      - name: Upload public Pages language diagnostics
+      - name: Prepare pinned Romanian fixture voice
+        run: python3 tests/fixtures/prepare-romanian-piper-voice.py
+
+      - name: Start pinned Romanian Piper fixture server
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 -m piper.http_server \
+            -m ro_RO-mihai-medium \
+            --data-dir tests/generated/romanian-piper \
+            --host 127.0.0.1 \
+            --port 5001 \
+            > tests/generated/romanian-audio-e2e/piper-http.log 2>&1 &
+          echo $! > tests/generated/romanian-audio-e2e/piper-http.pid
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:5001/info > tests/generated/romanian-audio-e2e/piper-info.json; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat tests/generated/romanian-audio-e2e/piper-http.log
+          exit 1
+
+      - name: Generate Romanian audio fixture
+        run: python3 tests/fixtures/generate-romanian-audio-e2e.py
+
+      - name: Validate Romanian audio end to end on public Pages
+        env:
+          SUBSYNC2_PREVIEW_URL: https://zuzuitu.github.io/subsync-web-enhanced/
+        run: python3 tests/web/run-public-pages-romanian-audio-smoke.py
+
+      - name: Upload public Pages diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: subsync2-public-pages-language-smoke
-          path: tests/generated/public-pages-language-smoke.json
+          name: subsync2-public-pages-smoke
+          path: |
+            tests/generated/public-pages-language-smoke.json
+            tests/generated/romanian-audio-e2e/public-pages-romanian-audio.json
+            tests/generated/romanian-audio-e2e/public-pages-output.rum.srt
+            tests/generated/romanian-audio-e2e/fixture.json
+            tests/generated/romanian-audio-e2e/piper-info.json
+            tests/generated/romanian-audio-e2e/piper-http.log
           if-no-files-found: warn
           retention-days: 7

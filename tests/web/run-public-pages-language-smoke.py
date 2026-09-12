@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Trigger live Pages validation for release-candidate f7296ad6.
 import json
 import os
 import tempfile
