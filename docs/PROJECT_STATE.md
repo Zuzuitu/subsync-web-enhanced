@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-12 14:42 Europe/Rome
+LAST_UPDATED: 2026-09-12 20:40 Europe/Rome
 
 ## Canonical status
 
@@ -13,7 +13,7 @@ Repository truth overrides chat memory. Before material changes, read:
 
 ## Current handoff checkpoint
 
-Canonical main: `8b4170becbea970b0e5d8801771f90e3a333658a` (merged PRs #17-#20 from this session).
+Canonical main: `d4b441ee87d704e28e4a8a546c6c7176d9613888`. Active Romanian-audio work is in PR #22; repository `main` remains the canonical merged source until that PR is merged.
 
 Public preview: `https://zuzuitu.github.io/subsync-web-enhanced/`.
 Latest successful preview deployment: run `34662280482`, commit `6f32c78e231c0b5711d01231cde2807a3322d627`.
@@ -25,20 +25,21 @@ Completed in this session:
 - fixed the deterministic MKV split-window seek gap;
 - added language asset download/progress/cache management;
 - added evidence-backed stage-specific synchronization diagnostics;
-- added and passed >=128 MiB direct-MKV browser stress in Chromium and iPhone-like WebKit.
+- added and passed >=128 MiB direct-MKV browser stress in Chromium and iPhone-like WebKit;
+- implemented genuine local Romanian audio recognition with a pinned Whisper model and an isolated WebAssembly SIMD module;
+- passed Romanian-audio synchronization end to end in Chromium and iPhone-like WebKit without weakening canonical synchronization thresholds.
 
 Still open:
 - historical real-world failing MKV reproduction requires a representative failing file;
-- genuine Romanian-audio speech recognition is not implemented;
+- physical-iPhone validation of the new Romanian-audio path has not yet been performed;
 - batch/multi-upload remains deferred.
 
 Next sequence:
-1. implement genuine Romanian-audio speech recognition with a pinned redistributable local/browser model;
-2. add deterministic Romanian-audio regression coverage;
-3. run the full release-candidate regression suite;
-4. deliberately deploy the current release candidate to the preview branch;
-5. repeat physical-iPhone validation;
-6. consider batch/multi-upload only after single-file reliability is solid.
+1. finish PR #22 governance/CI cleanup and merge only with all required checks green;
+2. run the full release-candidate regression suite from merged `main`;
+3. deliberately deploy the release candidate to the preview branch;
+4. validate the Romanian-audio workflow on a physical iPhone/Safari device;
+5. consider batch/multi-upload only after single-file reliability is solid.
 
 Production auto-deploy remains disabled.
 
@@ -48,7 +49,7 @@ Revive and modernize sc0ty/SubSync as a browser-first PWA while preserving the o
 
 **Primary near-term workflow: English reference audio + Romanian subtitles.**
 
-Romanian audio speech recognition remains a final-product requirement but is deferred until the main workflow is near completion. Multi-upload is not a near-term priority.
+Genuine Romanian audio speech recognition is implemented in PR #22 through local browser Whisper inference. Multi-upload is not a near-term priority.
 
 ## Repository and governance
 
@@ -69,18 +70,74 @@ Confirmed:
 - embedded Matroska `ron` subtitle metadata is recognized;
 - PR #4 merged to `main` at `a592e12cd0cab30ceacb30b85dbf10ee9598b7fe`.
 
-Romanian audio is not a current blocker. The original sc0ty release has no Romanian PocketSphinx model.
+The original sc0ty release has no Romanian PocketSphinx model. SubSync2 therefore keeps the original PocketSphinx path unchanged for its nine original speech languages and uses an isolated Whisper WebAssembly SIMD module only for canonical Romanian audio (`rum`).
 
 ## Architecture
 
-Primary reference path:
+Primary English reference path:
 `MKV ENG -> WORKERFS -> FFmpeg Demux -> AudioDec -> Resampler -> PocketSphinx ENG -> words`
+
+Romanian reference path:
+`MKV RON/RUM -> WORKERFS -> legacy FFmpeg Demux/AudioDec/Resampler -> PcmSink -> isolated whisper.cpp WASM SIMD -> words`
+
+The Romanian module is single-threaded, requires WebAssembly SIMD, does not require shared WebAssembly memory, and keeps media/model inference local in the browser.
 
 Subtitle path:
 `RO SRT -> SubtitleDec -> original sc0ty ENG<->RO dictionary -> translated comparison words`
 
 Synchronization:
 `reference words + subtitle comparison words -> original SubSync correlator -> timing formula`
+
+## Romanian audio speech recognition
+
+PR #22 implements genuine Romanian reference-audio recognition without
+pretending another PocketSphinx model is Romanian.
+
+Pinned production components:
+- engine: `ggml-org/whisper.cpp` v1.5.4;
+- engine commit: `0b9af32a8b3fa7e2ae5f15a9a08f5b10394993f5`;
+- model: `ggml-tiny-q5_1.bin`;
+- model revision: `5359861c739e955e79d9a303bcbc70fb988958b1`;
+- model SHA-256: `818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7`;
+- model size: 32,152,673 bytes (~30.7 MiB);
+- Romanian canonical language: `rum`, Whisper language: `ro`;
+- isolated toolchain: `emscripten/emsdk:3.1.50`, pinned by container digest in `config/romanian-asr.json`;
+- runtime: single-thread WebAssembly SIMD, no pthread/shared-memory requirement.
+
+The legacy extractor remains on Emscripten 1.39.11-fastcomp. FFmpeg,
+SphinxBase, PocketSphinx and the original nine sc0ty speech models are not
+migrated to the modern LLVM toolchain. A small legacy `PcmSink` bridges
+decoded/resampled 16 kHz mono float PCM to the isolated Romanian Whisper
+module.
+
+Authoritative Romanian-audio evidence:
+- Legacy WebAssembly Build run `34712143001`: **PASS**;
+- product-code evidence head: `ea5f46ca0221ade587257b97c8306f4b63dd10ef`;
+- Chromium Romanian-audio real-PWA E2E: **PASS**;
+- iPhone-like WebKit Romanian-audio real-PWA E2E: **PASS**;
+- canonical synchronization thresholds remained unchanged
+  (`minPointsNo=20`, `minCorrelation=0.9999`, `maxPointDist=2`,
+  `minWordProb=0.3`, `minWordLen=5`, `minWordsSim=0.6`);
+- deterministic fixture: 24 Romanian subtitle cues with a known +8.0 s shift;
+- 132 usable Romanian reference words in both Chromium and WebKit;
+- saved first-cue correction: **-8.372 s** in both browser engines;
+- Romanian diacritics verified in the saved SRT;
+- model lifecycle observed in both engines:
+  download -> SHA-256 verify -> local store -> ready;
+- zero console errors, page errors or HTTP failures in both successful runs.
+
+The earlier 16-cue fixture could never satisfy the unchanged
+`minPointsNo=20` bucket requirement. It reached 16 correlation buckets out
+of 16 possible cues. The regression fixture was corrected to 24 cues instead
+of weakening the product threshold, and the test now refuses fixtures with
+20 or fewer cues.
+
+These browser runs are strong compatibility evidence but do **not** constitute
+a physical-iPhone test of Romanian audio. Physical iPhone/Safari validation is
+still required after deliberate preview deployment.
+
+Third-party license notices for the Romanian path are recorded in
+`THIRD_PARTY_NOTICES.md`.
 
 ## Pinned primary-workflow assets
 
@@ -263,6 +320,7 @@ Legacy WebAssembly is reproducible in GitHub Actions:
 Outputs:
 - `extractor.js/.wasm`
 - `correlator.js/.wasm`
+- `whisper.js/.wasm` (Romanian-only isolated SIMD module)
 
 Compatibility note: Emscripten 1.39.11 MODULARIZE returns a legacy thenable. Keep the instance wrapped as `{ instance }` across Promise/async boundaries.
 
@@ -337,7 +395,7 @@ Completed additionally:
 Next:
 19. expand realistic MKV coverage;
 20. reproduce/isolate the historical real-world direct-MKV failure class if a representative file is available;
-21. return to Romanian-audio support near completion.
+21. genuine Romanian-audio support is implemented and covered by Chromium/WebKit real-PWA E2E; physical-iPhone Romanian-audio validation remains.
 
 ## Mobile WebKit / iPhone-like compatibility
 
@@ -430,8 +488,8 @@ Completed additionally:
 25. explicit >=128 MiB direct-MKV browser stress coverage in Chromium and iPhone-like WebKit, with process-RSS baselines.
 
 Next:
-26. implement genuine Romanian-audio speech recognition with a pinned, redistributable local/browser model;
-27. perform final release-candidate regression + deliberate preview deployment and physical-iPhone validation;
+26. genuine Romanian-audio speech recognition implemented with pinned local/browser Whisper and deterministic Chromium/WebKit coverage;
+27. perform final release-candidate regression + deliberate preview deployment and physical-iPhone validation of the Romanian-audio path;
 28. consider batch/multi-upload only after single-file reliability is solid.
 
 ## Language asset UX and cache management
@@ -542,7 +600,7 @@ Improvement order agreed:
 2. expand realistic MKV reliability coverage: H.264/H.265 container combinations, stereo/5.1, AAC/AC3/E-AC3, multiple tracks, seeking, long files, memory pressure and unusual metadata;
 3. improve model/dictionary UX: required asset, download size/progress, locally cached state and cache cleanup;
 4. improve diagnostics so failures identify the actual stage (demux, decode, audio, speech model, dictionary, correlation) instead of only generic errors;
-5. add genuine Romanian-audio speech recognition near completion rather than pretending another model is Romanian;
+5. preserve the implemented genuine Romanian-audio Whisper path and its deterministic Chromium/WebKit regressions;
 6. consider multi-upload/batch only after the single-file path is demonstrably reliable.
 
 Original-language compatibility is now a project guardrail: future work must not silently drop the original pinned speech/dictionary catalog while improving SubSync2.
@@ -551,4 +609,4 @@ Original-language compatibility is now a project guardrail: future work must not
 
 - historical real-world MKV failure class is not yet reproduced;
 - not every original language/model pair has a dedicated full synchronization E2E, despite the complete signed catalog now being deployed;
-- Romanian audio speech recognition remains deferred until the main workflow is near completion.
+- physical-iPhone/Safari validation of Romanian audio remains pending until a deliberate preview release candidate is deployed.
