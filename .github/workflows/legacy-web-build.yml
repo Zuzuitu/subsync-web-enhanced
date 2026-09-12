@@ -14,6 +14,7 @@ on:
       - "config/legacy-build-pins.json"
       - "config/test-fixture-pins.json"
       - "config/english-romanian-assets.json"
+      - "config/romanian-asr.json"
       - "config/sc0ty-assets-public-key.pem"
       - "scripts/generate-web-metadata.py"
       - "scripts/mirror-upstream-assets.py"
@@ -227,6 +228,42 @@ jobs:
       - name: Exercise primary workflow through real PWA UI
         run: python3 tests/web/run-primary-workflow.py
 
+      - name: Prepare pinned Romanian fixture voice
+        run: python3 tests/fixtures/prepare-romanian-piper-voice.py
+
+      - name: Start pinned Romanian Piper fixture server
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 -m piper.http_server \
+            -m ro_RO-mihai-medium \
+            --data-dir tests/generated/romanian-piper \
+            --host 127.0.0.1 \
+            --port 5001 \
+            > tests/generated/romanian-audio-e2e/piper-http.log 2>&1 &
+          echo $! > tests/generated/romanian-audio-e2e/piper-http.pid
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:5001/info > tests/generated/romanian-audio-e2e/piper-info.json; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat tests/generated/romanian-audio-e2e/piper-http.log
+          exit 1
+
+      - name: Generate Romanian audio and offset Romanian subtitles
+        run: python3 tests/fixtures/generate-romanian-audio-e2e.py
+
+      - name: Exercise Romanian audio through real PWA UI
+        run: python3 tests/web/run-romanian-audio-workflow.py --browser chromium
+
+      - name: Install Playwright WebKit for Romanian ASR regression
+        run: python3 -m playwright install --with-deps webkit
+
+      - name: Exercise Romanian audio with iPhone-like WebKit
+        run: python3 tests/web/run-romanian-audio-workflow.py --browser webkit
+
+
       - name: Upload WebAssembly artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -287,5 +324,13 @@ jobs:
             tests/generated/web-upstream-assets-smoke.json
             tests/generated/web-primary-workflow.json
             tests/generated/web-primary-workflow-output.srt
+            tests/generated/romanian-audio-e2e/chromium-romanian-audio.json
+            tests/generated/romanian-audio-e2e/chromium-output.rum.srt
+            tests/generated/romanian-audio-e2e/webkit-romanian-audio.json
+            tests/generated/romanian-audio-e2e/webkit-output.rum.srt
+            tests/generated/romanian-audio-e2e/fixture.json
+            tests/generated/romanian-audio-e2e/piper-fixture.json
+            tests/generated/romanian-audio-e2e/piper-info.json
+            tests/generated/romanian-audio-e2e/piper-http.log
           if-no-files-found: warn
           retention-days: 7
