@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -42,13 +43,21 @@ for name, description in upstream_index.items():
         raise SystemExit(f"Unexpected asset type for {name}: {description.get('type')}")
     if not description.get("url") or not description.get("version"):
         raise SystemExit(f"Incomplete upstream asset metadata for {name}")
+
+    filename = Path(urllib.parse.urlparse(description["url"]).path).name
+    expected_filename = name.replace("/", "-") + ".zip"
+    if filename != expected_filename:
+        raise SystemExit(
+            f"Unexpected upstream filename for {name}: {filename} != {expected_filename}"
+        )
+
+    # Browser assets stay same-origin. The deployment workflow mirrors and verifies
+    # the pinned original sc0ty packages into this path on deliberate Pages deploys.
     assets[name] = {
         "type": description["type"],
-        "url": description["url"],
+        "url": f"assets/data/{filename}",
         "version": description["version"],
     }
-    if description.get("sig"):
-        assets[name]["sig"] = description["sig"]
 
 speech_assets = sorted(name for name in assets if name.startswith("speech/"))
 dict_assets = sorted(name for name in assets if name.startswith("dict/"))
@@ -74,27 +83,18 @@ if len(dict_assets) != 217:
         f"Pinned upstream dictionary catalog changed unexpectedly: {len(dict_assets)} != 217"
     )
 
-# Keep the primary ENG -> RO path same-origin and SHA-verified in the staged PWA.
-primary_overrides = {
-    "dict/eng-rum": {
-        "filename": cfg["dictionaryEnglishRomanian"]["filename"],
-        "version": cfg["dictionaryEnglishRomanian"]["version"],
-    },
-    "speech/eng": {
-        "filename": cfg["speechEnglish"]["filename"],
-        "version": cfg["speechEnglish"]["version"],
-    },
+primary_versions = {
+    "dict/eng-rum": cfg["dictionaryEnglishRomanian"]["version"],
+    "speech/eng": cfg["speechEnglish"]["version"],
 }
-
-for name, override in primary_overrides.items():
+for name, expected_version in primary_versions.items():
     if name not in assets:
         raise SystemExit(f"Pinned upstream catalog is missing required primary asset: {name}")
-    if assets[name]["version"] != override["version"]:
+    if assets[name]["version"] != expected_version:
         raise SystemExit(
             f'Pinned upstream version mismatch for {name}: '
-            f'{assets[name]["version"]} != {override["version"]}'
+            f'{assets[name]["version"]} != {expected_version}'
         )
-    assets[name]["url"] = f'assets/data/{override["filename"]}'
 
 version = {
     "version": args.version,
@@ -122,7 +122,7 @@ print(
             "speechAssets": speech_assets,
             "speechCount": len(speech_assets),
             "dictionaryCount": len(dict_assets),
-            "primaryLocalAssets": sorted(primary_overrides),
+            "sameOriginAssetCount": len(assets),
             "version": version,
         },
         indent=2,
