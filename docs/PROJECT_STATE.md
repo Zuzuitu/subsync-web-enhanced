@@ -13,12 +13,12 @@ Repository truth overrides chat memory. Before material changes, read:
 
 ## Current handoff checkpoint
 
-Canonical main: `d4b441ee87d704e28e4a8a546c6c7176d9613888`. Active Romanian-audio work is in PR #22; repository `main` remains the canonical merged source until that PR is merged.
+Romanian-ASR functional merge on `main`: `146aaaf9ec7f45d46e625644be30f4aa12108b0d` (PR #22, `Add genuine local Romanian audio recognition`). For the current `main` tip, always read the repository at session start rather than relying on a checkpoint-pinned tip SHA.
 
 Public preview: `https://zuzuitu.github.io/subsync-web-enhanced/`.
 Latest successful preview deployment: run `34662280482`, commit `6f32c78e231c0b5711d01231cde2807a3322d627`.
 
-The public preview is intentionally behind current main. It includes the restored original-language catalog, but not the later runtime/UI changes from PR #17 (language download/cache UX) and PR #18 (stage-specific diagnostics). Do not claim those changes are live until a deliberate preview deployment is performed and verified.
+The public preview is intentionally behind current main. It includes the restored original-language catalog, but not the later runtime/UI changes from PR #17 (language download/cache UX), PR #18 (stage-specific diagnostics), nor the merged Romanian-audio Whisper path from PR #22. Do not claim those changes are live until a deliberate preview deployment is performed and verified.
 
 Completed in this session:
 - restored and validated the original sc0ty language catalog;
@@ -34,7 +34,8 @@ Still open:
 - physical-iPhone validation of the new Romanian-audio path has not yet been performed;
 - batch/multi-upload remains deferred.
 
-Final PR #22 governance head before merge: `1ce2ced6a9800705cca83d1bf7f186744e0dca4b`.
+PR #22 merged to `main` at `146aaaf9ec7f45d46e625644be30f4aa12108b0d`.
+Final PR #22 governance head before the docs-only handoff update: `1ce2ced6a9800705cca83d1bf7f186744e0dca4b`.
 
 Final all-green validation on that head:
 - Legacy WebAssembly Build run `34712933245`: **PASS**;
@@ -49,9 +50,9 @@ E2E, PWA staging, Romanian-audio Chromium E2E, and Romanian-audio
 iPhone-like WebKit E2E on the final governance head.
 
 Next sequence:
-1. merge PR #22 now that the final PR head has all required checks green;
-2. run the full release-candidate regression suite from merged `main`;
-3. deliberately deploy the release candidate to the preview branch;
+1. run the full release-candidate regression suite from merged `main`;
+2. deliberately deploy the release candidate to the preview branch;
+3. verify the preview deployment and the Romanian-audio path in the real Pages environment;
 4. validate the Romanian-audio workflow on a physical iPhone/Safari device;
 5. consider batch/multi-upload only after single-file reliability is solid.
 
@@ -63,7 +64,7 @@ Revive and modernize sc0ty/SubSync as a browser-first PWA while preserving the o
 
 **Primary near-term workflow: English reference audio + Romanian subtitles.**
 
-Genuine Romanian audio speech recognition is implemented in PR #22 through local browser Whisper inference. Multi-upload is not a near-term priority.
+Genuine Romanian audio speech recognition was merged through PR #22 and runs through local browser Whisper inference. Multi-upload is not a near-term priority.
 
 ## Repository and governance
 
@@ -104,7 +105,7 @@ Synchronization:
 
 ## Romanian audio speech recognition
 
-PR #22 implements genuine Romanian reference-audio recognition without
+PR #22 merged genuine Romanian reference-audio recognition without
 pretending another PocketSphinx model is Romanian.
 
 Pinned production components:
