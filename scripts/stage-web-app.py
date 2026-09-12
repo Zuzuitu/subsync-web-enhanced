@@ -11,6 +11,7 @@ WEB = ROOT / "web"
 PUBLIC = WEB / "public"
 DIST = WEB / "dist"
 CONFIG = ROOT / "config" / "english-romanian-assets.json"
+ROMANIAN_ASR_CONFIG = ROOT / "config" / "romanian-asr.json"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--hash", required=True)
@@ -18,6 +19,7 @@ parser.add_argument("--asset-cache", default="tests/generated/en-ro-e2e")
 args = parser.parse_args()
 
 cfg = json.loads(CONFIG.read_text(encoding="utf-8"))
+romanian_asr = json.loads(ROMANIAN_ASR_CONFIG.read_text(encoding="utf-8"))
 cache_dir = ROOT / args.asset_cache
 
 if DIST.exists():
@@ -72,6 +74,7 @@ def materialize(asset):
 materialized = [
     materialize(cfg["speechEnglish"]),
     materialize(cfg["dictionaryEnglishRomanian"]),
+    materialize(romanian_asr["model"]),
 ]
 
 sw = (PUBLIC / "sw.js.in").read_text(encoding="utf-8").replace("__BUILD_HASH__", args.hash[:16])
