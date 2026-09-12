@@ -103,7 +103,11 @@ class Extractor {
     try {
       const path = this.mountFile(stream.file);
       this.pipeline = new Pipeline(path);
-      this.timeWindow = params.timeWindow || [ 0, undefined ];
+      this.timeWindows = params.timeWindows && params.timeWindows.length
+        ? params.timeWindows
+        : [ params.timeWindow || [ 0, undefined ] ];
+      this.windowIndex = 0;
+      this.timeWindow = this.timeWindows[0];
       this.words = [];
       this.subtitles = [];
 
@@ -112,6 +116,7 @@ class Extractor {
       if (stream.type === 'audio' && stream.lang === 'rum') {
         const model = Assets.getBinaryAsset({ type: 'asr', params: [ 'rum' ] });
         romanianSpeechRec = await RomanianSpeechRecognition.create(model);
+        this.romanianSpeechRec = romanianSpeechRec;
       }
 
       const output = this.pipeline.makePipeline(
@@ -123,11 +128,7 @@ class Extractor {
         this.pipeline.addSubsListener( subtitle => this.subtitles.push(subtitle) );
       }
 
-      const demux = this.pipeline.demux;
-      if (this.timeWindow[0]) {
-        demux.seek(this.timeWindow[0]);
-      }
-      demux.start();
+      this.startCurrentWindow();
 
     } catch (e) {
       this.close();
@@ -135,18 +136,72 @@ class Extractor {
     }
   }
 
+  startCurrentWindow() {
+    const demux = this.pipeline.demux;
+    const startTime = this.timeWindow[0] || 0;
+    if (startTime) {
+      demux.seek(startTime);
+    }
+    demux.start();
+  }
+
+  advanceTimeWindow() {
+    if (this.windowIndex + 1 >= this.timeWindows.length) {
+      return false;
+    }
+
+    if (this.romanianSpeechRec) {
+      this.romanianSpeechRec.discontinuity();
+    }
+
+    const demux = this.pipeline.demux;
+    demux.stop();
+    this.windowIndex += 1;
+    this.timeWindow = this.timeWindows[this.windowIndex];
+    const startTime = this.timeWindow[0] || 0;
+    if (startTime) {
+      demux.seek(startTime);
+    }
+    demux.start();
+    return true;
+  }
+
+  getWindowProgress(position) {
+    const [ startTime, endTime ] = this.timeWindow;
+    const windowEnd = endTime == null ? this.pipeline.demux.getDuration() : endTime;
+    const den = windowEnd - startTime;
+    const current = den ? Math.max(0, Math.min(1, (position - startTime) / den)) : 1;
+    return (this.windowIndex + current) / this.timeWindows.length;
+  }
+
   async run(timeout) {
     try{
       const demux = this.pipeline.demux;
-      const [ startTime, endTime ] = this.timeWindow;
       const ts = performance.now();
       const status = { progress: 1, done: true };
+      let finished = false;
 
-      while (demux.step() && (endTime == null || demux.getPosition() < endTime)) {
+      while (!finished) {
+        const [ , endTime ] = this.timeWindow;
+        if (endTime != null && demux.getPosition() >= endTime) {
+          if (this.advanceTimeWindow()) {
+            status.done = false;
+            continue;
+          }
+          if (this.romanianSpeechRec) {
+            this.romanianSpeechRec.discontinuity();
+          }
+          finished = true;
+          break;
+        }
+
+        if (!demux.step()) {
+          finished = true;
+          break;
+        }
+
         if (timeout != null && (performance.now() - ts) >= timeout) {
-          const num = demux.getPosition() - startTime;
-          const den = (endTime || demux.getDuration()) - startTime;
-          status.progress = den ? num/den : 0;
+          status.progress = this.getWindowProgress(demux.getPosition());
           status.done = false;
           break;
         }
@@ -161,7 +216,10 @@ class Extractor {
         this.subtitles = [];
       }
 
-      status.done && logger.log('finished');
+      if (status.done) {
+        status.progress = 1;
+        logger.log('finished');
+      }
       return status;
 
     } catch (e) {
@@ -175,6 +233,9 @@ class Extractor {
       this.pipeline.destroy();
       this.pipeline = undefined;
       this.timeWindow = undefined;
+      this.timeWindows = undefined;
+      this.windowIndex = undefined;
+      this.romanianSpeechRec = undefined;
       Gizmo.instance.FS.unmount('/work');
     }
   }
