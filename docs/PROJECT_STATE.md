@@ -150,6 +150,29 @@ Confirmed deployment evidence:
 
 This means the public preview now publishes the complete pinned original sc0ty speech/dictionary catalog. It does **not** mean every one of the 226 packages has individually passed a full synchronization E2E; representative non-primary loading is validated, while full per-language behavioral coverage remains future work.
 
+### Public Pages representative-language validation
+
+Live public Pages smoke run `34663120776`: **PASS** against `https://zuzuitu.github.io/subsync-web-enhanced/`.
+
+The test first validated the deployed mirror manifest itself:
+- 226 packages present;
+- 528,928,835 bytes total;
+- pinned asset-index SHA-256 matched;
+- pinned sc0ty signing-key SHA-256 matched;
+- every manifest entry reported signature verification.
+
+The actual deployed PWA then exercised both dictionary-loading and speech-model-loading paths for three non-primary languages:
+- Italian: `dict-eng-ita.zip` HTTP 200 and `speech-ita.zip` HTTP 200;
+- French: `dict-eng-fre.zip` HTTP 200 and `speech-fre.zip` HTTP 200;
+- Spanish: `dict-eng-spa.zip` HTTP 200 and `speech-spa.zip` HTTP 200.
+
+Across all six live asset-loading paths:
+- zero console errors;
+- zero page errors;
+- same-origin public Pages asset delivery succeeded.
+
+The test fixtures are intentionally tiny and the audio fixtures are silence, so their final UI state is `Couldn't synchronize`. This is expected and is **not** evidence of a language failure. This live smoke proves public deployment, lookup, download, extraction/model initialization paths for representative non-primary languages; it does not claim full recognition/correlation E2E for those languages.
+
 ## Original historical MKV issue
 
 Historical observation: some direct MKV + SRT files failed while extracted audio + the same SRT succeeded.
@@ -327,8 +350,10 @@ Completed additionally:
 18. successful public HTTPS deployment;
 19. physical iPhone/Safari validation reported successful by the user.
 
+Completed additionally:
+20. representative non-primary language validation against the live public Pages preview (Italian, French, Spanish dictionary + speech asset paths).
+
 Next:
-20. validate representative non-primary languages against the public Pages preview;
 21. expand realistic MKV coverage;
 22. improve language-asset download/cache UX;
 23. add stage-specific synchronization diagnostics;

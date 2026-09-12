@@ -1,0 +1,47 @@
+name: Public Pages Language Smoke
+
+on:
+  push:
+    branches:
+      - "test/public-pages-languages"
+    paths:
+      - "tests/web/run-public-pages-language-smoke.py"
+      - ".github/workflows/public-pages-language-smoke.yml"
+  pull_request:
+    branches:
+      - "main"
+    paths:
+      - "tests/web/run-public-pages-language-smoke.py"
+      - ".github/workflows/public-pages-language-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-pages-languages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Playwright Chromium
+        run: |
+          python3 -m pip install --disable-pip-version-check playwright==1.55.0
+          python3 -m playwright install --with-deps chromium
+
+      - name: Validate representative non-primary languages on public Pages
+        env:
+          SUBSYNC2_PREVIEW_URL: https://zuzuitu.github.io/subsync-web-enhanced/
+        run: python3 tests/web/run-public-pages-language-smoke.py
+
+      - name: Upload public Pages language diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: subsync2-public-pages-language-smoke
+          path: tests/generated/public-pages-language-smoke.json
+          if-no-files-found: warn
+          retention-days: 7
