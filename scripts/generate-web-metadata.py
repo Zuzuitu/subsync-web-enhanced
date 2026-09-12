@@ -8,6 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "config" / "english-romanian-assets.json"
+ROMANIAN_ASR_CONFIG = ROOT / "config" / "romanian-asr.json"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--hash", required=True)
@@ -15,6 +16,7 @@ parser.add_argument("--version", default="2.0.0-dev")
 args = parser.parse_args()
 
 cfg = json.loads(CONFIG.read_text(encoding="utf-8"))
+romanian_asr = json.loads(ROMANIAN_ASR_CONFIG.read_text(encoding="utf-8"))
 
 
 def download_pinned_json(spec):
@@ -96,6 +98,14 @@ for name, expected_version in primary_versions.items():
             f'{assets[name]["version"]} != {expected_version}'
         )
 
+romanian_model = romanian_asr["model"]
+assets["asr/rum"] = {
+    "type": "binary",
+    "url": "assets/data/" + romanian_model["filename"],
+    "version": romanian_model["version"],
+    "sha256": romanian_model["sha256"],
+}
+
 version = {
     "version": args.version,
     "hash": args.hash,
@@ -123,6 +133,7 @@ print(
             "speechCount": len(speech_assets),
             "dictionaryCount": len(dict_assets),
             "sameOriginAssetCount": len(assets),
+            "romanianAsrAsset": assets["asr/rum"],
             "version": version,
         },
         indent=2,

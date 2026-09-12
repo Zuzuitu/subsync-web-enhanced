@@ -26,7 +26,8 @@
     "attributionSurfaces": [
       "README.md",
       "credits/about surface when introduced"
-    ]
+    ],
+    "thirdPartyNotices": "THIRD_PARTY_NOTICES.md"
   },
   "workflow": {
     "materialChanges": [
@@ -56,7 +57,11 @@
       ],
       "preserveDiacritics": true,
       "audioSpeechRecognitionNearTermPriority": false,
-      "audioSpeechRecognitionDeferredUntilNearCompletion": true
+      "audioSpeechRecognitionDeferredUntilNearCompletion": false,
+      "audioSpeechRecognitionImplemented": true,
+      "audioSpeechRecognitionLocalBrowserOnly": true,
+      "audioSpeechRecognitionEngine": "whisper.cpp",
+      "audioSpeechRecognitionSharedMemoryRequired": false
     },
     "primaryWorkflow": {
       "referenceAudioLanguage": "English",
@@ -132,6 +137,15 @@
       ],
       "physicalIPhoneClaimRequiresPhysicalDeviceEvidence": true,
       "rssMetricIsProcessTreeBaselineNotTabMemory": true
+    },
+    "romanianAudioEndToEnd": {
+      "required": true,
+      "browsers": [
+        "Chromium",
+        "iPhone-like WebKit"
+      ],
+      "preserveCanonicalThresholds": true,
+      "physicalIPhoneClaimRequiresPhysicalDeviceEvidence": true
     }
   },
   "deployment": {

@@ -60,6 +60,12 @@ export default class Assets {
     return Gizmo.instance.FS.readFile(path, {encoding: 'utf8'});
   }
 
+  static getBinaryAsset(asset) {
+    const path = Assets.getAssetPath(asset);
+    logger.log(`loading binary asset ${Assets.getAssetName(asset)} from "${path}"`);
+    return Gizmo.instance.FS.readFile(path);
+  }
+
   static getAssetName({type, params}) {
     return `${type}/${params.join('-')}`;
   }
@@ -98,17 +104,27 @@ export default class Assets {
     if (Filesystem.isFile(path)) {
       const metadata = Assets.readCacheMetadata();
       const cached = metadata[name] || {};
-      report({
-        state: 'cached',
-        cached: true,
-        loadedBytes: cached.bytes || null,
-        totalBytes: cached.bytes || null,
-      });
-      return {
-        name,
-        state: 'cached',
-        bytes: cached.bytes || null,
-      };
+      const versionMatches = cached.version === description.version;
+      const metadataRequired = description.type === 'binary' || !!cached.version;
+
+      if (!metadataRequired || versionMatches) {
+        report({
+          state: 'cached',
+          cached: true,
+          loadedBytes: cached.bytes || null,
+          totalBytes: cached.bytes || null,
+        });
+        return {
+          name,
+          state: 'cached',
+          bytes: cached.bytes || null,
+        };
+      }
+
+      logger.log(`cached asset ${name} is stale, replacing ${cached.version || 'unknown'} with ${description.version}`);
+      Filesystem.removeFileIfExists(path);
+      delete metadata[name];
+      Assets.writeCacheMetadata(metadata);
     }
 
     report({
@@ -121,13 +137,34 @@ export default class Assets {
       report({ state: 'downloading', cached: false, ...progress });
     });
 
-    report({
-      state: 'extracting',
-      cached: false,
-      loadedBytes: data.byteLength,
-      totalBytes: data.byteLength,
-    });
-    await Assets.extractAsset(data);
+    if (description.sha256) {
+      report({
+        state: 'verifying',
+        cached: false,
+        loadedBytes: data.byteLength,
+        totalBytes: data.byteLength,
+      });
+      await Assets.verifySha256(data, description.sha256);
+    }
+
+    if (description.type === 'binary') {
+      report({
+        state: 'storing',
+        cached: false,
+        loadedBytes: data.byteLength,
+        totalBytes: data.byteLength,
+      });
+      Filesystem.mkdirIfNotExist(Filesystem.join(ASSETS_DIR, asset.type));
+      Gizmo.instance.FS.writeFile(path, data);
+    } else {
+      report({
+        state: 'extracting',
+        cached: false,
+        loadedBytes: data.byteLength,
+        totalBytes: data.byteLength,
+      });
+      await Assets.extractAsset(data);
+    }
 
     if (asset.type === 'speech') {
       const FS = Gizmo.instance.FS;
@@ -160,6 +197,19 @@ export default class Assets {
       state: 'ready',
       bytes: data.byteLength,
     };
+  }
+
+  static async verifySha256(data, expected) {
+    if (!globalThis.crypto || !globalThis.crypto.subtle) {
+      throw new Error('Browser SHA-256 support is unavailable for Romanian speech model verification.');
+    }
+    const digest = await globalThis.crypto.subtle.digest('SHA-256', data);
+    const actual = Array.from(new Uint8Array(digest))
+      .map(byte => byte.toString(16).padStart(2, '0'))
+      .join('');
+    if (actual !== expected.toLowerCase()) {
+      throw new Error(`SHA-256 mismatch for downloaded language asset: ${actual} != ${expected}`);
+    }
   }
 
   static async extractAsset(data) {
@@ -249,6 +299,7 @@ export default class Assets {
 
     Filesystem.removeTree(Filesystem.join(ASSETS_DIR, 'dict'));
     Filesystem.removeTree(Filesystem.join(ASSETS_DIR, 'speech'));
+    Filesystem.removeTree(Filesystem.join(ASSETS_DIR, 'asr'));
     Filesystem.removeFileIfExists(CACHE_METADATA_PATH);
 
     return {

@@ -140,6 +140,12 @@ export default class SyncScreen {
     } else if (event.state === 'extracting') {
       this.setState('Extracting language data...');
       this.progressBar.value = 1;
+    } else if (event.state === 'verifying') {
+      this.setState('Verifying language data...');
+      this.progressBar.value = 1;
+    } else if (event.state === 'storing') {
+      this.setState('Storing language data locally...');
+      this.progressBar.value = 1;
     } else if (event.state === 'cached') {
       this.setState('Using cached language data...');
       this.progressBar.value = 1;
@@ -402,6 +408,9 @@ function assetLabel(asset) {
   if (asset.type === 'speech') {
     return `${langName(asset.params[0])} speech model`;
   }
+  if (asset.type === 'asr') {
+    return `${langName(asset.params[0])} local speech model (Whisper)`;
+  }
   if (asset.type === 'dict') {
     return `${asset.params.map(langName).join(' ↔ ')} dictionary`;
   }
@@ -420,6 +429,12 @@ function assetStateText(event) {
   }
   if (event.state === 'extracting') {
     return 'Extracting' + size;
+  }
+  if (event.state === 'verifying') {
+    return 'Verifying SHA-256' + size;
+  }
+  if (event.state === 'storing') {
+    return 'Storing locally' + size;
   }
   if (event.state === 'downloading') {
     if (event.totalBytes) {

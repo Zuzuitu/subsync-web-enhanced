@@ -127,6 +127,7 @@ $(EXTRACTOR_TARGET): LDFLAGS += \
 	-s FETCH=1 \
 
 $(EXTRACTOR_OBJECTS): $(EXTRACTOR_DEPS)
+
 $(OBJ_DIR)/%.o: %.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) -c -o $@ $< $(CXXFLAGS)

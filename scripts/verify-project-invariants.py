@@ -11,12 +11,14 @@ required = [
     ROOT / "config" / "legacy-build-pins.json",
     ROOT / "config" / "test-fixture-pins.json",
     ROOT / "config" / "english-romanian-assets.json",
+    ROOT / "config" / "romanian-asr.json",
     ROOT / "AGENTS.md",
     ROOT / "README.md",
     ROOT / "LICENSE",
     ROOT / "UPSTREAM_COMMIT",
     ROOT / "web" / "package.json",
     ROOT / "web" / "Dockerfile",
+    ROOT / "web" / "Makefile.whisper",
 ]
 
 missing = [str(p.relative_to(ROOT)) for p in required if not p.is_file()]
@@ -35,6 +37,9 @@ with (ROOT / "config" / "test-fixture-pins.json").open(encoding="utf-8") as f:
 with (ROOT / "config" / "english-romanian-assets.json").open(encoding="utf-8") as f:
     en_ro_assets = json.load(f)
 
+with (ROOT / "config" / "romanian-asr.json").open(encoding="utf-8") as f:
+    romanian_asr = json.load(f)
+
 if inv.get("project") != "SubSync2":
     raise SystemExit("project-invariants.json: project must be SubSync2")
 
@@ -51,6 +56,11 @@ if inv["deployment"].get("autoDeployProduction") is not False:
 
 if inv["licensing"].get("requireSc0tyAttribution") is not True:
     raise SystemExit("sc0ty attribution invariant is required")
+
+if inv["licensing"].get("thirdPartyNotices") != "THIRD_PARTY_NOTICES.md":
+    raise SystemExit("Romanian ASR third-party notices path must remain pinned")
+if not (ROOT / "THIRD_PARTY_NOTICES.md").is_file():
+    raise SystemExit("THIRD_PARTY_NOTICES.md is required for Romanian ASR dependencies")
 
 romanian = inv["product"].get("romanian", {})
 primary_workflow = inv["product"].get("primaryWorkflow", {})
@@ -72,8 +82,16 @@ if romanian.get("audioSpeechRecognitionRequired") is not True:
     raise SystemExit("Romanian audio speech recognition is required")
 if romanian.get("audioSpeechRecognitionNearTermPriority") is not False:
     raise SystemExit("Romanian audio speech recognition must not be a near-term priority")
-if romanian.get("audioSpeechRecognitionDeferredUntilNearCompletion") is not True:
-    raise SystemExit("Romanian audio speech recognition must remain deferred until near completion")
+if romanian.get("audioSpeechRecognitionImplemented") is not True:
+    raise SystemExit("Romanian audio speech recognition must remain implemented")
+if romanian.get("audioSpeechRecognitionDeferredUntilNearCompletion") is not False:
+    raise SystemExit("Implemented Romanian audio recognition must not remain marked deferred")
+if romanian.get("audioSpeechRecognitionLocalBrowserOnly") is not True:
+    raise SystemExit("Romanian audio speech recognition must remain local-browser only")
+if romanian.get("audioSpeechRecognitionEngine") != "whisper.cpp":
+    raise SystemExit("Romanian audio speech recognition engine must remain whisper.cpp")
+if romanian.get("audioSpeechRecognitionSharedMemoryRequired") is not False:
+    raise SystemExit("Romanian audio speech recognition must not require shared memory")
 if set(romanian.get("acceptedLanguageCodes", [])) != {"ro", "rum", "ron"}:
     raise SystemExit("Romanian language aliases must include ro, rum and ron")
 if romanian.get("preserveDiacritics") is not True:
@@ -93,6 +111,16 @@ required_mkv_coverage = {
 }
 if not required_mkv_coverage.issubset(set(mkv_testing.get("mkvReliabilityCoverage", []))):
     raise SystemExit("Required realistic MKV reliability coverage is incomplete")
+
+romanian_audio_e2e = mkv_testing.get("romanianAudioEndToEnd", {})
+if romanian_audio_e2e.get("required") is not True:
+    raise SystemExit("Romanian audio end-to-end coverage must remain required")
+if set(romanian_audio_e2e.get("browsers", [])) != {"Chromium", "iPhone-like WebKit"}:
+    raise SystemExit("Romanian audio end-to-end browsers changed unexpectedly")
+if romanian_audio_e2e.get("preserveCanonicalThresholds") is not True:
+    raise SystemExit("Romanian audio E2E must preserve canonical synchronization thresholds")
+if romanian_audio_e2e.get("physicalIPhoneClaimRequiresPhysicalDeviceEvidence") is not True:
+    raise SystemExit("Physical iPhone Romanian-audio claims require physical-device evidence")
 
 large_stress = mkv_testing.get("largeFileBrowserStress", {})
 if large_stress.get("required") is not True:
@@ -123,16 +151,58 @@ expected_napa = {
     "ffmpeg": f'{pins["ffmpeg"]["repository"]}#{pins["ffmpeg"]["ref"]}',
     "sphinxbase": f'{pins["sphinxbase"]["repository"]}#{pins["sphinxbase"]["sha"]}',
     "pocketsphinx": f'{pins["pocketsphinx"]["repository"]}#{pins["pocketsphinx"]["sha"]}',
+    "whispercpp": f'{pins["whispercpp"]["repository"]}#{pins["whispercpp"]["sha"]}',
 }
 if web_package.get("napa") != expected_napa:
     raise SystemExit(
         "web/package.json native dependency refs do not match config/legacy-build-pins.json"
     )
 
-for name in ("sphinxbase", "pocketsphinx"):
+for name in ("sphinxbase", "pocketsphinx", "whispercpp"):
     sha = pins[name]["sha"]
     if not re.fullmatch(r"[0-9a-f]{40}", sha):
         raise SystemExit(f"{name} pin must be a full 40-character Git SHA")
+
+whisper_engine = romanian_asr.get("engine", {})
+whisper_model = romanian_asr.get("model", {})
+if whisper_engine.get("repository") != "ggml-org/whisper.cpp":
+    raise SystemExit("Unexpected Romanian ASR engine repository")
+if whisper_engine.get("sha") != pins["whispercpp"]["sha"]:
+    raise SystemExit("Romanian ASR engine SHA must match the pinned build dependency")
+if whisper_engine.get("threads") != 1:
+    raise SystemExit("Romanian browser ASR must remain single-threaded unless architecture is explicitly revisited")
+if whisper_model.get("canonicalSubSyncLanguage") != "rum" or whisper_model.get("language") != "ro":
+    raise SystemExit("Romanian Whisper language mapping must remain ro -> rum")
+if whisper_model.get("filename") != "ggml-tiny-q5_1.bin":
+    raise SystemExit("Unexpected Romanian Whisper model filename")
+if whisper_model.get("sha256") != "818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7":
+    raise SystemExit("Unexpected Romanian Whisper model SHA-256")
+if not re.fullmatch(r"[0-9a-f]{64}", whisper_model.get("sha256", "")):
+    raise SystemExit("Romanian Whisper model must have a full SHA-256")
+if whisper_engine.get("license") != "MIT" or whisper_model.get("license") != "MIT":
+    raise SystemExit("Pinned Romanian Whisper engine/model license metadata changed")
+
+whisper_toolchain = romanian_asr.get("toolchain", {})
+expected_whisper_image = (
+    "emscripten/emsdk:3.1.50@"
+    "sha256:b6ea0e55fdc95be36427df6df7892d5e5e27f0440cfcf442a55f784aba09a4fa"
+)
+if whisper_toolchain.get("image") != expected_whisper_image:
+    raise SystemExit("Unexpected Romanian Whisper Emscripten image")
+if whisper_toolchain.get("version") != "3.1.50":
+    raise SystemExit("Unexpected Romanian Whisper Emscripten version")
+if whisper_toolchain.get("wasmSimd") is not True:
+    raise SystemExit("Romanian Whisper browser module must keep WASM SIMD enabled")
+if whisper_toolchain.get("sharedMemory") is not False:
+    raise SystemExit("Romanian Whisper browser module must not require shared memory")
+if whisper_toolchain.get("scope") != "Romanian Whisper module only":
+    raise SystemExit("Modern Emscripten toolchain must stay isolated to Romanian Whisper")
+
+whisper_makefile = (ROOT / "web" / "Makefile.whisper").read_text(encoding="utf-8")
+if "-msimd128" not in whisper_makefile:
+    raise SystemExit("Romanian Whisper build must compile and link with -msimd128")
+if "USE_PTHREADS" in whisper_makefile:
+    raise SystemExit("Romanian Whisper build must not enable WebAssembly pthreads")
 
 speech_fixture = fixture_pins.get("sc0tySpeechItalian", {})
 fixture_sha = speech_fixture.get("sha256", "")

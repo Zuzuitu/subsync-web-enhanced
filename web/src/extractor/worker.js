@@ -7,6 +7,8 @@ import Pipeline from './pipeline.js';
 import Assets from './assets.js';
 import Filesystem from './fs.js';
 import settings from '../settings.js';
+import RomanianSpeechRecognition from './romanian-whisper.js';
+const { canonicalizeLanguageCode } = require('../language.js');
 
 class Extractor {
 
@@ -105,7 +107,16 @@ class Extractor {
       this.words = [];
       this.subtitles = [];
 
-      const output = this.pipeline.makePipeline(stream, params, path);
+      stream.lang = canonicalizeLanguageCode(stream.lang);
+      let romanianSpeechRec = null;
+      if (stream.type === 'audio' && stream.lang === 'rum') {
+        const model = Assets.getBinaryAsset({ type: 'asr', params: [ 'rum' ] });
+        romanianSpeechRec = await RomanianSpeechRecognition.create(model);
+      }
+
+      const output = this.pipeline.makePipeline(
+        stream, params, path, romanianSpeechRec
+      );
       output.addWordsListener( word => this.words.push(word) );
 
       if (params.postSubtitles) {

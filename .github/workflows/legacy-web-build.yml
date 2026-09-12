@@ -14,9 +14,11 @@ on:
       - "config/legacy-build-pins.json"
       - "config/test-fixture-pins.json"
       - "config/english-romanian-assets.json"
+      - "config/romanian-asr.json"
       - "config/sc0ty-assets-public-key.pem"
       - "scripts/generate-web-metadata.py"
       - "scripts/mirror-upstream-assets.py"
+      - "scripts/prepare-whisper-single-thread.py"
       - "scripts/stage-web-app.py"
       - ".github/workflows/legacy-web-build.yml"
       - "tests/wasm/**"
@@ -54,11 +56,15 @@ jobs:
           from pathlib import Path
 
           pins = json.loads(Path("config/legacy-build-pins.json").read_text())
+          romanian_asr = json.loads(Path("config/romanian-asr.json").read_text())
           values = {
               "FFMPEG_REF": pins["ffmpeg"]["ref"],
               "SPHINXBASE_SHA": pins["sphinxbase"]["sha"],
               "POCKETSPHINX_SHA": pins["pocketsphinx"]["sha"],
+              "WHISPERCPP_SHA": pins["whispercpp"]["sha"],
               "EMSCRIPTEN_VERSION": pins["emscripten"]["version"],
+              "ROMANIAN_ASR_IMAGE": romanian_asr["toolchain"]["image"],
+              "ROMANIAN_ASR_EMSCRIPTEN_VERSION": romanian_asr["toolchain"]["version"],
           }
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as f:
               for key, value in values.items():
@@ -93,8 +99,15 @@ jobs:
           git -C web/node_modules/pocketsphinx-tmp checkout --detach FETCH_HEAD
           mv web/node_modules/pocketsphinx-tmp web/node_modules/pocketsphinx
 
+          git -C web/node_modules init whispercpp-tmp
+          git -C web/node_modules/whispercpp-tmp remote add origin https://github.com/ggml-org/whisper.cpp.git
+          git -C web/node_modules/whispercpp-tmp fetch --depth 1 origin "$WHISPERCPP_SHA"
+          git -C web/node_modules/whispercpp-tmp checkout --detach FETCH_HEAD
+          mv web/node_modules/whispercpp-tmp web/node_modules/whispercpp
+
           test "$(git -C web/node_modules/sphinxbase rev-parse HEAD)" = "$SPHINXBASE_SHA"
           test "$(git -C web/node_modules/pocketsphinx rev-parse HEAD)" = "$POCKETSPHINX_SHA"
+          test "$(git -C web/node_modules/whispercpp rev-parse HEAD)" = "$WHISPERCPP_SHA"
           test "$(git -C web/node_modules/ffmpeg describe --tags --exact-match)" = "$FFMPEG_REF"
 
       - name: Build pinned Emscripten toolchain image
@@ -112,6 +125,50 @@ jobs:
           set -euxo pipefail
           docker run --rm             -v "$GITHUB_WORKSPACE:/src"             -w /src/web             subsync-web-build             emmake make -j4
 
+      - name: Save pinned native dependency build after compile
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: web/deps
+          key: legacy-wasm-deps-${{ runner.os }}-${{ hashFiles('config/legacy-build-pins.json', 'web/Makefile') }}
+
+      - name: Prepare pinned Romanian Whisper source
+        shell: bash
+        run: |
+          set -euxo pipefail
+          if [ ! -d web/node_modules/whispercpp/.git ]; then
+            rm -rf web/node_modules/whispercpp web/node_modules/whispercpp-tmp
+            mkdir -p web/node_modules
+            git -C web/node_modules init whispercpp-tmp
+            git -C web/node_modules/whispercpp-tmp remote add origin https://github.com/ggml-org/whisper.cpp.git
+            git -C web/node_modules/whispercpp-tmp fetch --depth 1 origin "$WHISPERCPP_SHA"
+            git -C web/node_modules/whispercpp-tmp checkout --detach FETCH_HEAD
+            mv web/node_modules/whispercpp-tmp web/node_modules/whispercpp
+          fi
+          test "$(git -C web/node_modules/whispercpp rev-parse HEAD)" = "$WHISPERCPP_SHA"
+          python3 scripts/prepare-whisper-single-thread.py \
+            --source web/node_modules/whispercpp \
+            --destination web/deps/src/whispercpp
+
+      - name: Build pinned Romanian Whisper SIMD toolchain
+        shell: bash
+        run: |
+          set -euxo pipefail
+          docker pull "$ROMANIAN_ASR_IMAGE"
+          docker tag "$ROMANIAN_ASR_IMAGE" subsync-whisper-build
+          docker run --rm subsync-whisper-build emcc --version | head -n1 | grep -F "$ROMANIAN_ASR_EMSCRIPTEN_VERSION"
+          docker run --rm subsync-whisper-build emcc --version
+
+      - name: Build isolated Romanian Whisper SIMD WebAssembly
+        shell: bash
+        run: |
+          set -euxo pipefail
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/src" \
+            -w /src/web \
+            subsync-whisper-build \
+            emmake make -f Makefile.whisper -j4
+
       - name: Verify WebAssembly artifacts
         shell: bash
         run: |
@@ -120,7 +177,47 @@ jobs:
           test -s web/scripts/extractor.wasm
           test -s web/scripts/correlator.js
           test -s web/scripts/correlator.wasm
-          sha256sum             web/scripts/extractor.js             web/scripts/extractor.wasm             web/scripts/correlator.js             web/scripts/correlator.wasm             | tee web/scripts/SHA256SUMS
+          test -s web/scripts/whisper.js
+          test -s web/scripts/whisper.wasm
+          sha256sum \
+            web/scripts/extractor.js \
+            web/scripts/extractor.wasm \
+            web/scripts/correlator.js \
+            web/scripts/correlator.wasm \
+            web/scripts/whisper.js \
+            web/scripts/whisper.wasm \
+            | tee web/scripts/SHA256SUMS
+
+      - name: Assert browser WebAssembly modules do not require shared memory
+        run: |
+          python3 tests/wasm/assert-unshared-memory.py web/scripts/extractor.wasm
+          python3 tests/wasm/assert-unshared-memory.py web/scripts/whisper.wasm
+
+      - name: Verify Romanian Whisper SIMD runtime
+        shell: bash
+        run: |
+          set -euxo pipefail
+          docker run --rm -i \
+            -v "$GITHUB_WORKSPACE:/src" \
+            -w /src/web \
+            subsync-whisper-build \
+            node - <<'NODE'
+          const fs = require('fs');
+          const factory = require('./scripts/whisper.js');
+          const wasmBinary = fs.readFileSync('./scripts/whisper.wasm');
+          factory({ wasmBinary }).then(module => {
+            const recognition = new module.RomanianWhisperRecognition();
+            const info = recognition.systemInfo();
+            console.log(info);
+            recognition.delete();
+            if (!info.includes('WASM_SIMD = 1')) {
+              throw new Error('Romanian Whisper module did not report WASM SIMD support');
+            }
+          }).catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
 
       - name: Generate deterministic MKV + Romanian SRT fixtures
         shell: bash
@@ -219,6 +316,42 @@ jobs:
       - name: Exercise primary workflow through real PWA UI
         run: python3 tests/web/run-primary-workflow.py
 
+      - name: Prepare pinned Romanian fixture voice
+        run: python3 tests/fixtures/prepare-romanian-piper-voice.py
+
+      - name: Start pinned Romanian Piper fixture server
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 -m piper.http_server \
+            -m ro_RO-mihai-medium \
+            --data-dir tests/generated/romanian-piper \
+            --host 127.0.0.1 \
+            --port 5001 \
+            > tests/generated/romanian-audio-e2e/piper-http.log 2>&1 &
+          echo $! > tests/generated/romanian-audio-e2e/piper-http.pid
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:5001/info > tests/generated/romanian-audio-e2e/piper-info.json; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat tests/generated/romanian-audio-e2e/piper-http.log
+          exit 1
+
+      - name: Generate Romanian audio and offset Romanian subtitles
+        run: python3 tests/fixtures/generate-romanian-audio-e2e.py
+
+      - name: Exercise Romanian audio through real PWA UI
+        run: python3 tests/web/run-romanian-audio-workflow.py --browser chromium
+
+      - name: Install Playwright WebKit for Romanian ASR regression
+        run: python3 -m playwright install --with-deps webkit
+
+      - name: Exercise Romanian audio with iPhone-like WebKit
+        run: python3 tests/web/run-romanian-audio-workflow.py --browser webkit
+
+
       - name: Upload WebAssembly artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -228,6 +361,8 @@ jobs:
             web/scripts/extractor.wasm
             web/scripts/correlator.js
             web/scripts/correlator.wasm
+            web/scripts/whisper.js
+            web/scripts/whisper.wasm
             web/scripts/SHA256SUMS
           if-no-files-found: error
           retention-days: 7
@@ -279,5 +414,13 @@ jobs:
             tests/generated/web-upstream-assets-smoke.json
             tests/generated/web-primary-workflow.json
             tests/generated/web-primary-workflow-output.srt
+            tests/generated/romanian-audio-e2e/chromium-romanian-audio.json
+            tests/generated/romanian-audio-e2e/chromium-output.rum.srt
+            tests/generated/romanian-audio-e2e/webkit-romanian-audio.json
+            tests/generated/romanian-audio-e2e/webkit-output.rum.srt
+            tests/generated/romanian-audio-e2e/fixture.json
+            tests/generated/romanian-audio-e2e/piper-fixture.json
+            tests/generated/romanian-audio-e2e/piper-info.json
+            tests/generated/romanian-audio-e2e/piper-http.log
           if-no-files-found: warn
           retention-days: 7

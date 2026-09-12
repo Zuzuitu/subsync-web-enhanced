@@ -11,6 +11,7 @@ WEB = ROOT / "web"
 PUBLIC = WEB / "public"
 DIST = WEB / "dist"
 CONFIG = ROOT / "config" / "english-romanian-assets.json"
+ROMANIAN_ASR_CONFIG = ROOT / "config" / "romanian-asr.json"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--hash", required=True)
@@ -18,6 +19,7 @@ parser.add_argument("--asset-cache", default="tests/generated/en-ro-e2e")
 args = parser.parse_args()
 
 cfg = json.loads(CONFIG.read_text(encoding="utf-8"))
+romanian_asr = json.loads(ROMANIAN_ASR_CONFIG.read_text(encoding="utf-8"))
 cache_dir = ROOT / args.asset_cache
 
 if DIST.exists():
@@ -35,7 +37,7 @@ for src in PUBLIC.iterdir():
 
 scripts_out = DIST / "scripts"
 scripts_out.mkdir(parents=True, exist_ok=True)
-for name in ("subsync.js", "extractor.wasm", "correlator.wasm"):
+for name in ("subsync.js", "extractor.wasm", "correlator.wasm", "whisper.js", "whisper.wasm"):
     src = WEB / "scripts" / name
     if not src.is_file() or src.stat().st_size == 0:
         raise SystemExit(f"Missing web build artifact: {src.relative_to(ROOT)}")
@@ -58,9 +60,31 @@ def materialize(asset):
     if cached.is_file():
         shutil.copy2(cached, destination)
     else:
-        request = urllib.request.Request(asset["url"], headers={"User-Agent": "SubSync2-Web-Build"})
-        with urllib.request.urlopen(request, timeout=240) as response, destination.open("wb") as output:
-            shutil.copyfileobj(response, output)
+        urls = [asset["url"]] + list(asset.get("fallbackUrls", []))
+        errors = []
+        for url in urls:
+            partial = destination.with_name(destination.name + ".part")
+            if partial.exists():
+                partial.unlink()
+            try:
+                request = urllib.request.Request(url, headers={"User-Agent": "SubSync2-Web-Build"})
+                with urllib.request.urlopen(request, timeout=240) as response, partial.open("wb") as output:
+                    shutil.copyfileobj(response, output)
+                digest = hashlib.sha256(partial.read_bytes()).hexdigest()
+                if digest != asset["sha256"]:
+                    errors.append(f"{url}: SHA-256 mismatch {digest}")
+                    partial.unlink()
+                    continue
+                partial.replace(destination)
+                break
+            except (OSError, TimeoutError) as exc:
+                if partial.exists():
+                    partial.unlink()
+                errors.append(f"{url}: {type(exc).__name__}: {exc}")
+        else:
+            raise SystemExit(
+                f"Unable to materialize {filename} from pinned sources: " + " | ".join(errors)
+            )
 
     digest = verify(destination, asset["sha256"])
     return {
@@ -72,6 +96,7 @@ def materialize(asset):
 materialized = [
     materialize(cfg["speechEnglish"]),
     materialize(cfg["dictionaryEnglishRomanian"]),
+    materialize(romanian_asr["model"]),
 ]
 
 sw = (PUBLIC / "sw.js.in").read_text(encoding="utf-8").replace("__BUILD_HASH__", args.hash[:16])

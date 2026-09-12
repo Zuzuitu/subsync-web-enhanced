@@ -186,7 +186,9 @@ export default class Synchronizer {
       assets.push({ type: 'dict', params: [sub.lang, ref.lang].sort() });
     }
     if (ref.type === 'audio') {
-      assets.push({ type: 'speech', params: [ref.lang] });
+      assets.push(ref.lang === 'rum'
+        ? { type: 'asr', params: ['rum'] }
+        : { type: 'speech', params: [ref.lang] });
     }
     if (assets.length) {
       logger.log('preloading assets', assets);
@@ -287,6 +289,13 @@ export default class Synchronizer {
 Synchronizer.instance = new Synchronizer();
 
 function calcRefJobsNo(stream) {
+  if (stream.type === 'audio' && stream.lang === 'rum') {
+    // Each worker owns an independent Whisper context/model. Keep Romanian
+    // recognition single-worker on memory-constrained browsers until measured
+    // multi-context iPhone/WebKit evidence justifies a higher cap.
+    return 1;
+  }
+
   let jobsNo = settings.jobsNo || settings.defaultJobsNo;
   if (stream.duration == null) {
     jobsNo = 1;

@@ -195,7 +195,10 @@ function validateAssets(sub, ref) {
   if (ref && ref.type === 'audio') {
     if (!ref.lang) {
       errors.push(i18n`select reference language`);
-    } else if (!(`speech/${ref.lang}` in assetList)) {
+    } else if (
+      !(`speech/${ref.lang}` in assetList) &&
+      !(`asr/${ref.lang}` in assetList)
+    ) {
       const lang = getLangName(ref.lang);
       errors.push(i18n`synchronization with ${lang} audio is currently not supported`);
     }

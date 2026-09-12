@@ -8,10 +8,10 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-CFG = json.loads((ROOT / "config" / "english-romanian-assets.json").read_text(encoding="utf-8"))
-VOICE = CFG["englishFixtureVoice"]
-OUT = ROOT / "tests" / "generated" / "piper"
-EVIDENCE = ROOT / "tests" / "generated" / "en-ro-e2e"
+CFG = json.loads((ROOT / "config" / "romanian-asr.json").read_text(encoding="utf-8"))
+VOICE = CFG["fixtureVoice"]
+OUT = ROOT / "tests" / "generated" / "romanian-piper"
+EVIDENCE = ROOT / "tests" / "generated" / "romanian-audio-e2e"
 
 OUT.mkdir(parents=True, exist_ok=True)
 EVIDENCE.mkdir(parents=True, exist_ok=True)
@@ -27,7 +27,7 @@ def download(url, destination):
             partial.unlink()
         try:
             request = urllib.request.Request(url, headers={"User-Agent": "SubSync2-CI"})
-            with urllib.request.urlopen(request, timeout=240) as response, partial.open("wb") as output:
+            with urllib.request.urlopen(request, timeout=300) as response, partial.open("wb") as output:
                 shutil.copyfileobj(response, output)
             partial.replace(destination)
             return
@@ -41,25 +41,27 @@ def download(url, destination):
         f"Unable to download pinned fixture asset {url}: " + " | ".join(errors)
     )
 
-def verify(path, expected):
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
-    if digest != expected:
-        raise SystemExit(f"SHA-256 mismatch for {path.name}: {digest} != {expected}")
-    return digest
+def sha256(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 download(VOICE["modelUrl"], model_path)
 download(VOICE["configUrl"], config_path)
 
-model_sha = verify(model_path, VOICE["modelSha256"])
-config_sha = verify(config_path, VOICE["configSha256"])
+model_sha = sha256(model_path)
+if model_sha != VOICE["modelSha256"]:
+    raise SystemExit(
+        f"SHA-256 mismatch for {model_path.name}: {model_sha} != {VOICE['modelSha256']}"
+    )
 
 voice_config = json.loads(config_path.read_text(encoding="utf-8"))
 if voice_config.get("piper_version") != "1.0.0":
-    raise SystemExit("Unexpected Piper voice config version")
-if voice_config.get("language", {}).get("code") != "en_US":
-    raise SystemExit("Unexpected Piper fixture language")
-if voice_config.get("dataset") != "joe":
-    raise SystemExit("Unexpected Piper fixture dataset")
+    raise SystemExit("Unexpected Romanian Piper voice config version")
+if voice_config.get("language", {}).get("code") != "ro_RO":
+    raise SystemExit("Unexpected Romanian Piper fixture language")
+if voice_config.get("dataset") != "mihai":
+    raise SystemExit("Unexpected Romanian Piper fixture dataset")
+if voice_config.get("audio", {}).get("sample_rate") != 22050:
+    raise SystemExit("Unexpected Romanian Piper fixture sample rate")
 
 evidence = {
     "provider": VOICE["provider"],
@@ -67,10 +69,10 @@ evidence = {
     "revision": VOICE["revision"],
     "datasetLicense": VOICE["datasetLicense"],
     "modelSha256": model_sha,
-    "configSha256": config_sha,
+    "configSha256": sha256(config_path),
 }
 (EVIDENCE / "piper-fixture.json").write_text(
-    json.dumps(evidence, indent=2) + "\n",
+    json.dumps(evidence, indent=2, ensure_ascii=False) + "\n",
     encoding="utf-8",
 )
-print(json.dumps(evidence, indent=2))
+print(json.dumps(evidence, indent=2, ensure_ascii=False))
