@@ -25,7 +25,14 @@ export default class OptionsPopup extends OverlayItem {
     this.minCorrelation = new NumberOption({ min: 0, max: 1, step: 0.00001 });
     this.minWordProb = new NumberOption({ min: 0, max: 1, step: 0.01 });
 
-    <div this='content'>
+    // Keep cache UI references explicit too. This popup predates the current
+    // browser build and nested JSX refs are not reliable here.
+    this.cacheSummary = <p>Checking downloaded language data...</p>;
+    this.cacheList = <ul />;
+    this.clearCacheBtn = <button disabled>Clear downloaded language data</button>;
+    this.clearCacheBtn.onclick = this.clearLanguageCache.bind(this);
+
+    this.content = <div>
       <dl class='options'>
         <dt>{i18n`Max adjustment`} ({i18n`min`}):</dt>
         <dd>
@@ -70,11 +77,9 @@ export default class OptionsPopup extends OverlayItem {
       </dl>
       <section class='language_cache'>
         <h2>Language data</h2>
-        <p this='cacheSummary'>Checking downloaded language data...</p>
-        <ul this='cacheList' />
-        <button this='clearCacheBtn' onclick={this.clearLanguageCache.bind(this)} disabled>
-          Clear downloaded language data
-        </button>
+        {this.cacheSummary}
+        {this.cacheList}
+        {this.clearCacheBtn}
       </section>
       <p><em>subsync version {version}</em></p>
       <div class='buttons'>
