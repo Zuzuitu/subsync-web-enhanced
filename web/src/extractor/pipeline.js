@@ -101,6 +101,10 @@ export default class Pipeline {
       }
     }
     const gizmo = Gizmo.instance;
+    if (stream.lang === 'rum') {
+      return this.makeRomanianSpeechPipeline(stream);
+    }
+
     const speechModel = Assets.loadSpeechModel(stream.lang);
     logger.log('speech model', speechModel);
     if (!speechModel) {
@@ -128,6 +132,30 @@ export default class Pipeline {
       gizmo.AVSampleFormat[speechModel.sampleformat],
       parseInt(speechModel.samplerate), 32*1024);
 
+    return this.speechRec;
+  }
+
+  makeRomanianSpeechPipeline(stream) {
+    const gizmo = Gizmo.instance;
+    const modelPath = Assets.getAssetPath({ type: 'asr', params: [ 'rum' ] });
+    this.speechRec = new gizmo.WhisperSpeechRecognition();
+    this.speechRec.setModelPath(modelPath);
+    this.speechRec.setLanguage('ro');
+    this.speechRec.setMinWordProb(settings.minWordProb);
+    this.speechRec.setMinWordLen(settings.minWordLen);
+
+    this.dec = new gizmo.AudioDec();
+    this.resampler = new gizmo.Resampler();
+    this.demux.connectDec(this.dec, stream.no);
+    this.dec.connectOutput(this.resampler);
+    this.resampler.connectOutput(
+      this.speechRec,
+      gizmo.AVSampleFormat.FLT,
+      16000,
+      32*1024
+    );
+
+    logger.log('using local single-thread Whisper model for Romanian audio');
     return this.speechRec;
   }
 
