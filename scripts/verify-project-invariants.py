@@ -11,6 +11,7 @@ required = [
     ROOT / "config" / "legacy-build-pins.json",
     ROOT / "config" / "test-fixture-pins.json",
     ROOT / "config" / "english-romanian-assets.json",
+    ROOT / "config" / "romanian-asr.json",
     ROOT / "AGENTS.md",
     ROOT / "README.md",
     ROOT / "LICENSE",
@@ -34,6 +35,9 @@ with (ROOT / "config" / "test-fixture-pins.json").open(encoding="utf-8") as f:
 
 with (ROOT / "config" / "english-romanian-assets.json").open(encoding="utf-8") as f:
     en_ro_assets = json.load(f)
+
+with (ROOT / "config" / "romanian-asr.json").open(encoding="utf-8") as f:
+    romanian_asr = json.load(f)
 
 if inv.get("project") != "SubSync2":
     raise SystemExit("project-invariants.json: project must be SubSync2")
@@ -123,16 +127,36 @@ expected_napa = {
     "ffmpeg": f'{pins["ffmpeg"]["repository"]}#{pins["ffmpeg"]["ref"]}',
     "sphinxbase": f'{pins["sphinxbase"]["repository"]}#{pins["sphinxbase"]["sha"]}',
     "pocketsphinx": f'{pins["pocketsphinx"]["repository"]}#{pins["pocketsphinx"]["sha"]}',
+    "whispercpp": f'{pins["whispercpp"]["repository"]}#{pins["whispercpp"]["sha"]}',
 }
 if web_package.get("napa") != expected_napa:
     raise SystemExit(
         "web/package.json native dependency refs do not match config/legacy-build-pins.json"
     )
 
-for name in ("sphinxbase", "pocketsphinx"):
+for name in ("sphinxbase", "pocketsphinx", "whispercpp"):
     sha = pins[name]["sha"]
     if not re.fullmatch(r"[0-9a-f]{40}", sha):
         raise SystemExit(f"{name} pin must be a full 40-character Git SHA")
+
+whisper_engine = romanian_asr.get("engine", {})
+whisper_model = romanian_asr.get("model", {})
+if whisper_engine.get("repository") != "ggml-org/whisper.cpp":
+    raise SystemExit("Unexpected Romanian ASR engine repository")
+if whisper_engine.get("sha") != pins["whispercpp"]["sha"]:
+    raise SystemExit("Romanian ASR engine SHA must match the pinned build dependency")
+if whisper_engine.get("threads") != 1:
+    raise SystemExit("Romanian browser ASR must remain single-threaded unless architecture is explicitly revisited")
+if whisper_model.get("canonicalSubSyncLanguage") != "rum" or whisper_model.get("language") != "ro":
+    raise SystemExit("Romanian Whisper language mapping must remain ro -> rum")
+if whisper_model.get("filename") != "ggml-tiny-q5_1.bin":
+    raise SystemExit("Unexpected Romanian Whisper model filename")
+if whisper_model.get("sha256") != "818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7":
+    raise SystemExit("Unexpected Romanian Whisper model SHA-256")
+if not re.fullmatch(r"[0-9a-f]{64}", whisper_model.get("sha256", "")):
+    raise SystemExit("Romanian Whisper model must have a full SHA-256")
+if whisper_engine.get("license") != "MIT" or whisper_model.get("license") != "MIT":
+    raise SystemExit("Pinned Romanian Whisper engine/model license metadata changed")
 
 speech_fixture = fixture_pins.get("sc0tySpeechItalian", {})
 fixture_sha = speech_fixture.get("sha256", "")
