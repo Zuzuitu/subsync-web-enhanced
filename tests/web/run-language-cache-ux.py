@@ -271,13 +271,24 @@ try:
             }
             print("CACHE POPUP DEBUG:", json.dumps(debug, indent=2, ensure_ascii=False))
             raise
-        page.wait_for_function(
-            """() => {
-              const popup = Array.from(document.querySelectorAll('#subsync_app .popup')).at(-1);
-              return popup && popup.innerText.includes('2 cached packages');
-            }""",
-            timeout=30_000,
-        )
+        try:
+            page.wait_for_function(
+                """() => {
+                  const popup = Array.from(document.querySelectorAll('#subsync_app .popup')).at(-1);
+                  return popup && popup.innerText.includes('2 cached packages');
+                }""",
+                timeout=30_000,
+            )
+        except Exception:
+            debug = {
+                "popupText": popup.inner_text() if popup.count() else None,
+                "cachedItems": popup.locator("[data-cached-asset]").count()
+                    if popup.count() else None,
+                "consoleErrors": console_errors,
+                "pageErrors": page_errors,
+            }
+            print("CACHE SUMMARY DEBUG:", json.dumps(debug, indent=2, ensure_ascii=False))
+            raise
 
         cached_items = popup.locator("[data-cached-asset]")
         cached_names = [
