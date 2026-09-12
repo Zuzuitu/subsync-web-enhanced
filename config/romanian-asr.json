@@ -7,7 +7,7 @@
     "tag": "v1.5.4",
     "sha": "0b9af32a8b3fa7e2ae5f15a9a08f5b10394993f5",
     "license": "MIT",
-    "browserMode": "single-threaded WebAssembly",
+    "browserMode": "single-threaded WebAssembly SIMD",
     "threads": 1
   },
   "model": {
@@ -34,5 +34,12 @@
     "configUrl": "https://huggingface.co/rhasspy/piper-voices/resolve/217ddc79818708b078d0d14a8fae9608b9d77141/ro/ro_RO/mihai/medium/ro_RO-mihai-medium.onnx.json",
     "modelSha256": "e0608bbbd53c80267c09ece681b09f5199f54e792356684c8073738e5f15d29f",
     "datasetLicense": "CC0"
+  },
+  "toolchain": {
+    "image": "emscripten/emsdk:3.1.50@sha256:b6ea0e55fdc95be36427df6df7892d5e5e27f0440cfcf442a55f784aba09a4fa",
+    "version": "3.1.50",
+    "wasmSimd": true,
+    "sharedMemory": false,
+    "scope": "Romanian Whisper module only"
   }
 }
