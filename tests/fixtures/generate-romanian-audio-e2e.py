@@ -27,6 +27,14 @@ PHRASES = [
     "Răspunsul corect poate schimba complet această problemă dificilă.",
     "Oamenii se întorc acasă înainte de începutul serii liniștite.",
     "Mulțumesc prietenilor pentru răbdare și pentru ajutorul important.",
+    "Copiii privesc curcubeul colorat deasupra grădinii liniștite.",
+    "Profesorul explică problema folosind exemple clare și răbdătoare.",
+    "Călătorii așteaptă trenul dimineții lângă clădirea principală.",
+    "Bunica pregătește prăjitura preferată pentru întreaga familie.",
+    "Vecinii discută despre vreme și despre străzile aglomerate.",
+    "Biblioteca păstrează povești interesante pentru cititorii curioși.",
+    "Fereastra rămâne deschisă deoarece aerul dimineții este plăcut.",
+    "Prietenii găsesc împreună răspunsul potrivit pentru întrebare.",
 ]
 
 RATE = 16000
@@ -36,6 +44,13 @@ OFFSET = 8.0
 INITIAL_SILENCE = 1.0
 GAP = 0.65
 PIPER_URL = "http://127.0.0.1:5001/synthesize"
+MIN_CORRELATION_BUCKETS = 20
+
+if len(PHRASES) <= MIN_CORRELATION_BUCKETS:
+    raise SystemExit(
+        f"Romanian E2E fixture must have more than {MIN_CORRELATION_BUCKETS} subtitle cues; "
+        f"got {len(PHRASES)}"
+    )
 
 def synthesize(text, destination):
     body = json.dumps({"text": text}).encode("utf-8")
