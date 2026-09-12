@@ -13,46 +13,58 @@ export default class OptionsPopup extends OverlayItem {
     super(i18n`Advanced options`, true);
     const descriptions = getDescriptions();
 
+    // Own the option view instances explicitly. Relying on nested custom JSX
+    // `this=` refs leaves these views undefined with the current REDOM JSX
+    // transform even though refs on native DOM elements work correctly.
+    this.windowSize = new MinNumberOption({ min: 5, step: 1 });
+    this.jobsNo = new NumberOption({ min: 1, step: 1 });
+    this.maxPointDist = new NumberOption({ min: 0, step: 0.01 });
+    this.minPointsNo = new NumberOption({ min: 0, step: 1 });
+    this.minWordLen = new NumberOption({ min: 0, step: 1 });
+    this.minWordsSim = new NumberOption({ min: 0, max: 1, step: 0.01 });
+    this.minCorrelation = new NumberOption({ min: 0, max: 1, step: 0.00001 });
+    this.minWordProb = new NumberOption({ min: 0, max: 1, step: 0.01 });
+
     <div this='content'>
       <dl class='options'>
         <dt>{i18n`Max adjustment`} ({i18n`min`}):</dt>
         <dd>
-          <MinNumberOption this='windowSize' min={5} step={1} />
+          {this.windowSize}
           {infoButton(i18n`Max adjustment`, descriptions.windowSize)}
         </dd>
         <dt>{i18n`Extractor jobs no`}:</dt>
         <dd>
-          <NumberOption this='jobsNo' min={1} step={1} />
+          {this.jobsNo}
           {infoButton(i18n`Extractor jobs no`, descriptions.jobsNo)}
         </dd>
         <dt>{i18n`Max points distance`}:</dt>
         <dd>
-          <NumberOption this='maxPointDist' min={0} step={0.01} />
+          {this.maxPointDist}
           {infoButton(i18n`Max points distance`, descriptions.maxPointDist)}
         </dd>
         <dt>{i18n`Min points no`}:</dt>
         <dd>
-          <NumberOption this='minPointsNo' min={0} step={1} />
+          {this.minPointsNo}
           {infoButton(i18n`Min points no`, descriptions.minPointsNo)}
         </dd>
         <dt>{i18n`Min word length`}:</dt>
         <dd>
-          <NumberOption this='minWordLen' min={0} step={1} />
+          {this.minWordLen}
           {infoButton(i18n`Min word length`, descriptions.minWordLen)}
         </dd>
         <dt>{i18n`Min words similarity`}:</dt>
         <dd>
-          <NumberOption this='minWordsSim' min={0} max={1} step={0.01} />
+          {this.minWordsSim}
           {infoButton(i18n`Min words similarity`, descriptions.minWordsSim)}
         </dd>
         <dt>{i18n`Min correlation factor`}:</dt>
         <dd>
-          <NumberOption this='minCorrelation' min={0} max={1} step={0.00001} />
+          {this.minCorrelation}
           {infoButton(i18n`Min correlation factor`, descriptions.minCorrelation)}
         </dd>
         <dt>{i18n`Min speech recognition score`}:</dt>
         <dd>
-          <NumberOption this='minWordProb' min={0} max={1} step={0.01} />
+          {this.minWordProb}
           {infoButton(i18n`Min speech recognition score`, descriptions.minWordProb)}
         </dd>
       </dl>
