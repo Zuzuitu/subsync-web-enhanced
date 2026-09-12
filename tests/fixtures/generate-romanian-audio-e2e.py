@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import os
 import subprocess
 import tempfile
 import urllib.request
@@ -45,6 +46,8 @@ INITIAL_SILENCE = 1.0
 GAP = 0.65
 PIPER_URL = "http://127.0.0.1:5001/synthesize"
 MIN_CORRELATION_BUCKETS = 20
+SPARSE_REGRESSION = os.environ.get("SUBSYNC_ROMANIAN_SPARSE_REGRESSION") == "1"
+SPARSE_DURATION = 481.0
 
 if len(PHRASES) <= MIN_CORRELATION_BUCKETS:
     raise SystemExit(
@@ -109,6 +112,15 @@ with tempfile.TemporaryDirectory() as tmp:
         })
         combined.extend(b"\x00" * int(RATE * GAP) * WIDTH)
 
+if SPARSE_REGRESSION:
+    current_duration = len(combined) / WIDTH / RATE
+    if current_duration >= SPARSE_DURATION:
+        raise SystemExit(
+            f"Base Romanian fixture unexpectedly exceeds sparse target: {current_duration:.3f}s"
+        )
+    padding_samples = round((SPARSE_DURATION - current_duration) * RATE)
+    combined.extend(b"\x00" * padding_samples * WIDTH)
+
 wav_path = OUT / "reference-romanian.wav"
 with wave.open(str(wav_path), "wb") as wav:
     wav.setnchannels(CHANNELS)
@@ -148,6 +160,7 @@ fixture = {
     "reference": "reference-romanian.mkv",
     "subtitle": "target.rum.srt",
     "durationSeconds": len(combined) / WIDTH / RATE,
+    "sparseRegression": SPARSE_REGRESSION,
 }
 (OUT / "fixture.json").write_text(
     json.dumps(fixture, indent=2, ensure_ascii=False) + "\n",
@@ -158,4 +171,5 @@ print(json.dumps({
     "offsetSeconds": OFFSET,
     "segments": len(timeline),
     "durationSeconds": fixture["durationSeconds"],
+    "sparseRegression": SPARSE_REGRESSION,
 }, indent=2, ensure_ascii=False))
