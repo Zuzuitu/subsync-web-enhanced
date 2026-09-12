@@ -14,9 +14,14 @@ on:
       - "config/legacy-build-pins.json"
       - "config/test-fixture-pins.json"
       - "config/english-romanian-assets.json"
+      - "config/sc0ty-assets-public-key.pem"
+      - "scripts/generate-web-metadata.py"
+      - "scripts/mirror-upstream-assets.py"
+      - "scripts/stage-web-app.py"
       - ".github/workflows/legacy-web-build.yml"
       - "tests/wasm/**"
       - "tests/fixtures/**"
+      - "tests/web/**"
   push:
     branches:
       - "chore/legacy-wasm-build"
