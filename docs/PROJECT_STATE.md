@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-12 Europe/Rome
+LAST_UPDATED: 2026-09-12 14:42 Europe/Rome
 
 ## Canonical status
 
@@ -10,6 +10,37 @@ Repository truth overrides chat memory. Before material changes, read:
 2. `config/project-invariants.json`
 3. `AGENTS.md`
 4. relevant current implementation
+
+## Current handoff checkpoint
+
+Canonical main: `8b4170becbea970b0e5d8801771f90e3a333658a` (merged PRs #17-#20 from this session).
+
+Public preview: `https://zuzuitu.github.io/subsync-web-enhanced/`.
+Latest successful preview deployment: run `34662280482`, commit `6f32c78e231c0b5711d01231cde2807a3322d627`.
+
+The public preview is intentionally behind current main. It includes the restored original-language catalog, but not the later runtime/UI changes from PR #17 (language download/cache UX) and PR #18 (stage-specific diagnostics). Do not claim those changes are live until a deliberate preview deployment is performed and verified.
+
+Completed in this session:
+- restored and validated the original sc0ty language catalog;
+- fixed the deterministic MKV split-window seek gap;
+- added language asset download/progress/cache management;
+- added evidence-backed stage-specific synchronization diagnostics;
+- added and passed >=128 MiB direct-MKV browser stress in Chromium and iPhone-like WebKit.
+
+Still open:
+- historical real-world failing MKV reproduction requires a representative failing file;
+- genuine Romanian-audio speech recognition is not implemented;
+- batch/multi-upload remains deferred.
+
+Next sequence:
+1. implement genuine Romanian-audio speech recognition with a pinned redistributable local/browser model;
+2. add deterministic Romanian-audio regression coverage;
+3. run the full release-candidate regression suite;
+4. deliberately deploy the current release candidate to the preview branch;
+5. repeat physical-iPhone validation;
+6. consider batch/multi-upload only after single-file reliability is solid.
+
+Production auto-deploy remains disabled.
 
 ## Product goal
 
