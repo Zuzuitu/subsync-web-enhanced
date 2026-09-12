@@ -13,9 +13,24 @@ function locateFile(path) {
   return url;
 }
 
+function getFactory() {
+  if (typeof self !== 'undefined' && typeof self.whisperGizmo === 'function') {
+    return self.whisperGizmo;
+  }
+  if (typeof importScripts !== 'function') {
+    throw new Error('Romanian Whisper module can only be loaded inside the extractor worker.');
+  }
+
+  importScripts(locateFile('whisper.js'));
+  if (typeof self.whisperGizmo !== 'function') {
+    throw new Error('Romanian Whisper JavaScript module did not initialize.');
+  }
+  return self.whisperGizmo;
+}
+
 async function getModule() {
   if (!modulePromise) {
-    const factory = require('../../scripts/whisper.js');
+    const factory = getFactory();
     modulePromise = factory({
       locateFile,
       print: logger.log.bind(logger),
