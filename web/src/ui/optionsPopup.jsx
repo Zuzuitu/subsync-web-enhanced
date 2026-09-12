@@ -225,6 +225,9 @@ function assetLabel(asset) {
   if (asset.type === 'speech') {
     return `${langName(asset.params[0])} speech model`;
   }
+  if (asset.type === 'asr') {
+    return `${langName(asset.params[0])} local speech model (Whisper)`;
+  }
   if (asset.type === 'dict') {
     return `${asset.params.map(langName).join(' ↔ ')} dictionary`;
   }
