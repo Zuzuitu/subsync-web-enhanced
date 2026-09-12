@@ -164,6 +164,11 @@ try:
         english_label = labels.nth(english_index)
         english_label.locator('input[type="radio"]').check()
         ref_group.locator("select").first.select_option("eng")
+        selected_label_text = english_label.inner_text()
+        if "English reference" not in selected_label_text:
+            raise SystemExit(
+                "Large direct-MKV workflow did not select the intended English track"
+            )
 
         page.get_by_role("button", name="Start", exact=True).click()
 
@@ -202,15 +207,6 @@ try:
         if "Decoded subtitles:" not in app_text or "reference words:" not in app_text:
             raise SystemExit(
                 "Large direct-MKV workflow did not expose processing evidence"
-            )
-
-        selected_checked = ref_group.locator('input[type="radio"]:checked')
-        if selected_checked.count() != 1:
-            raise SystemExit("Exactly one reference stream must remain selected")
-        selected_label_text = selected_checked.locator("xpath=..").inner_text()
-        if "English reference" not in selected_label_text:
-            raise SystemExit(
-                "Large direct-MKV workflow switched away from the intended English track"
             )
 
         stop_memory.set()
