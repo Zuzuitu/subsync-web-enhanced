@@ -390,15 +390,70 @@ Completed additionally:
 20. representative non-primary language validation against the live public Pages preview (Italian, French, Spanish dictionary + speech asset paths).
 
 Completed additionally:
-21. realistic MKV coverage expansion and deterministic split-window seek-gap fix: H.264/AAC stereo, HEVC/E-AC3 5.1, reversed multitrack, 125 s seek-window coverage.
+21. realistic MKV coverage expansion and deterministic split-window seek-gap fix: H.264/AAC stereo, HEVC/E-AC3 5.1, reversed multitrack, 125 s seek-window coverage;
+22. language-asset download/cache UX with progress, IDBFS reuse and deliberate cache cleanup;
+23. stage-specific synchronization diagnostics with evidence-backed failure explanations.
 
 Next:
-22. improve language-asset download/cache UX;
-23. add stage-specific synchronization diagnostics;
 24. reproduce/isolate the historical direct-MKV failure with a representative real-world case when available;
 25. add explicit large-file/browser-memory stress coverage;
 26. return to genuine Romanian-audio support near completion;
 27. consider batch/multi-upload only after single-file reliability is solid.
+
+## Language asset UX and cache management
+
+PR #17 merged to `main` at `2cf6d5c9178ecacc4c72fcf4aef73262fac5a9ce`.
+
+Implemented:
+- language ZIP downloads are asynchronous in the extractor worker;
+- the synchronization UI reports `Downloading -> Extracting -> Ready`;
+- later runs report `Cached` and reuse IDBFS without re-downloading the ZIP;
+- per-package cache metadata records version, byte size and cache timestamp;
+- Advanced Options lists downloaded speech/dictionary packages;
+- users can deliberately clear downloaded language data and the deletion persists across reloads.
+
+Regression evidence on the final PR head:
+- CI run `34669111365`: **PASS**;
+- Mobile WebKit Compatibility run `34669111331`: **PASS**;
+- Legacy WebAssembly Build run `34669111359`: **PASS**;
+- PWA Shell Fast Build run `34669108885`: **PASS**.
+
+The browser regression proves first-run download/extraction, second-run IDBFS reuse with no language-ZIP refetch, and persistent cache deletion after reload.
+
+## Stage-specific synchronization diagnostics
+
+PR #18 merged to `main` at `b9d6ea535f6992d81b9e9008912b3ea06af9fe0c`.
+
+The PWA no longer relies only on a generic `Couldn't synchronize` result. It now tracks and surfaces evidence for:
+- initialization;
+- language-data loading;
+- media pipeline open;
+- demux/container read;
+- audio decoding;
+- audio resampling;
+- speech recognition;
+- subtitle decoding;
+- dictionary/translation;
+- processing;
+- correlation.
+
+The UI also reports counts for decoded subtitle cues, subtitle words and reference words. For no-result cases it can explain evidence-backed outcomes such as:
+- no subtitle cues decoded;
+- no usable subtitle words;
+- no usable reference words;
+- too few synchronization points;
+- correlation below threshold;
+- synchronization points too far apart.
+
+Native exception `module` fields remain the authoritative stage evidence where available; fallback diagnoses are explicitly based on observed counts/status and are not presented as unproven root causes.
+
+Regression evidence on the final PR head:
+- CI run `34685301209`: **PASS**;
+- PWA Shell Fast Build run `34685258696`: **PASS**;
+- Mobile WebKit Compatibility run `34685301225`: **PASS**;
+- Legacy WebAssembly Build run `34685301223`: **PASS**.
+
+The non-primary silence fixture specifically verifies that the PWA identifies the speech-recognition stage and explains that no usable reference words were produced.
 
 ## Product direction decided in this session
 
