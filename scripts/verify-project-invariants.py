@@ -18,6 +18,7 @@ required = [
     ROOT / "UPSTREAM_COMMIT",
     ROOT / "web" / "package.json",
     ROOT / "web" / "Dockerfile",
+    ROOT / "web" / "Makefile.whisper",
 ]
 
 missing = [str(p.relative_to(ROOT)) for p in required if not p.is_file()]
@@ -157,6 +158,28 @@ if not re.fullmatch(r"[0-9a-f]{64}", whisper_model.get("sha256", "")):
     raise SystemExit("Romanian Whisper model must have a full SHA-256")
 if whisper_engine.get("license") != "MIT" or whisper_model.get("license") != "MIT":
     raise SystemExit("Pinned Romanian Whisper engine/model license metadata changed")
+
+whisper_toolchain = romanian_asr.get("toolchain", {})
+expected_whisper_image = (
+    "emscripten/emsdk:3.1.50@"
+    "sha256:b6ea0e55fdc95be36427df6df7892d5e5e27f0440cfcf442a55f784aba09a4fa"
+)
+if whisper_toolchain.get("image") != expected_whisper_image:
+    raise SystemExit("Unexpected Romanian Whisper Emscripten image")
+if whisper_toolchain.get("version") != "3.1.50":
+    raise SystemExit("Unexpected Romanian Whisper Emscripten version")
+if whisper_toolchain.get("wasmSimd") is not True:
+    raise SystemExit("Romanian Whisper browser module must keep WASM SIMD enabled")
+if whisper_toolchain.get("sharedMemory") is not False:
+    raise SystemExit("Romanian Whisper browser module must not require shared memory")
+if whisper_toolchain.get("scope") != "Romanian Whisper module only":
+    raise SystemExit("Modern Emscripten toolchain must stay isolated to Romanian Whisper")
+
+whisper_makefile = (ROOT / "web" / "Makefile.whisper").read_text(encoding="utf-8")
+if "-msimd128" not in whisper_makefile:
+    raise SystemExit("Romanian Whisper build must compile and link with -msimd128")
+if "USE_PTHREADS" in whisper_makefile:
+    raise SystemExit("Romanian Whisper build must not enable WebAssembly pthreads")
 
 speech_fixture = fixture_pins.get("sc0tySpeechItalian", {})
 fixture_sha = speech_fixture.get("sha256", "")
