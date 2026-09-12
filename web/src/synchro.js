@@ -4,6 +4,7 @@ import Subtitles from './subtitle.js';
 import settings from './settings.js';
 import Logger from './logger.js';
 import { annotateErrorStage, classifyErrorStage } from './diagnostics.js';
+const { makeRomanianTimeWindows } = require('./romanian-windows.js');
 const logger = Logger.logger.get('[Synchronizer]');
 
 export default class Synchronizer {
@@ -83,10 +84,17 @@ export default class Synchronizer {
 
       try {
         this.recordStage(listener, 'pipeline-open', 'running');
+        const romanianWindows = ref.type === 'audio' && ref.lang === 'rum'
+          ? makeRomanianTimeWindows(ref.duration)
+          : null;
+        if (romanianWindows) {
+          logger.log(`Romanian ASR sparse scan: ${romanianWindows.length} distributed windows`);
+        }
         await Promise.all([
-        this.subExtractor.open(sub, { otherLang: ref.lang, postSubtitles: true }),
+          this.subExtractor.open(sub, { otherLang: ref.lang, postSubtitles: true }),
           ...refExtractors.map((ex, i) => ex.open(ref, {
-            timeWindow: ref.duration && [ i * ref.duration / refJobsNo, (i + 1) * ref.duration / refJobsNo + 1 ]
+            timeWindow: ref.duration && [ i * ref.duration / refJobsNo, (i + 1) * ref.duration / refJobsNo + 1 ],
+            timeWindows: romanianWindows,
           }))
         ]);
         this.recordStage(listener, 'pipeline-open', 'ready');
@@ -265,7 +273,7 @@ export default class Synchronizer {
         refWords: this.diagnostics.refWords,
         subtitles: this.diagnostics.subtitles,
       } : null,
-    }
+    };
   }
 
   getProgress() {
