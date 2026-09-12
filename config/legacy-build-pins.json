@@ -20,5 +20,10 @@
     "repository": "cmusphinx/pocketsphinx",
     "sha": "ab6d6471800966990e12fdb6ed27ae36323cf2c4",
     "selectionBasis": "Latest commit on or before 2020-03-29."
+  },
+  "whispercpp": {
+    "repository": "ggml-org/whisper.cpp",
+    "sha": "0b9af32a8b3fa7e2ae5f15a9a08f5b10394993f5",
+    "selectionBasis": "Pinned v1.5.4 core used only by the isolated Romanian single-thread WebAssembly recognizer."
   }
 }
