@@ -256,9 +256,21 @@ try:
 
         # Cache management UI: list stored packages, clear them, and persist deletion.
         page.get_by_role("button", name="Back", exact=True).click()
-        page.get_by_role("button", name="Advanced options", exact=True).click()
+        options_button = page.get_by_role("button", name="Advanced options", exact=True)
+        options_button.wait_for(state="visible", timeout=10_000)
+        options_button.click()
         popup = page.locator("#subsync_app .popup").last
-        popup.wait_for(state="visible", timeout=10_000)
+        try:
+            popup.wait_for(state="visible", timeout=10_000)
+        except Exception:
+            debug = {
+                "bodyText": page.locator("body").inner_text(),
+                "appText": page.locator("#subsync_app").inner_text(),
+                "consoleErrors": console_errors,
+                "pageErrors": page_errors,
+            }
+            print("CACHE POPUP DEBUG:", json.dumps(debug, indent=2, ensure_ascii=False))
+            raise
         page.wait_for_function(
             """() => {
               const popup = Array.from(document.querySelectorAll('#subsync_app .popup')).at(-1);
