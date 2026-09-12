@@ -25,10 +25,10 @@
     "provider": "Piper",
     "package": "piper-tts[http]==1.8.0",
     "repository": "rhasspy/piper-voices",
-    "revision": "v1.0.0",
+    "revision": "217ddc79818708b078d0d14a8fae9608b9d77141",
     "voice": "ro_RO-mihai-medium",
-    "modelUrl": "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/ro/ro_RO/mihai/medium/ro_RO-mihai-medium.onnx",
-    "configUrl": "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/ro/ro_RO/mihai/medium/ro_RO-mihai-medium.onnx.json",
+    "modelUrl": "https://huggingface.co/rhasspy/piper-voices/resolve/217ddc79818708b078d0d14a8fae9608b9d77141/ro/ro_RO/mihai/medium/ro_RO-mihai-medium.onnx",
+    "configUrl": "https://huggingface.co/rhasspy/piper-voices/resolve/217ddc79818708b078d0d14a8fae9608b9d77141/ro/ro_RO/mihai/medium/ro_RO-mihai-medium.onnx.json",
     "modelSha256": "e0608bbbd53c80267c09ece681b09f5199f54e792356684c8073738e5f15d29f",
     "datasetLicense": "CC0"
   }
