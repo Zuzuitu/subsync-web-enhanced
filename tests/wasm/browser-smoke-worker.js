@@ -1,3 +1,5 @@
+const strictSeek = new URLSearchParams(self.location.search).get('strictSeek') === '1';
+
 function phase(name, data) {
   self.postMessage({
     type: 'phase',
@@ -141,9 +143,26 @@ async function runSpeechReference(module, model, spec) {
     const streams = demux.getStreamsInfo();
     const duration = demux.getDuration();
     const audioStreams = streams.filter(stream => stream.type === 'audio');
+    const videoStreams = streams.filter(stream => stream.type === 'video');
     const subtitleStreams = streams.filter(stream => stream.type.indexOf('subtitle') === 0);
 
     assert(audioStreams.length > 0, label + ': no audio stream');
+
+    if (spec.expectedVideoCodec) {
+      assert(videoStreams.length > 0, label + ': expected a video stream');
+      assert(
+        videoStreams.some(stream => stream.codec === spec.expectedVideoCodec),
+        label + ': expected video codec ' + spec.expectedVideoCodec +
+          ', got ' + videoStreams.map(stream => stream.codec).join(',')
+      );
+    }
+
+    if (spec.minDuration != null) {
+      assert(
+        duration >= spec.minDuration,
+        label + ': expected duration >= ' + spec.minDuration + ', got ' + duration
+      );
+    }
 
     if (spec.minAudioTracks != null) {
       assert(
@@ -163,6 +182,13 @@ async function runSpeechReference(module, model, spec) {
       assert(
         audio.codec === spec.expectedCodec,
         label + ': expected codec ' + spec.expectedCodec + ', got ' + audio.codec
+      );
+    }
+
+    if (spec.expectedTitle) {
+      assert(
+        audio.title === spec.expectedTitle,
+        label + ': expected title ' + spec.expectedTitle + ', got ' + audio.title
       );
     }
 
@@ -204,6 +230,21 @@ async function runSpeechReference(module, model, spec) {
     );
     phase(label + ':speech-pipeline:done');
 
+    let seekReportedPosition = null;
+    let minObservedPosition = Infinity;
+    let maxObservedPosition = -Infinity;
+
+    if (spec.seekTo != null) {
+      phase(label + ':seek:start', { seekTo: spec.seekTo });
+      demux.seek(spec.seekTo);
+      seekReportedPosition = demux.getPosition();
+      assert(
+        Math.abs(seekReportedPosition - spec.seekTo) < 0.01,
+        label + ': demux did not report requested seek position'
+      );
+      phase(label + ':seek:done', { seekReportedPosition });
+    }
+
     phase(label + ':demux-start:start');
     demux.start();
     phase(label + ':demux-start:done');
@@ -211,8 +252,27 @@ async function runSpeechReference(module, model, spec) {
     phase(label + ':demux-loop:start');
     while (demux.step()) {
       packets += 1;
+      const position = demux.getPosition();
+      minObservedPosition = Math.min(minObservedPosition, position);
+      maxObservedPosition = Math.max(maxObservedPosition, position);
+
       if (packets <= 5 || packets % 25 === 0) {
-        phase(label + ':demux-loop:progress', { packets, words: words.length });
+        phase(label + ':demux-loop:progress', {
+          packets,
+          words: words.length,
+          position,
+        });
+      }
+
+      const minPacketsAfterSeek = spec.minPacketsAfterSeek == null
+        ? 1
+        : spec.minPacketsAfterSeek;
+      if (
+        spec.stopAt != null &&
+        maxObservedPosition >= spec.stopAt &&
+        packets >= minPacketsAfterSeek
+      ) {
+        break;
       }
       if (packets > 10000) throw new Error(label + ': demux safety limit exceeded');
     }
@@ -224,6 +284,44 @@ async function runSpeechReference(module, model, spec) {
 
     assert(packets > 0, label + ': demux produced zero packets');
 
+    if (spec.seekTo != null) {
+      const toleranceBefore = spec.seekToleranceBefore == null
+        ? 0
+        : spec.seekToleranceBefore;
+      assert(
+        maxObservedPosition >= spec.seekTo,
+        label + ': seek never reached requested time; max=' + maxObservedPosition
+      );
+      assert(
+        minObservedPosition >= spec.seekTo - toleranceBefore,
+        label + ': seek landed too far before requested time; min=' +
+          minObservedPosition + ', requested=' + spec.seekTo
+      );
+      if (strictSeek) {
+        const toleranceAfter = spec.seekToleranceAfter == null
+          ? 1.0
+          : spec.seekToleranceAfter;
+        assert(
+          minObservedPosition <= spec.seekTo + toleranceAfter,
+          label + ': seek skipped forward past requested time; first/min=' +
+            minObservedPosition + ', requested=' + spec.seekTo
+        );
+      }
+      if (spec.stopAt != null) {
+        assert(
+          maxObservedPosition >= spec.stopAt,
+          label + ': time-window run did not reach stopAt=' + spec.stopAt +
+            ', max=' + maxObservedPosition
+        );
+      }
+      if (spec.minPacketsAfterSeek != null) {
+        assert(
+          packets >= spec.minPacketsAfterSeek,
+          label + ': seek window processed too few packets: ' + packets
+        );
+      }
+    }
+
     return {
       label,
       fileSize: file.size,
@@ -233,6 +331,13 @@ async function runSpeechReference(module, model, spec) {
       audioStream: audio,
       audioTracks: audioStreams.length,
       subtitleTracks: subtitleStreams.length,
+      seekReportedPosition,
+      minObservedPosition: Number.isFinite(minObservedPosition)
+        ? minObservedPosition
+        : null,
+      maxObservedPosition: Number.isFinite(maxObservedPosition)
+        ? maxObservedPosition
+        : null,
       streams,
     };
   } finally {
@@ -403,6 +508,76 @@ async function runLegacyRomanianSubtitle(module) {
   }
 }
 
+async function loadAndValidateFixtureManifest() {
+  const response = await fetch('/tests/generated/mkv-fixture-manifest.json');
+  assert(response.ok, 'MKV fixture manifest HTTP ' + response.status);
+  const manifest = await response.json();
+
+  function streams(name) {
+    assert(manifest[name], 'Missing fixture manifest entry: ' + name);
+    return manifest[name].probe.streams || [];
+  }
+
+  const h264 = streams('reference-h264-aac-stereo.mkv');
+  assert(
+    h264.some(stream => stream.codec_type === 'video' && stream.codec_name === 'h264'),
+    'H.264 fixture probe mismatch'
+  );
+  assert(
+    h264.some(stream =>
+      stream.codec_type === 'audio' &&
+      stream.codec_name === 'aac' &&
+      stream.channels === 2
+    ),
+    'H.264 stereo AAC fixture probe mismatch'
+  );
+
+  const hevc = streams('reference-hevc-eac3-5.1.mkv');
+  assert(
+    hevc.some(stream => stream.codec_type === 'video' && stream.codec_name === 'hevc'),
+    'HEVC fixture probe mismatch'
+  );
+  assert(
+    hevc.some(stream =>
+      stream.codec_type === 'audio' &&
+      stream.codec_name === 'eac3' &&
+      stream.channels === 6
+    ),
+    'HEVC E-AC3 5.1 fixture probe mismatch'
+  );
+
+  const reversed = streams('reference-multitrack-reversed.mkv')
+    .filter(stream => stream.codec_type === 'audio');
+  assert(reversed.length >= 2, 'Reversed multitrack fixture lost audio streams');
+  assert(
+    reversed[0].tags && reversed[0].tags.language === 'spa',
+    'Reversed multitrack first audio language is not spa'
+  );
+  assert(
+    reversed[1].tags && reversed[1].tags.language === 'eng',
+    'Reversed multitrack second audio language is not eng'
+  );
+  assert(
+    reversed[1].channels === 6,
+    'Reversed multitrack English stream is not 5.1'
+  );
+
+  const longDuration = parseFloat(
+    manifest['reference-long-seek.mkv'].probe.format.duration
+  );
+  assert(longDuration >= 124, 'Long seek fixture duration is too short');
+
+  const summary = {
+    h264Stereo: true,
+    hevcEac3FiveOne: true,
+    reversedMultitrack: true,
+    longDuration,
+    longFixtureBytes: manifest['reference-long-seek.mkv'].bytes,
+  };
+  phase('fixture-manifest:validated', summary);
+  return summary;
+}
+
 async function initModule() {
   const wasmResponse = await fetch('/web/scripts/extractor.wasm', { cache: 'no-store' });
   phase('wasm-prefetch:response', {
@@ -451,6 +626,7 @@ async function run() {
     const FS = module.FS;
     assert(FS && FS.filesystems && FS.filesystems.WORKERFS, 'WORKERFS is not available');
 
+    const fixtureManifest = await loadAndValidateFixtureManifest();
     const model = await loadSpeechModel(module);
 
     const specs = [
@@ -497,6 +673,50 @@ async function run() {
         expectSubtitle: true,
       },
       {
+        label: 'mkv-h264-aac-stereo',
+        url: '/tests/generated/reference-h264-aac-stereo.mkv',
+        name: 'reference-h264-aac-stereo.mkv',
+        type: 'video/x-matroska',
+        language: 'ita',
+        expectedCodec: 'aac',
+        expectedVideoCodec: 'h264',
+      },
+      {
+        label: 'mkv-hevc-eac3-5.1',
+        url: '/tests/generated/reference-hevc-eac3-5.1.mkv',
+        name: 'reference-hevc-eac3-5.1.mkv',
+        type: 'video/x-matroska',
+        language: 'ita',
+        expectedCodec: 'eac3',
+        expectedVideoCodec: 'hevc',
+      },
+      {
+        label: 'mkv-multitrack-reversed',
+        url: '/tests/generated/reference-multitrack-reversed.mkv',
+        name: 'reference-multitrack-reversed.mkv',
+        type: 'video/x-matroska',
+        language: 'eng',
+        expectedCodec: 'ac3',
+        expectedVideoCodec: 'h264',
+        expectedTitle: 'English main 5.1',
+        minAudioTracks: 2,
+      },
+      {
+        label: 'mkv-long-seek-window',
+        url: '/tests/generated/reference-long-seek.mkv',
+        name: 'reference-long-seek.mkv',
+        type: 'video/x-matroska',
+        language: 'ita',
+        expectedCodec: 'aac',
+        expectedVideoCodec: 'h264',
+        minDuration: 124,
+        seekTo: 62.5,
+        stopAt: 68.0,
+        seekToleranceBefore: 5.0,
+        seekToleranceAfter: 1.0,
+        minPacketsAfterSeek: 25,
+      },
+      {
         label: 'wav',
         url: '/tests/generated/reference-audio.wav',
         name: 'reference-audio.wav',
@@ -518,6 +738,8 @@ async function run() {
         sampleformat: model.sampleformat,
         samplerate: model.samplerate,
       },
+      fixtureManifest,
+      strictSeek,
       references,
       srt,
       legacyRomanianSrt,

@@ -181,9 +181,45 @@ The exact historical root cause is still unconfirmed.
 
 Current negative evidence:
 - AAC, AC3, E-AC3, multiple audio tracks, and embedded subtitles pass the deterministic browser/WASM matrix;
-- generated direct MKV with English audio + Romanian SRT passes end to end.
+- generated direct MKV with English audio + Romanian SRT passes end to end;
+- H.264 + stereo AAC passes;
+- HEVC/H.265 + E-AC3 5.1 passes;
+- reversed audio-track order with the desired English 5.1 track second passes;
+- a 125.064 s direct-MKV time-window seek fixture passes after the seek-gap fix below.
 
-Do not claim MKV itself is generally broken. Future reproduction should focus on properties absent from current fixtures: channel layouts, codecs, seeking, long duration/file size, browser memory behavior, and unusual container metadata.
+### Confirmed split-window seek reliability bug and fix
+
+While expanding realistic MKV coverage, a separate deterministic reliability bug was reproduced in the parallel reference-window path used for longer media.
+
+Baseline diagnostic run `34666168345` used the previous known-good WASM binary. On a 125.064 s H.264/AAC MKV with 10 s video keyframes:
+- requested seek: `62.5 s`;
+- `Demux.getPosition()` immediately reported `62.5 s`;
+- first/minimum packet position actually observed after reading: **`70.0 s`**.
+
+Because `Synchronizer` splits longer references into adjacent worker time windows, a forward seek to the next video keyframe can skip reference audio at the beginning of a worker window and create an uncovered gap between workers.
+
+PR #16 changes only `Demux::seek()` from the default FFmpeg seek flags to `AVSEEK_FLAG_BACKWARD`, preventing a worker from jumping forward beyond its requested start.
+
+Authoritative freshly compiled WASM run `34666292346`: **PASS** with strict seek regression enabled.
+Measured on the same fixture:
+- requested seek: `62.5 s`;
+- minimum observed packet position: **`60.0 s`**;
+- maximum observed position in the test window: `68.0 s`;
+- processed packets in the seek window: `134`;
+- no forward gap past the requested start.
+
+The same authoritative run also passed:
+- H.264 video + stereo AAC;
+- HEVC/H.265 video + E-AC3 5.1;
+- reversed multitrack selection where the English 5.1 stream is second;
+- the existing AAC / AC3 / E-AC3 / embedded-subtitle / Romanian subtitle regressions;
+- the primary ENG-audio + RO-subtitle E2E and PWA regressions.
+
+This is a **confirmed MKV reliability bug** fixed by PR #16. It is a plausible contributor to some long-media failures, but it is **not** claimed as the confirmed root cause of the historical real-world MKV report until a representative historical failing file is reproduced.
+
+The 125 s fixture is intentionally only ~519 KiB, so it validates duration and seek-window behavior but **does not** prove large-file browser memory-pressure reliability.
+
+Do not claim MKV itself is generally broken. Remaining reproduction work should focus on large real files, browser memory behavior, unusual container metadata, and a representative historical failing MKV.
 
 ## Build
 
@@ -353,13 +389,16 @@ Completed additionally:
 Completed additionally:
 20. representative non-primary language validation against the live public Pages preview (Italian, French, Spanish dictionary + speech asset paths).
 
+Completed additionally:
+21. realistic MKV coverage expansion and deterministic split-window seek-gap fix: H.264/AAC stereo, HEVC/E-AC3 5.1, reversed multitrack, 125 s seek-window coverage.
+
 Next:
-21. expand realistic MKV coverage;
 22. improve language-asset download/cache UX;
 23. add stage-specific synchronization diagnostics;
 24. reproduce/isolate the historical direct-MKV failure with a representative real-world case when available;
-25. return to genuine Romanian-audio support near completion;
-26. consider batch/multi-upload only after single-file reliability is solid.
+25. add explicit large-file/browser-memory stress coverage;
+26. return to genuine Romanian-audio support near completion;
+27. consider batch/multi-upload only after single-file reliability is solid.
 
 ## Product direction decided in this session
 

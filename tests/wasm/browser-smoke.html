@@ -11,7 +11,14 @@
     const phases = [];
     window.__subsyncSmokePhases = phases;
 
-    const worker = new Worker('/tests/wasm/browser-smoke-worker.js');
+    const pageParams = new URLSearchParams(location.search);
+    const workerParams = new URLSearchParams();
+    if (pageParams.get('strictSeek') === '1') {
+      workerParams.set('strictSeek', '1');
+    }
+    const workerUrl = '/tests/wasm/browser-smoke-worker.js' +
+      (workerParams.toString() ? '?' + workerParams.toString() : '');
+    const worker = new Worker(workerUrl);
 
     function finish(status, details) {
       const payload = typeof details === 'string' ? details : JSON.stringify(details, null, 2);

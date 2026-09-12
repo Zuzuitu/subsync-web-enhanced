@@ -79,6 +79,21 @@ if set(romanian.get("acceptedLanguageCodes", [])) != {"ro", "rum", "ron"}:
 if romanian.get("preserveDiacritics") is not True:
     raise SystemExit("Romanian diacritics must be preserved")
 
+mkv_testing = inv.get("testing", {})
+seek_guard = mkv_testing.get("timeWindowSeek", {})
+if seek_guard.get("mustNotSkipForwardPastRequestedStart") is not True:
+    raise SystemExit("MKV time-window seek must not skip forward past requested start")
+if seek_guard.get("regressionRequired") is not True:
+    raise SystemExit("MKV time-window seek regression coverage is required")
+required_mkv_coverage = {
+    "H.264 + stereo AAC",
+    "HEVC/H.265 + E-AC3 5.1",
+    "reversed multiple-audio-track selection",
+    "long-duration split-window seek",
+}
+if not required_mkv_coverage.issubset(set(mkv_testing.get("mkvReliabilityCoverage", []))):
+    raise SystemExit("Required realistic MKV reliability coverage is incomplete")
+
 readme = (ROOT / "README.md").read_text(encoding="utf-8").lower()
 for token in ("sc0ty", "gnu general public license"):
     if token not in readme:
