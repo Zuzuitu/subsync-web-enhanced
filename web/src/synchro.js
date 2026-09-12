@@ -3,6 +3,7 @@ import webworkify from 'webworkify';
 import Subtitles from './subtitle.js';
 import settings from './settings.js';
 import Logger from './logger.js';
+import { annotateErrorStage, classifyErrorStage } from './diagnostics.js';
 const logger = Logger.logger.get('[Synchronizer]');
 
 export default class Synchronizer {
@@ -39,8 +40,17 @@ export default class Synchronizer {
     this.subtitles = new Subtitles();
     this.status = {};
     this.gotAllSubs = false;
+    this.diagnostics = {
+      currentStage: null,
+      stages: {},
+      errors: [],
+      subWords: 0,
+      refWords: 0,
+      subtitles: 0,
+    };
 
     try {
+      this.recordStage(listener, 'initialization', 'running');
       const refJobsNo = calcRefJobsNo(ref);
       this.progress = new Array(refJobsNo + 1).fill(0);
       for (let i = this.refExtractors.length; i < refJobsNo; i++) {
@@ -50,25 +60,48 @@ export default class Synchronizer {
       const refExtractors = this.refExtractors.slice(0, refJobsNo);
       this.extractors = [ this.subExtractor, ...refExtractors ];
 
-      await Promise.all([
-        this.correlator.init(settings.serialize()),
-        this.subExtractor.init(settings.serialize(), 'SubExtractor'),
-        ...refExtractors.map((ex, i) => ex.init(settings.serialize(), `RefExtractor${i}`)),
-      ]);
-
-      if (await this.preloadAssets(sub, ref, listener)) {
-        await Promise.all(refExtractors.map(ex => ex.syncfs()));
+      try {
+        await Promise.all([
+          this.correlator.init(settings.serialize()),
+          this.subExtractor.init(settings.serialize(), 'SubExtractor'),
+          ...refExtractors.map((ex, i) => ex.init(settings.serialize(), `RefExtractor${i}`)),
+        ]);
+        this.recordStage(listener, 'initialization', 'ready');
+      } catch (e) {
+        throw this.recordError(listener, annotateErrorStage(e, 'initialization'));
       }
 
-      await Promise.all([
-        this.subExtractor.open(sub, { otherLang: ref.lang, postSubtitles: true }),
-        ...refExtractors.map((ex, i) => ex.open(ref, {
-          timeWindow: ref.duration && [ i * ref.duration / refJobsNo, (i + 1) * ref.duration / refJobsNo + 1 ]
-        }))
-      ]);
+      try {
+        this.recordStage(listener, 'language-assets', 'running');
+        if (await this.preloadAssets(sub, ref, listener)) {
+          await Promise.all(refExtractors.map(ex => ex.syncfs()));
+        }
+        this.recordStage(listener, 'language-assets', 'ready');
+      } catch (e) {
+        throw this.recordError(listener, annotateErrorStage(e, 'language-assets'));
+      }
 
+      try {
+        this.recordStage(listener, 'pipeline-open', 'running');
+        await Promise.all([
+        this.subExtractor.open(sub, { otherLang: ref.lang, postSubtitles: true }),
+          ...refExtractors.map((ex, i) => ex.open(ref, {
+            timeWindow: ref.duration && [ i * ref.duration / refJobsNo, (i + 1) * ref.duration / refJobsNo + 1 ]
+          }))
+        ]);
+        this.recordStage(listener, 'pipeline-open', 'ready');
+      } catch (e) {
+        throw this.recordError(listener, annotateErrorStage(e, 'pipeline-open'));
+      }
+
+      this.recordStage(listener, 'processing', 'running');
       listener.onSyncStarted();
       await Promise.all(this.extractors.map( (ex, i) => this.runExtractor(ex, i, listener)) );
+      this.recordStage(listener, 'processing', 'ready');
+      this.recordStage(listener, 'correlation', 'ready', {
+        points: this.status.points || 0,
+        factor: this.status.factor || 0,
+      });
 
     } finally {
       await Promise.all(this.extractors.map(ex => ex.close()));
@@ -87,37 +120,62 @@ export default class Synchronizer {
     const onError = listener.onSyncError.bind(listener, issub ? 'sub' : 'ref');
 
     while (this.running) {
+      let s;
       try {
-        const s = await extractor.run(2000);
-        if (this.running && s.subtitles) {
-          for (const sub of s.subtitles) {
-            this.subtitles.addSubtitle(sub);
-          }
-          if (s.done) {
-            this.gotAllSubs = true;
-          }
-          await this.correlator.addSubtitles(s.subtitles);
-        }
-        if (this.running && s.words) {
-          const dp = ((s.progress || 0) - (this.progress[no] || 0)) * 2
-            / (s.words.length * (s.words.length+1));
+        s = await extractor.run(2000);
+      } catch (e) {
+        const fallback = issub ? 'subtitle-decode' : 'processing';
+        const err = this.recordError(listener, annotateErrorStage(e, fallback));
+        logger.error(issub ? 'subExtractor:' : `refExtractor${no - 1}:`, err);
+        onError(err);
+        break;
+      }
 
-          for (const [i, word] of s.words.entries()) {
-            this.progress[no] += dp * i;
-            await onNewWord(word);
-            if (!this.running) {
-              break;
-            }
-          }
+      if (this.running && s.subtitles) {
+        this.diagnostics.subtitles += s.subtitles.length;
+        for (const sub of s.subtitles) {
+          this.subtitles.addSubtitle(sub);
         }
-        this.progress[no] = s.progress;
         if (s.done) {
+          this.gotAllSubs = true;
+        }
+        try {
+          await this.correlator.addSubtitles(s.subtitles);
+        } catch (e) {
+          const err = this.recordError(listener, annotateErrorStage(e, 'correlation'));
+          onError(err);
           break;
         }
+      }
 
-      } catch (e) {
-        logger.error(issub ? 'subExtractor:' : `refExtractor${no - 1}:`, e);
-        onError(e);
+      if (this.running && s.words) {
+        if (issub) {
+          this.diagnostics.subWords += s.words.length;
+        } else {
+          this.diagnostics.refWords += s.words.length;
+        }
+
+        const dp = ((s.progress || 0) - (this.progress[no] || 0)) * 2
+          / (s.words.length * (s.words.length+1));
+
+        for (const [i, word] of s.words.entries()) {
+          this.progress[no] += dp * i;
+          try {
+            await onNewWord(word);
+          } catch (e) {
+            const err = this.recordError(listener, annotateErrorStage(e, 'correlation'));
+            onError(err);
+            return;
+          }
+          if (!this.running) {
+            break;
+          }
+        }
+      }
+
+      this.progress[no] = s.progress;
+      if (s.done) {
+        break;
       }
     }
   }
