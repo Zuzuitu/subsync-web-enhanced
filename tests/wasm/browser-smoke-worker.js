@@ -1,3 +1,5 @@
+const strictSeek = new URLSearchParams(self.location.search).get('strictSeek') === '1';
+
 function phase(name, data) {
   self.postMessage({
     type: 'phase',
@@ -262,7 +264,14 @@ async function runSpeechReference(module, model, spec) {
         });
       }
 
-      if (spec.stopAt != null && position >= spec.stopAt) {
+      const minPacketsAfterSeek = spec.minPacketsAfterSeek == null
+        ? 1
+        : spec.minPacketsAfterSeek;
+      if (
+        spec.stopAt != null &&
+        maxObservedPosition >= spec.stopAt &&
+        packets >= minPacketsAfterSeek
+      ) {
         break;
       }
       if (packets > 10000) throw new Error(label + ': demux safety limit exceeded');
@@ -288,11 +297,27 @@ async function runSpeechReference(module, model, spec) {
         label + ': seek landed too far before requested time; min=' +
           minObservedPosition + ', requested=' + spec.seekTo
       );
+      if (strictSeek) {
+        const toleranceAfter = spec.seekToleranceAfter == null
+          ? 1.0
+          : spec.seekToleranceAfter;
+        assert(
+          minObservedPosition <= spec.seekTo + toleranceAfter,
+          label + ': seek skipped forward past requested time; first/min=' +
+            minObservedPosition + ', requested=' + spec.seekTo
+        );
+      }
       if (spec.stopAt != null) {
         assert(
           maxObservedPosition >= spec.stopAt,
           label + ': time-window run did not reach stopAt=' + spec.stopAt +
             ', max=' + maxObservedPosition
+        );
+      }
+      if (spec.minPacketsAfterSeek != null) {
+        assert(
+          packets >= spec.minPacketsAfterSeek,
+          label + ': seek window processed too few packets: ' + packets
         );
       }
     }
@@ -688,6 +713,8 @@ async function run() {
         seekTo: 62.5,
         stopAt: 68.0,
         seekToleranceBefore: 5.0,
+        seekToleranceAfter: 1.0,
+        minPacketsAfterSeek: 25,
       },
       {
         label: 'wav',
@@ -712,6 +739,7 @@ async function run() {
         samplerate: model.samplerate,
       },
       fixtureManifest,
+      strictSeek,
       references,
       srt,
       legacyRomanianSrt,
