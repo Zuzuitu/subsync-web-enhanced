@@ -28,11 +28,27 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
+      - name: Checkout deployment metadata and mirror tooling
+        uses: actions/checkout@v4
+
       - name: Download authoritative PWA artifact
         uses: actions/download-artifact@v4
         with:
           name: subsync2-pwa-authoritative
           path: site
+
+      - name: Restore pinned upstream asset mirror cache
+        uses: actions/cache@v4
+        with:
+          path: .cache/subsync2-upstream-assets
+          key: subsync2-upstream-assets-${{ hashFiles('config/english-romanian-assets.json', 'config/sc0ty-assets-public-key.pem') }}
+
+      - name: Mirror signature-verified original sc0ty language assets
+        run: |
+          python3 scripts/mirror-upstream-assets.py \
+            --destination site/assets/data \
+            --cache-dir .cache/subsync2-upstream-assets \
+            --workers 8
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
@@ -45,3 +61,5 @@ jobs:
       - name: Deploy preview to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          timeout: 900000
