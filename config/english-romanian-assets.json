@@ -10,6 +10,13 @@
     "url": "https://github.com/sc0ty/subsync/releases/download/assets/assets.json",
     "sha256": "f25ccee51728c6632fdb66a33744e33945cb054a562c4ff600afc03ced605da4"
   },
+  "assetSigningKey": {
+    "upstreamRepository": "sc0ty/subsync",
+    "upstreamCommit": "c888da7257d57bf039523c9f7015feacb4b95dc3",
+    "upstreamPath": "subsync/key.pub",
+    "localPath": "config/sc0ty-assets-public-key.pem",
+    "sha256": "71523aa370bca38c2af77b36e6fece5f7340963df5c0fc3024c9784e6c6de436"
+  },
   "speechEnglish": {
     "releaseAssetId": 14727496,
     "filename": "speech-eng.zip",

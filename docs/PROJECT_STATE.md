@@ -93,6 +93,40 @@ This proves the primary ENG-audio + RO-subtitle architecture end to end on a det
 
 Authoritative Legacy WebAssembly Build run `34620017397`: **PASS** on freshly compiled WASM. PR #5 merged this regression to `main` at `a2acdfca162b8fe53bc0ac792ebf7cafe1c9829e`.
 
+## Original sc0ty language catalog restoration
+
+The first SubSync2 PWA milestone deliberately staged only the assets required for the primary product path:
+- `speech/eng`;
+- `dict/eng-rum`.
+
+Although the UI retained the broader legacy language list, asset validation therefore rejected other speech languages and language pairs. Do not describe the pre-restoration public preview as full original-language parity.
+
+The pinned original sc0ty `assets` release contains:
+- **9 speech models**: `chi`, `dut`, `eng`, `fre`, `ger`, `gre`, `ita`, `rus`, `spa`;
+- **217 dictionary packages**;
+- about **504 MiB** total across speech models and dictionaries.
+
+PR #13 restores this pinned catalog to the browser build without changing the original synchronization algorithm or product thresholds.
+
+Security and delivery design:
+- the original `assets.json` remains pinned by SHA-256 `f25ccee51728c6632fdb66a33744e33945cb054a562c4ff600afc03ced605da4`;
+- sc0ty's original RSA asset-verification public key is vendored from pinned upstream commit `c888da7257d57bf039523c9f7015feacb4b95dc3` and pinned by SHA-256 `71523aa370bca38c2af77b36e6fece5f7340963df5c0fc3024c9784e6c6de436`;
+- mirrored ZIP packages are verified against their original `.asc` signatures with RSA PKCS#1 v1.5 + SHA-256 before publication;
+- browser asset URLs remain same-origin under `assets/data/`;
+- ordinary CI/PWA artifacts remain small and still stage only the primary ENG speech + ENG↔RO dictionary;
+- the **deliberate GitHub Pages preview deploy** mirrors the complete verified original catalog before upload, so the browser can fetch additional models/dictionaries on demand and IDBFS can persist those actually used.
+
+A direct-browser attempt to fetch GitHub Release asset URLs cross-origin was tested and failed with browser `TypeError: Failed to fetch` (CORS). That approach was discarded rather than worked around with a media/backend service.
+
+Representative browser validation, fast PWA run `34661554867`: **PASS**.
+- `dict/eng-ita` v1.1.2 signature verified; 961,607 bytes;
+- `speech/ita` v1.0.0 signature verified; 8,539,884 bytes;
+- both were served from the same-origin staged site and fetched by the actual PWA with HTTP 200;
+- no console errors;
+- no page errors.
+
+The tiny Italian fixtures intentionally did not provide enough correlation evidence and ended in `Couldn't synchronize`. This test proves catalog restoration, signature verification, browser delivery, extraction and model/dictionary loading for representative non-primary assets; it does **not** claim that every original language has already passed a full recognition/correlation E2E.
+
 ## Original historical MKV issue
 
 Historical observation: some direct MKV + SRT files failed while extracted audio + the same SRT succeeded.
@@ -271,9 +305,11 @@ Completed additionally:
 19. physical iPhone/Safari validation reported successful by the user.
 
 Next:
-20. expand realistic MKV coverage;
-21. reproduce/isolate the historical direct-MKV failure with a representative real-world case when available;
-22. return to Romanian-audio support near completion.
+20. complete and deploy the restored original sc0ty language catalog;
+21. validate the public Pages build with representative non-primary languages;
+22. expand realistic MKV coverage;
+23. reproduce/isolate the historical direct-MKV failure with a representative real-world case when available;
+24. return to Romanian-audio support near completion.
 
 ## Open blockers
 
