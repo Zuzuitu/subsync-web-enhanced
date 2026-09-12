@@ -18,6 +18,7 @@ on:
       - "config/sc0ty-assets-public-key.pem"
       - "scripts/generate-web-metadata.py"
       - "scripts/mirror-upstream-assets.py"
+      - "scripts/prepare-whisper-single-thread.py"
       - "scripts/stage-web-app.py"
       - ".github/workflows/legacy-web-build.yml"
       - "tests/wasm/**"
