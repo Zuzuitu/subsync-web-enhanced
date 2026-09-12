@@ -107,7 +107,17 @@
       "embedded-subtitles"
     ],
     "romanianUtf8SubtitleRegressionRequired": true,
-    "englishAudioRomanianSubtitleEndToEndRequired": true
+    "englishAudioRomanianSubtitleEndToEndRequired": true,
+    "mkvReliabilityCoverage": [
+      "H.264 + stereo AAC",
+      "HEVC/H.265 + E-AC3 5.1",
+      "reversed multiple-audio-track selection",
+      "long-duration split-window seek"
+    ],
+    "timeWindowSeek": {
+      "mustNotSkipForwardPastRequestedStart": true,
+      "regressionRequired": true
+    }
   },
   "deployment": {
     "productionConfigured": false,
