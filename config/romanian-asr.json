@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Pinned local Romanian speech recognition inputs for SubSync2",
+  "engine": {
+    "name": "whisper.cpp",
+    "repository": "ggml-org/whisper.cpp",
+    "tag": "v1.5.4",
+    "sha": "0b9af32a8b3fa7e2ae5f15a9a08f5b10394993f5",
+    "license": "MIT",
+    "browserMode": "single-threaded WebAssembly",
+    "threads": 1
+  },
+  "model": {
+    "repository": "ggerganov/whisper.cpp",
+    "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+    "filename": "ggml-tiny-q5_1.bin",
+    "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-tiny-q5_1.bin",
+    "sha256": "818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7",
+    "version": "tiny-q5_1@5359861c739e955e79d9a303bcbc70fb988958b1",
+    "license": "MIT",
+    "language": "ro",
+    "canonicalSubSyncLanguage": "rum"
+  },
+  "fixtureVoice": {
+    "provider": "Piper",
+    "package": "piper-tts[http]==1.8.0",
+    "repository": "rhasspy/piper-voices",
+    "revision": "v1.0.0",
+    "voice": "ro_RO-mihai-medium",
+    "modelUrl": "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/ro/ro_RO/mihai/medium/ro_RO-mihai-medium.onnx",
+    "configUrl": "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/ro/ro_RO/mihai/medium/ro_RO-mihai-medium.onnx.json",
+    "modelSha256": "e0608bbbd53c80267c09ece681b09f5199f54e792356684c8073738e5f15d29f",
+    "datasetLicense": "CC0"
+  }
+}
