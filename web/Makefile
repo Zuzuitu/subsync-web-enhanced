@@ -7,8 +7,6 @@ DEPS_DIR    = $(abspath deps)
 OBJ_DIR     = $(abspath obj)
 GIZMO_DIR   = $(abspath ../gizmo)
 MODUELS_DIR = $(abspath node_modules)
-WHISPER_SRC_DIR = $(DEPS_DIR)/src/whispercpp
-WHISPER_STAMP = $(WHISPER_SRC_DIR)/.subsync2-single-thread
 
 EXTRACTOR_TARGET  = $(TARGETS_DIR)/extractor.js
 CORRELATOR_TARGET = $(TARGETS_DIR)/correlator.js
@@ -76,7 +74,6 @@ EXTRACTOR_SOURCES = \
 		  $(GIZMO_DIR)/media/resampler.cpp \
 		  $(GIZMO_DIR)/media/subdec.cpp \
 		  $(GIZMO_DIR)/media/speechrec.cpp \
-		  $(GIZMO_DIR)/media/whisperspeechrec.cpp \
 		  $(GIZMO_DIR)/general/exception.cpp \
 		  $(GIZMO_DIR)/general/logger.cpp \
 
@@ -84,17 +81,10 @@ CORRELATOR_SOURCES = \
 		  $(GIZMO_DIR)/wasm/correlator.cpp \
 		  $(GIZMO_DIR)/synchro/synchronizer.cpp \
 
-WHISPER_OBJECTS = \
-		  $(OBJ_DIR)/whisper/ggml.o \
-		  $(OBJ_DIR)/whisper/ggml-alloc.o \
-		  $(OBJ_DIR)/whisper/ggml-backend.o \
-		  $(OBJ_DIR)/whisper/ggml-quants.o \
-		  $(OBJ_DIR)/whisper/whisper.o \
-
 SHARED_OBJECTS     = $(addprefix $(OBJ_DIR)/,$(SHARED_SOURCES:.cpp=.o))
 EXTRACTOR_OBJECTS  = $(addprefix $(OBJ_DIR)/,$(EXTRACTOR_SOURCES:.cpp=.o))
 CORRELATOR_OBJECTS = $(addprefix $(OBJ_DIR)/,$(CORRELATOR_SOURCES:.cpp=.o))
-OBJECTS = $(SHARED_OBJECTS) $(EXTRACTOR_OBJECTS) $(CORRELATOR_OBJECTS) $(WHISPER_OBJECTS)
+OBJECTS = $(SHARED_OBJECTS) $(EXTRACTOR_OBJECTS) $(CORRELATOR_OBJECTS)
 
 
 #####################
@@ -116,7 +106,6 @@ $(EXTRACTOR_OBJECTS): CXXFLAGS += \
 	-I$(DEPS_DIR)/include \
 	-I$(DEPS_DIR)/include/sphinxbase \
 	-I$(DEPS_DIR)/include/pocketsphinx \
-	-I$(WHISPER_SRC_DIR) \
 	-DTRACK_EXCEPTIONS \
 
 $(EXTRACTOR_TARGET): LDFLAGS += \
@@ -137,45 +126,15 @@ $(EXTRACTOR_TARGET): LDFLAGS += \
 	-s 'EXTRA_EXPORTED_RUNTIME_METHODS=["FS"]' \
 	-s FETCH=1 \
 
-$(WHISPER_STAMP):
-	python3 ../scripts/prepare-whisper-single-thread.py \
-		--source $(MODUELS_DIR)/whispercpp \
-		--destination $(WHISPER_SRC_DIR)
-
-$(EXTRACTOR_OBJECTS): $(EXTRACTOR_DEPS) $(WHISPER_STAMP)
-
-$(OBJ_DIR)/whisper/ggml.o: $(WHISPER_STAMP)
-	@mkdir -p $(dir $@)
-	$(CC) -c -o $@ $(WHISPER_SRC_DIR)/ggml.c -O3 -DNDEBUG -std=c11 \
-		-DSUBSYNC2_WHISPER_SINGLE_THREAD=1 -D_XOPEN_SOURCE=600 -I$(WHISPER_SRC_DIR)
-
-$(OBJ_DIR)/whisper/ggml-alloc.o: $(WHISPER_STAMP)
-	@mkdir -p $(dir $@)
-	$(CC) -c -o $@ $(WHISPER_SRC_DIR)/ggml-alloc.c -O3 -DNDEBUG -std=c11 \
-		-DSUBSYNC2_WHISPER_SINGLE_THREAD=1 -D_XOPEN_SOURCE=600 -I$(WHISPER_SRC_DIR)
-
-$(OBJ_DIR)/whisper/ggml-backend.o: $(WHISPER_STAMP)
-	@mkdir -p $(dir $@)
-	$(CC) -c -o $@ $(WHISPER_SRC_DIR)/ggml-backend.c -O3 -DNDEBUG -std=c11 \
-		-DSUBSYNC2_WHISPER_SINGLE_THREAD=1 -D_XOPEN_SOURCE=600 -I$(WHISPER_SRC_DIR)
-
-$(OBJ_DIR)/whisper/ggml-quants.o: $(WHISPER_STAMP)
-	@mkdir -p $(dir $@)
-	$(CC) -c -o $@ $(WHISPER_SRC_DIR)/ggml-quants.c -O3 -DNDEBUG -std=c11 \
-		-DSUBSYNC2_WHISPER_SINGLE_THREAD=1 -D_XOPEN_SOURCE=600 -I$(WHISPER_SRC_DIR)
-
-$(OBJ_DIR)/whisper/whisper.o: $(WHISPER_STAMP)
-	@mkdir -p $(dir $@)
-	$(CXX) -c -o $@ $(WHISPER_SRC_DIR)/whisper.cpp -O3 -DNDEBUG -std=c++14 \
-		-DSUBSYNC2_WHISPER_SINGLE_THREAD=1 -D_XOPEN_SOURCE=600 -I$(WHISPER_SRC_DIR)
+$(EXTRACTOR_OBJECTS): $(EXTRACTOR_DEPS)
 
 $(OBJ_DIR)/%.o: %.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) -c -o $@ $< $(CXXFLAGS)
 
-$(EXTRACTOR_TARGET): $(EXTRACTOR_OBJECTS) $(SHARED_OBJECTS) $(WHISPER_OBJECTS) $(EXTRACTOR_DEPS)
+$(EXTRACTOR_TARGET): $(EXTRACTOR_OBJECTS) $(SHARED_OBJECTS) $(EXTRACTOR_DEPS)
 	@mkdir -p $(dir $@)
-	$(CXX) -o $@ $(EXTRACTOR_OBJECTS) $(SHARED_OBJECTS) $(WHISPER_OBJECTS) $(LDFLAGS)
+	$(CXX) -o $@ $(EXTRACTOR_OBJECTS) $(SHARED_OBJECTS) $(LDFLAGS)
 
 $(CORRELATOR_TARGET): $(CORRELATOR_OBJECTS) $(SHARED_OBJECTS)
 	@mkdir -p $(dir $@)
