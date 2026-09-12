@@ -11,9 +11,9 @@ using namespace std;
 
 namespace
 {
-    const int WHISPER_SAMPLE_RATE = 16000;
-    const size_t CHUNK_SAMPLES = 30 * WHISPER_SAMPLE_RATE;
-    const size_t MIN_FINAL_SAMPLES = WHISPER_SAMPLE_RATE;
+    const int SUBSYNC2_SAMPLE_RATE = WHISPER_SAMPLE_RATE;
+    const size_t CHUNK_SAMPLES = 30 * SUBSYNC2_SAMPLE_RATE;
+    const size_t MIN_FINAL_SAMPLES = SUBSYNC2_SAMPLE_RATE;
 
     static string trimWord(string word)
     {
@@ -136,7 +136,7 @@ void WhisperSpeechRecognition::feed(const AVFrame *frame)
         throw EXCEPTION("Romanian Whisper model is not initialized")
             .module("WhisperSpeechRecognition", "feed");
 
-    if (frame->format != AV_SAMPLE_FMT_FLT || frame->channels != 1 || frame->sample_rate != WHISPER_SAMPLE_RATE)
+    if (frame->format != AV_SAMPLE_FMT_FLT || frame->channels != 1 || frame->sample_rate != SUBSYNC2_SAMPLE_RATE)
         throw EXCEPTION("unexpected Romanian Whisper PCM format")
             .module("WhisperSpeechRecognition", "feed")
             .add("format", frame->format)
@@ -168,7 +168,7 @@ void WhisperSpeechRecognition::processAvailable(bool final)
     {
         processChunk(m_pcm.data(), CHUNK_SAMPLES, m_chunkStartTime);
         m_pcm.erase(m_pcm.begin(), m_pcm.begin() + CHUNK_SAMPLES);
-        m_chunkStartTime += static_cast<double>(CHUNK_SAMPLES) / WHISPER_SAMPLE_RATE;
+        m_chunkStartTime += static_cast<double>(CHUNK_SAMPLES) / SUBSYNC2_SAMPLE_RATE;
     }
 
     if (final)
