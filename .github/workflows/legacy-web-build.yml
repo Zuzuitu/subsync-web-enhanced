@@ -58,6 +58,7 @@ jobs:
               "FFMPEG_REF": pins["ffmpeg"]["ref"],
               "SPHINXBASE_SHA": pins["sphinxbase"]["sha"],
               "POCKETSPHINX_SHA": pins["pocketsphinx"]["sha"],
+              "WHISPERCPP_SHA": pins["whispercpp"]["sha"],
               "EMSCRIPTEN_VERSION": pins["emscripten"]["version"],
           }
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as f:
@@ -93,8 +94,15 @@ jobs:
           git -C web/node_modules/pocketsphinx-tmp checkout --detach FETCH_HEAD
           mv web/node_modules/pocketsphinx-tmp web/node_modules/pocketsphinx
 
+          git -C web/node_modules init whispercpp-tmp
+          git -C web/node_modules/whispercpp-tmp remote add origin https://github.com/ggml-org/whisper.cpp.git
+          git -C web/node_modules/whispercpp-tmp fetch --depth 1 origin "$WHISPERCPP_SHA"
+          git -C web/node_modules/whispercpp-tmp checkout --detach FETCH_HEAD
+          mv web/node_modules/whispercpp-tmp web/node_modules/whispercpp
+
           test "$(git -C web/node_modules/sphinxbase rev-parse HEAD)" = "$SPHINXBASE_SHA"
           test "$(git -C web/node_modules/pocketsphinx rev-parse HEAD)" = "$POCKETSPHINX_SHA"
+          test "$(git -C web/node_modules/whispercpp rev-parse HEAD)" = "$WHISPERCPP_SHA"
           test "$(git -C web/node_modules/ffmpeg describe --tags --exact-match)" = "$FFMPEG_REF"
 
       - name: Build pinned Emscripten toolchain image
