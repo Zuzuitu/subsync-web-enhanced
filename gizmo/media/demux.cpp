@@ -190,7 +190,11 @@ double Demux::getDuration() const
 void Demux::seek(double timestamp)
 {
 	int64_t ts = timestamp * AV_TIME_BASE;
-	int res = av_seek_frame(m_formatContext, -1, ts, 0);
+	// Parallel reference extraction uses adjacent time windows. A default seek
+	// may select the next video keyframe, skipping reference audio between the
+	// requested timestamp and that keyframe. Seek backward instead so a worker
+	// never creates a forward gap at the beginning of its window.
+	int res = av_seek_frame(m_formatContext, -1, ts, AVSEEK_FLAG_BACKWARD);
 	if (res < 0)
 		throw EXCEPTION_FFMPEG("can't seek", res)
 			.module("Demux", "av_seek_frame")
