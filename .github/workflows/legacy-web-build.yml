@@ -202,8 +202,10 @@ jobs:
             -w /src/web \
             subsync-whisper-build \
             node - <<'NODE'
+          const fs = require('fs');
           const factory = require('./scripts/whisper.js');
-          factory().then(module => {
+          const wasmBinary = fs.readFileSync('./scripts/whisper.wasm');
+          factory({ wasmBinary }).then(module => {
             const recognition = new module.RomanianWhisperRecognition();
             const info = recognition.systemInfo();
             console.log(info);
