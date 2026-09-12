@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-12 21:58 Europe/Rome
+LAST_UPDATED: 2026-09-12 22:22 Europe/Rome
 
 ## Canonical status
 
@@ -49,12 +49,55 @@ no-shared-memory assertions, canonical MKV matrix, ENG-audio + RO-subtitle
 E2E, PWA staging, Romanian-audio Chromium E2E, and Romanian-audio
 iPhone-like WebKit E2E on the final governance head.
 
+
+### Merged-main release candidate validation
+
+Release-candidate regression was re-run from the exact merged-main commit
+`46372bb9e4f3ae4cf6d12a8b640aed33d5ade172`, not only from the PR head.
+
+All required merged-main gates are green:
+- CI run `34715999591`: **PASS**;
+- Legacy WebAssembly Build run `34716200123`: **PASS**;
+- MKV WASM Fast Diagnostic run `34716202061`: **PASS**;
+- Mobile WebKit Compatibility run `34716200576`: **PASS**;
+- Large-file Browser Stress run `34716202978`: **PASS**.
+
+The merged-main Legacy run rebuilt the legacy extractor/correlator and the
+isolated Romanian Whisper module from pinned sources. It re-confirmed:
+- no shared WebAssembly memory requirement;
+- Romanian Whisper runtime reports `WASM_SIMD = 1`;
+- canonical MKV matrix and split-window seek regression;
+- ENG-audio + RO-subtitle E2E;
+- staged PWA shell;
+- language download/cache management;
+- pinned upstream language-asset loading;
+- primary real-PWA workflow;
+- Romanian-audio real-PWA E2E in Chromium and iPhone-like WebKit.
+
+Merged-main Romanian-audio E2E in both Chromium and WebKit produced:
+- **140** usable Romanian reference words;
+- **23** synchronization points;
+- **99.99 %** displayed correlation;
+- formula `0.9990x-8.234`;
+- saved first-cue timing correction **-8.243 s** for the +8.0 s fixture;
+- model lifecycle `Downloading -> Verifying SHA-256 -> Storing locally -> Ready`;
+- Romanian diacritics preserved in the saved SRT;
+- zero console errors, page errors, and HTTP failures.
+
+The >=128 MiB merged-main stress regression also passed in Chromium and
+iPhone-like WebKit with the canonical 143,952,449-byte (137.28 MiB) direct
+MKV fixture. Observed descendant-process peak RSS was 1071.08 MiB in
+Chromium and 1779.86 MiB in WebKit. These remain Linux CI process-tree
+baselines, not physical-iPhone or exact browser-tab memory measurements.
+
+This merged-main validation is the release-candidate evidence required before
+the next deliberate GitHub Pages preview deployment.
+
 Next sequence:
-1. run the full release-candidate regression suite from merged `main`;
-2. deliberately deploy the release candidate to the preview branch;
-3. verify the preview deployment and the Romanian-audio path in the real Pages environment;
-4. validate the Romanian-audio workflow on a physical iPhone/Safari device;
-5. consider batch/multi-upload only after single-file reliability is solid.
+1. deliberately deploy the validated release candidate to the preview branch;
+2. verify the deployed Pages shell, Whisper assets/model delivery, same-origin paths, service worker/cache behavior, and preserved original-language catalog;
+3. validate the Romanian-audio workflow on a physical iPhone/Safari device;
+4. consider batch/multi-upload only after single-file reliability is solid.
 
 Production auto-deploy remains disabled.
 
