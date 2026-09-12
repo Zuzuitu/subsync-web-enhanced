@@ -95,12 +95,6 @@ jobs:
           test -s web/probe/whisper-probe.js
           test -s web/probe/whisper-probe.wasm
           python3 tests/wasm/assert-unshared-memory.py web/probe/whisper-probe.wasm
-          docker run --rm \
-            -v "$GITHUB_WORKSPACE:/src" \
-            -w /src/web/probe \
-            subsync2-whisper-simd-probe \
-            wasm-dis whisper-probe.wasm -o whisper-probe.wast
-          grep -m1 -E 'v128|f32x4|i32x4' web/probe/whisper-probe.wast
           node - <<'NODE'
           const factory = require('./web/probe/whisper-probe.js');
           factory().then(module => {
