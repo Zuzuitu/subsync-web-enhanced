@@ -1,7 +1,12 @@
 'use strict';
 
-const WINDOW_SECONDS = 30;
-const MAX_WINDOWS = 16;
+// Romanian Whisper runs single-threaded in the browser. Keep enough independent
+// samples across the whole title for the original sc0ty correlator while
+// bounding expensive ASR work. Twenty 12-second windows provide broader
+// temporal coverage than the previous 16-window plan while cutting the maximum
+// audio sent to Whisper from eight minutes to four minutes.
+const WINDOW_SECONDS = 12;
+const MAX_WINDOWS = 20;
 const FULL_SCAN_SECONDS = WINDOW_SECONDS * MAX_WINDOWS;
 
 function makeRomanianTimeWindows(duration) {
