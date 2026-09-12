@@ -4,10 +4,10 @@ import http.server
 import json
 import shutil
 import socketserver
+import subprocess
+import sys
 import tempfile
 import threading
-import time
-import urllib.parse
 import wave
 from pathlib import Path
 
@@ -37,18 +37,50 @@ if speech != expected_speech:
     raise SystemExit(f"Unexpected speech catalog: {speech}")
 if len(dictionaries) != 217:
     raise SystemExit(f"Unexpected dictionary count: {len(dictionaries)}")
-if catalog["speech/eng"]["url"] != "assets/data/speech-eng.zip":
-    raise SystemExit("Primary English speech asset must remain same-origin")
-if catalog["dict/eng-rum"]["url"] != "assets/data/dict-eng-rum.zip":
-    raise SystemExit("Primary ENG-RO dictionary must remain same-origin")
 
-for key in ("speech/ita", "dict/eng-ita"):
-    url = catalog[key]["url"]
-    if not url.startswith("https://github.com/sc0ty/subsync/releases/download/assets/"):
-        raise SystemExit(f"Expected upstream on-demand URL for {key}: {url}")
+expected_urls = {
+    "speech/eng": "assets/data/speech-eng.zip",
+    "dict/eng-rum": "assets/data/dict-eng-rum.zip",
+    "speech/ita": "assets/data/speech-ita.zip",
+    "dict/eng-ita": "assets/data/dict-eng-ita.zip",
+}
+for key, expected in expected_urls.items():
+    if catalog[key]["url"] != expected:
+        raise SystemExit(f"Expected same-origin URL for {key}: {catalog[key]['url']} != {expected}")
 
 fixture_ctx = tempfile.TemporaryDirectory(prefix="subsync2-upstream-assets-")
 fixture_dir = Path(fixture_ctx.name)
+site_dir = fixture_dir / "site"
+shutil.copytree(DIST, site_dir)
+
+# Mirror only representative non-primary assets for this smoke. The deliberate
+# Pages deploy mirrors the complete pinned catalog.
+subprocess.run(
+    [
+        sys.executable,
+        str(ROOT / "scripts" / "mirror-upstream-assets.py"),
+        "--destination",
+        str(site_dir / "assets" / "data"),
+        "--cache-dir",
+        str(fixture_dir / "cache"),
+        "--asset",
+        "dict/eng-ita",
+        "--asset",
+        "speech/ita",
+        "--workers",
+        "2",
+    ],
+    check=True,
+)
+
+mirror_manifest = json.loads(
+    (site_dir / "assets" / "data" / "upstream-manifest.json").read_text(encoding="utf-8")
+)
+if mirror_manifest["selectedCount"] != 2:
+    raise SystemExit("Representative upstream mirror did not materialize both assets")
+if not all(item["signatureVerified"] for item in mirror_manifest["assets"]):
+    raise SystemExit("Representative upstream assets were not signature verified")
+
 sub_ita = fixture_dir / "target.ita.srt"
 ref_eng = fixture_dir / "reference.eng.srt"
 audio_ita = fixture_dir / "reference.ita.wav"
@@ -91,7 +123,7 @@ class QuietHandler(http.server.SimpleHTTPRequestHandler):
 pages_root_ctx = tempfile.TemporaryDirectory(prefix="subsync2-pages-")
 pages_root = Path(pages_root_ctx.name)
 pages_base = "subsync-web-enhanced"
-(pages_root / pages_base).symlink_to(DIST, target_is_directory=True)
+(pages_root / pages_base).symlink_to(site_dir, target_is_directory=True)
 
 handler = functools.partial(QuietHandler, directory=str(pages_root))
 server = socketserver.ThreadingTCPServer(("127.0.0.1", 0), handler)
@@ -105,25 +137,6 @@ browser_path = (
     or shutil.which("chromium-browser")
 )
 url = f"http://127.0.0.1:{server.server_address[1]}/{pages_base}/"
-
-
-def fetch_remote_zip(page, asset_url):
-    result = page.evaluate(
-        """async (url) => {
-          const response = await fetch(url, {cache: 'no-store'});
-          const data = new Uint8Array(await response.arrayBuffer());
-          return {
-            status: response.status,
-            bytes: data.byteLength,
-            magic: Array.from(data.slice(0, 2)),
-            finalUrl: response.url,
-          };
-        }""",
-        asset_url,
-    )
-    if result["status"] != 200 or result["bytes"] < 1000 or result["magic"] != [80, 75]:
-        raise SystemExit("Remote asset CORS/ZIP probe failed: " + json.dumps(result))
-    return result
 
 
 def wait_for_terminal_or_failure(page, timeout=60_000):
@@ -149,6 +162,20 @@ def wait_for_terminal_or_failure(page, timeout=60_000):
     return body, popup_text
 
 
+def assert_asset_response(responses, filename):
+    matches = [
+        response
+        for response in responses
+        if response["url"].split("?", 1)[0].endswith("/assets/data/" + filename)
+    ]
+    if not matches or not any(response["status"] == 200 for response in matches):
+        raise SystemExit(
+            f"App did not fetch mirrored asset {filename} successfully: "
+            + json.dumps(matches, indent=2)
+        )
+    return matches
+
+
 try:
     with sync_playwright() as p:
         launch = {
@@ -164,8 +191,13 @@ try:
 
         console_errors = []
         page_errors = []
+        responses = []
         page.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)
         page.on("pageerror", lambda exc: page_errors.append(str(exc)))
+        page.on("response", lambda response: responses.append({
+            "status": response.status,
+            "url": response.url,
+        }))
 
         page.goto(url, wait_until="load")
         page.wait_for_selector("#subsync_app", timeout=30_000)
@@ -183,13 +215,15 @@ try:
         ref_group.locator('input[type="radio"]').first.wait_for(state="attached", timeout=30_000)
         ref_group.locator("select").first.select_option("eng")
 
-        dictionary_cors_probe = fetch_remote_zip(page, catalog["dict/eng-ita"]["url"])
         page.get_by_role("button", name="Start", exact=True).click()
         dict_state, dict_popup = wait_for_terminal_or_failure(page)
+        dict_responses = assert_asset_response(responses, "dict-eng-ita.zip")
 
         # Real app path: Italian audio model requested on demand.
         page.goto(url, wait_until="load")
         page.wait_for_selector("#subsync_app", timeout=30_000)
+        responses.clear()
+
         sub_input = page.locator('input[name="streams-group-sub-file"]')
         ref_input = page.locator('input[name="streams-group-ref-file"]')
         sub_input.set_input_files(str(sub_ita))
@@ -204,6 +238,7 @@ try:
 
         page.get_by_role("button", name="Start", exact=True).click()
         speech_state, speech_popup = wait_for_terminal_or_failure(page, timeout=120_000)
+        speech_responses = assert_asset_response(responses, "speech-ita.zip")
 
         details = {
             "url": url,
@@ -211,13 +246,10 @@ try:
             "speechAssetCount": len(speech),
             "dictionaryAssetCount": len(dictionaries),
             "speechAssets": speech,
-            "primaryLocalAssets": {
-                "speech/eng": catalog["speech/eng"]["url"],
-                "dict/eng-rum": catalog["dict/eng-rum"]["url"],
-            },
-            "dictionaryRemoteAsset": catalog["dict/eng-ita"]["url"],
-            "speechRemoteAsset": catalog["speech/ita"]["url"],
-            "dictionaryCorsProbe": dictionary_cors_probe,
+            "catalogUrls": expected_urls,
+            "mirrorManifest": mirror_manifest,
+            "dictionaryResponses": dict_responses,
+            "speechResponses": speech_responses,
             "dictionaryTerminalState": dict_state,
             "dictionaryPopup": dict_popup,
             "speechTerminalState": speech_state,
