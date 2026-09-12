@@ -7,6 +7,12 @@ on:
     paths:
       - "tests/web/run-public-pages-language-smoke.py"
       - ".github/workflows/public-pages-language-smoke.yml"
+  pull_request:
+    branches:
+      - "main"
+    paths:
+      - "tests/web/run-public-pages-language-smoke.py"
+      - ".github/workflows/public-pages-language-smoke.yml"
   workflow_dispatch:
 
 permissions:
