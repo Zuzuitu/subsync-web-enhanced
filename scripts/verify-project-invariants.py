@@ -57,6 +57,11 @@ if inv["deployment"].get("autoDeployProduction") is not False:
 if inv["licensing"].get("requireSc0tyAttribution") is not True:
     raise SystemExit("sc0ty attribution invariant is required")
 
+if inv["licensing"].get("thirdPartyNotices") != "THIRD_PARTY_NOTICES.md":
+    raise SystemExit("Romanian ASR third-party notices path must remain pinned")
+if not (ROOT / "THIRD_PARTY_NOTICES.md").is_file():
+    raise SystemExit("THIRD_PARTY_NOTICES.md is required for Romanian ASR dependencies")
+
 romanian = inv["product"].get("romanian", {})
 primary_workflow = inv["product"].get("primaryWorkflow", {})
 if inv["product"].get("primaryLanguagePriority") != "Romanian subtitles":
@@ -77,8 +82,16 @@ if romanian.get("audioSpeechRecognitionRequired") is not True:
     raise SystemExit("Romanian audio speech recognition is required")
 if romanian.get("audioSpeechRecognitionNearTermPriority") is not False:
     raise SystemExit("Romanian audio speech recognition must not be a near-term priority")
-if romanian.get("audioSpeechRecognitionDeferredUntilNearCompletion") is not True:
-    raise SystemExit("Romanian audio speech recognition must remain deferred until near completion")
+if romanian.get("audioSpeechRecognitionImplemented") is not True:
+    raise SystemExit("Romanian audio speech recognition must remain implemented")
+if romanian.get("audioSpeechRecognitionDeferredUntilNearCompletion") is not False:
+    raise SystemExit("Implemented Romanian audio recognition must not remain marked deferred")
+if romanian.get("audioSpeechRecognitionLocalBrowserOnly") is not True:
+    raise SystemExit("Romanian audio speech recognition must remain local-browser only")
+if romanian.get("audioSpeechRecognitionEngine") != "whisper.cpp":
+    raise SystemExit("Romanian audio speech recognition engine must remain whisper.cpp")
+if romanian.get("audioSpeechRecognitionSharedMemoryRequired") is not False:
+    raise SystemExit("Romanian audio speech recognition must not require shared memory")
 if set(romanian.get("acceptedLanguageCodes", [])) != {"ro", "rum", "ron"}:
     raise SystemExit("Romanian language aliases must include ro, rum and ron")
 if romanian.get("preserveDiacritics") is not True:
@@ -98,6 +111,16 @@ required_mkv_coverage = {
 }
 if not required_mkv_coverage.issubset(set(mkv_testing.get("mkvReliabilityCoverage", []))):
     raise SystemExit("Required realistic MKV reliability coverage is incomplete")
+
+romanian_audio_e2e = mkv_testing.get("romanianAudioEndToEnd", {})
+if romanian_audio_e2e.get("required") is not True:
+    raise SystemExit("Romanian audio end-to-end coverage must remain required")
+if set(romanian_audio_e2e.get("browsers", [])) != {"Chromium", "iPhone-like WebKit"}:
+    raise SystemExit("Romanian audio end-to-end browsers changed unexpectedly")
+if romanian_audio_e2e.get("preserveCanonicalThresholds") is not True:
+    raise SystemExit("Romanian audio E2E must preserve canonical synchronization thresholds")
+if romanian_audio_e2e.get("physicalIPhoneClaimRequiresPhysicalDeviceEvidence") is not True:
+    raise SystemExit("Physical iPhone Romanian-audio claims require physical-device evidence")
 
 large_stress = mkv_testing.get("largeFileBrowserStress", {})
 if large_stress.get("required") is not True:
