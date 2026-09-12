@@ -172,7 +172,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          docker run --rm \
+          docker run --rm -i \
             -v "$GITHUB_WORKSPACE:/src" \
             -w /src/web \
             subsync-whisper-build \
