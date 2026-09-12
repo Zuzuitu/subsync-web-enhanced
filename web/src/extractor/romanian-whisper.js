@@ -120,6 +120,10 @@ export default class RomanianSpeechRecognition {
     });
   }
 
+  discontinuity() {
+    this.recognizer.discontinuity();
+  }
+
   delete() {
     this.listeners = [];
     if (this.recognizer) {
