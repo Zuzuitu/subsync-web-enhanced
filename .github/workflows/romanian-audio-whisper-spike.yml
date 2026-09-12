@@ -1,0 +1,208 @@
+name: Romanian Audio Whisper WASM Spike
+
+on:
+  push:
+    branches:
+      - "spike/romanian-audio-whisper-wasm"
+    paths:
+      - "config/romanian-audio-spike.json"
+      - "tests/romanian-audio/**"
+      - ".github/workflows/romanian-audio-whisper-spike.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  feasibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout SubSync2
+        uses: actions/checkout@v4
+
+      - name: Read pinned spike inputs
+        id: pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+          data = json.loads(Path("config/romanian-audio-spike.json").read_text())
+          print("engine_commit=" + data["engine"]["commit"])
+          print("model_url=" + data["model"]["url"])
+          print("model_sha1=" + data["model"]["sha1"])
+          print("model_sha256=" + data["model"]["sha256"])
+          PY
+
+      - name: Install native fixture dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y espeak-ng ffmpeg
+
+      - name: Fetch pinned whisper.cpp
+        shell: bash
+        env:
+          ENGINE_COMMIT: ${{ steps.pins.outputs.engine_commit }}
+        run: |
+          set -euxo pipefail
+          git init whisper.cpp
+          git -C whisper.cpp remote add origin https://github.com/ggml-org/whisper.cpp.git
+          git -C whisper.cpp fetch --depth 1 origin "$ENGINE_COMMIT"
+          git -C whisper.cpp checkout --detach FETCH_HEAD
+          test "$(git -C whisper.cpp rev-parse HEAD)" = "$ENGINE_COMMIT"
+
+      - name: Fetch and verify pinned multilingual model
+        shell: bash
+        env:
+          MODEL_URL: ${{ steps.pins.outputs.model_url }}
+          MODEL_SHA1: ${{ steps.pins.outputs.model_sha1 }}
+          MODEL_SHA256: ${{ steps.pins.outputs.model_sha256 }}
+        run: |
+          set -euxo pipefail
+          mkdir -p tests/generated/romanian-audio
+          curl --fail --location --retry 5 --retry-delay 2             "$MODEL_URL"             --output tests/generated/romanian-audio/ggml-tiny-q5_1.bin
+          echo "$MODEL_SHA1  tests/generated/romanian-audio/ggml-tiny-q5_1.bin" | sha1sum -c -
+          echo "$MODEL_SHA256  tests/generated/romanian-audio/ggml-tiny-q5_1.bin" | sha256sum -c -
+
+      - name: Generate deterministic Romanian speech fixture
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p tests/generated/romanian-audio
+          espeak-ng -v ro -s 135 -p 48 -a 170             -w tests/generated/romanian-audio/romanian-raw.wav             "Bună ziua. Acesta este un test pentru limba română. Filmul are subtitrări în limba română. Sincronizarea subtitrărilor trebuie să funcționeze corect."
+          ffmpeg -hide_banner -loglevel error -y             -i tests/generated/romanian-audio/romanian-raw.wav             -ar 16000 -ac 1 -c:a pcm_s16le             tests/generated/romanian-audio/romanian.wav
+          ffprobe -v error             -show_entries format=duration:stream=sample_rate,channels,codec_name             -of json tests/generated/romanian-audio/romanian.wav             > tests/generated/romanian-audio/fixture-probe.json
+
+      - name: Build pinned native whisper.cpp CLI
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cmake -S whisper.cpp -B whisper.cpp/build-native             -DCMAKE_BUILD_TYPE=Release             -DWHISPER_BUILD_EXAMPLES=ON             -DWHISPER_BUILD_TESTS=OFF
+          cmake --build whisper.cpp/build-native --target whisper-cli -j2
+
+      - name: Prove Romanian recognition and timestamp output
+        shell: bash
+        run: |
+          set -euxo pipefail
+          whisper.cpp/build-native/bin/whisper-cli             -m tests/generated/romanian-audio/ggml-tiny-q5_1.bin             -f tests/generated/romanian-audio/romanian.wav             -l ro             -ojf             -of tests/generated/romanian-audio/result             -np
+          python3 - <<'PY'
+          import json
+          import re
+          import unicodedata
+          from pathlib import Path
+
+          path = Path("tests/generated/romanian-audio/result.json")
+          if not path.is_file():
+              raise SystemExit("whisper.cpp did not produce JSON output")
+          data = json.loads(path.read_text(encoding="utf-8"))
+          raw = json.dumps(data, ensure_ascii=False).lower()
+          normalized = "".join(
+              ch for ch in unicodedata.normalize("NFKD", raw)
+              if not unicodedata.combining(ch)
+          )
+          keyword_groups = [
+              ("roman",),
+              ("film",),
+              ("subtitr",),
+              ("sincron",),
+              ("limba",),
+          ]
+          hits = [
+              group[0]
+              for group in keyword_groups
+              if any(token in normalized for token in group)
+          ]
+          if len(hits) < 3:
+              raise SystemExit(
+                  "Romanian recognition evidence too weak; matched: "
+                  + ", ".join(hits)
+                  + "\nJSON: " + raw[:4000]
+              )
+
+          timestamp_keys = 0
+          token_records = 0
+          def walk(value):
+              global timestamp_keys, token_records
+              if isinstance(value, dict):
+                  keys = set(value)
+                  if {"from", "to"} <= keys or {"t0", "t1"} <= keys:
+                      timestamp_keys += 1
+                  if "tokens" in value and isinstance(value["tokens"], list):
+                      token_records += len(value["tokens"])
+                  for child in value.values():
+                      walk(child)
+              elif isinstance(value, list):
+                  for child in value:
+                      walk(child)
+          walk(data)
+          if timestamp_keys < 1:
+              raise SystemExit("Full JSON output did not expose timestamp evidence")
+
+          evidence = {
+              "status": "pass",
+              "language": "ro",
+              "matchedRomanianStems": hits,
+              "timestampRecords": timestamp_keys,
+              "tokenRecords": token_records,
+              "output": data,
+          }
+          Path("tests/generated/romanian-audio/native-evidence.json").write_text(
+              json.dumps(evidence, indent=2, ensure_ascii=False) + "\n",
+              encoding="utf-8",
+          )
+          print(json.dumps({
+              "status": "pass",
+              "matchedRomanianStems": hits,
+              "timestampRecords": timestamp_keys,
+              "tokenRecords": token_records,
+          }, indent=2, ensure_ascii=False))
+          PY
+
+      - name: Set up pinned Emscripten for browser feasibility
+        uses: emscripten-core/setup-emsdk@6ab9eb1bda2574c4ddb79809fc9247783eaf9021
+        with:
+          version: "3.1.74"
+
+      - name: Build whisper.cpp WebAssembly browser target
+        shell: bash
+        run: |
+          set -euxo pipefail
+          emcc --version
+          emcmake cmake -S whisper.cpp -B whisper.cpp/build-wasm             -DCMAKE_BUILD_TYPE=Release             -DWHISPER_WASM_SINGLE_FILE=OFF             -DWHISPER_BUILD_TESTS=OFF
+          cmake --build whisper.cpp/build-wasm --target whisper.wasm -j2
+          test -s whisper.cpp/build-wasm/bin/libmain.js
+          test -s whisper.cpp/build-wasm/bin/libmain.wasm
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          files = {}
+          for path in [
+              Path("whisper.cpp/build-wasm/bin/libmain.js"),
+              Path("whisper.cpp/build-wasm/bin/libmain.wasm"),
+          ]:
+              files[path.name] = path.stat().st_size
+          evidence = {
+              "status": "pass",
+              "emscripten": "3.1.74",
+              "outputs": files,
+          }
+          out = Path("tests/generated/romanian-audio/wasm-build-evidence.json")
+          out.write_text(json.dumps(evidence, indent=2) + "\n")
+          print(json.dumps(evidence, indent=2))
+          PY
+
+      - name: Upload Romanian audio spike evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: subsync2-romanian-audio-whisper-spike
+          path: |
+            tests/generated/romanian-audio/fixture-probe.json
+            tests/generated/romanian-audio/result.json
+            tests/generated/romanian-audio/native-evidence.json
+            tests/generated/romanian-audio/wasm-build-evidence.json
+          if-no-files-found: warn
+          retention-days: 7
