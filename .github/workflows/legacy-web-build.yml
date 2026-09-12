@@ -125,6 +125,13 @@ jobs:
           set -euxo pipefail
           docker run --rm             -v "$GITHUB_WORKSPACE:/src"             -w /src/web             subsync-web-build             emmake make -j4
 
+      - name: Save pinned native dependency build after compile
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: web/deps
+          key: legacy-wasm-deps-${{ runner.os }}-${{ hashFiles('config/legacy-build-pins.json', 'web/Makefile') }}
+
       - name: Prepare pinned Romanian Whisper source
         shell: bash
         run: |
@@ -149,7 +156,7 @@ jobs:
           set -euxo pipefail
           docker pull "$ROMANIAN_ASR_IMAGE"
           docker tag "$ROMANIAN_ASR_IMAGE" subsync-whisper-build
-          test "$(docker run --rm subsync-whisper-build emcc --version | head -n1 | awk '{print $NF}')" = "$ROMANIAN_ASR_EMSCRIPTEN_VERSION"
+          docker run --rm subsync-whisper-build emcc --version | head -n1 | grep -F "$ROMANIAN_ASR_EMSCRIPTEN_VERSION"
           docker run --rm subsync-whisper-build emcc --version
 
       - name: Build isolated Romanian Whisper SIMD WebAssembly
