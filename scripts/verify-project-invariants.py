@@ -94,6 +94,18 @@ required_mkv_coverage = {
 if not required_mkv_coverage.issubset(set(mkv_testing.get("mkvReliabilityCoverage", []))):
     raise SystemExit("Required realistic MKV reliability coverage is incomplete")
 
+large_stress = mkv_testing.get("largeFileBrowserStress", {})
+if large_stress.get("required") is not True:
+    raise SystemExit("Large-file browser stress coverage is required")
+if large_stress.get("minimumFixtureMiB", 0) < 128:
+    raise SystemExit("Large-file browser stress floor must remain at least 128 MiB")
+if set(large_stress.get("browsers", [])) != {"Chromium", "iPhone-like WebKit"}:
+    raise SystemExit("Large-file browser stress must cover Chromium and iPhone-like WebKit")
+if large_stress.get("physicalIPhoneClaimRequiresPhysicalDeviceEvidence") is not True:
+    raise SystemExit("WebKit emulation must not be presented as physical-iPhone evidence")
+if large_stress.get("rssMetricIsProcessTreeBaselineNotTabMemory") is not True:
+    raise SystemExit("Large-file RSS metric evidence boundary must remain explicit")
+
 readme = (ROOT / "README.md").read_text(encoding="utf-8").lower()
 for token in ("sc0ty", "gnu general public license"):
     if token not in readme:
