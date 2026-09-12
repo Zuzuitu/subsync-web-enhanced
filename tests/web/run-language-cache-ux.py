@@ -119,7 +119,7 @@ def wait_terminal(page):
           const text = document.querySelector('#subsync_app')?.innerText || '';
           return states.some(value => text.includes(value));
         }""",
-        TERMINAL_STATES,
+        arg=TERMINAL_STATES,
         timeout=180_000,
     )
     return page.locator("#subsync_app").inner_text()
