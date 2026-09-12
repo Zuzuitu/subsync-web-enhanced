@@ -203,6 +203,9 @@ jobs:
       - name: Exercise staged PWA shell
         run: python3 tests/web/run-app-shell-smoke.py
 
+      - name: Exercise pinned upstream language assets on demand
+        run: python3 tests/web/run-upstream-assets-smoke.py
+
       - name: Exercise primary workflow through real PWA UI
         run: python3 tests/web/run-primary-workflow.py
 
@@ -262,6 +265,7 @@ jobs:
           name: subsync2-pwa-diagnostics
           path: |
             tests/generated/web-app-smoke.json
+            tests/generated/web-upstream-assets-smoke.json
             tests/generated/web-primary-workflow.json
             tests/generated/web-primary-workflow-output.srt
           if-no-files-found: warn
