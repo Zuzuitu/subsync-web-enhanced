@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-11 Europe/Rome
+LAST_UPDATED: 2026-09-12 Europe/Rome
 
 ## Canonical status
 
@@ -182,11 +182,15 @@ Completed:
 14. authoritative full PWA user-flow E2E including downloaded corrected SRT;
 15. PWA shell merge through PR #6.
 
+Completed additionally:
+16. deliberate/manual GitHub Pages preview deployment path;
+17. public HTTPS preview deployment;
+18. physical iPhone/Safari validation reported successful by the user.
+
 Next:
-16. add a deliberate preview/manual deployment path;
-17. test mobile Safari/iPhone;
-18. expand realistic MKV coverage;
-19. return to Romanian-audio support near completion.
+19. expand realistic MKV coverage;
+20. reproduce/isolate the historical real-world direct-MKV failure class if a representative file is available;
+21. return to Romanian-audio support near completion.
 
 ## Mobile WebKit / iPhone-like compatibility
 
@@ -214,23 +218,64 @@ This is strong WebKit compatibility evidence, but it is **not** a physical-iPhon
 
 PR #8 merged the manual GitHub Pages preview workflow and subpath-safe PWA support.
 
-The first preview build completed successfully, including the authoritative WASM/PWA artifact, but the deploy job stopped at `actions/configure-pages` because GitHub Pages is not enabled for the repository.
+GitHub Pages was enabled at repository settings level with **GitHub Actions** as the source.
 
-This is an account/repository setting blocker, not an application/build failure. GitHub's configure-pages action cannot enable Pages using the workflow's normal `GITHUB_TOKEN`; enabling Pages requires repository administration permission or a separate privileged token. Production auto-deploy remains disabled.
+After Pages enablement, the first retry reached the deploy job but was rejected before runner steps executed when targeting the default `github-pages` environment from the dedicated `deploy/pages-preview` branch.
+
+PR #11 changed only the preview deployment environment to the dedicated `subsync2-pages-preview` environment. CI passed and PR #11 merged at `c8b4f7d6feba3d2fe32143b3fe1e83c5524506c4`.
+
+Authoritative preview run `34650472508`: **PASS**.
+- authoritative WASM/PWA build: PASS;
+- primary ENG audio + RO subtitles UI flow: PASS;
+- `actions/configure-pages@v5`: PASS;
+- Pages artifact upload: PASS;
+- `actions/deploy-pages@v4`: PASS;
+- deployed commit: `c8b4f7d6feba3d2fe32143b3fe1e83c5524506c4`;
+- public HTTPS preview: `https://zuzuitu.github.io/subsync-web-enhanced/`.
+
+Production auto-deploy remains disabled. This URL is the deliberate preview target.
+
+### Hosting decision from this session
+
+For the current preview milestone, **GitHub Pages remains the selected host**.
+
+Rationale:
+- the repository already has a deliberate/manual GitHub Pages workflow and subpath-safe PWA support;
+- the staged PWA bundles the pinned original sc0ty `speech-eng.zip` asset, whose release asset size is `39,638,792` bytes (~37.8 MiB);
+- Cloudflare Pages currently limits an individual static site asset to **25 MiB**, so the current artifact cannot be deployed there unchanged;
+- moving that asset to R2/origin storage or changing asset delivery would be a separate architecture/deployment decision and is not needed for the current iPhone-validation milestone.
+
+GitHub Pages repository configuration used:
+- Pages source: **GitHub Actions**;
+- HTTPS: enabled;
+- no custom domain configured yet;
+- no Jekyll/Static HTML starter workflow is used;
+- dedicated deployment environment: `subsync2-pages-preview`.
+
+Cloudflare Pages is therefore deferred, not rejected permanently.
+
+## Physical iPhone / Safari validation
+
+On 2026-09-12, after the successful public Pages deployment, the user tested the preview on a physical iPhone and reported **success**.
+
+Confirmed evidence is limited to the user's successful real-device result. No additional per-step metrics, memory figures, console logs, timing values, or codec/container characteristics were reported in this session, so do not invent them.
+
+This closes the immediate "physical iPhone/Safari not yet measured" blocker for the primary workflow at a high level. It does **not** replace future stress coverage for long files, memory pressure, unusual MKV metadata, seeking, H.264/H.265 combinations, channel layouts, or additional codecs.
 
 ## Testing status
 
 Completed additionally:
-16. WebKit/iPhone-like full primary-flow E2E, including downloaded corrected SRT.
+16. WebKit/iPhone-like full primary-flow E2E, including downloaded corrected SRT;
+17. manual GitHub Pages preview deployment;
+18. successful public HTTPS deployment;
+19. physical iPhone/Safari validation reported successful by the user.
 
 Next:
-17. enable GitHub Pages for the repository with GitHub Actions as the source, then rerun the manual preview;
-18. test the resulting HTTPS preview on a physical iPhone/Safari;
-19. expand realistic MKV coverage;
-20. return to Romanian-audio support near completion.
+20. expand realistic MKV coverage;
+21. reproduce/isolate the historical direct-MKV failure with a representative real-world case when available;
+22. return to Romanian-audio support near completion.
 
 ## Open blockers
 
-- GitHub Pages is not enabled at repository-settings level, so the manual preview cannot publish yet;
-- physical iPhone/Safari behavior is not yet measured;
-- historical real-world MKV failure class is not yet reproduced.
+- historical real-world MKV failure class is not yet reproduced;
+- Romanian audio speech recognition remains deferred until the main workflow is near completion.
