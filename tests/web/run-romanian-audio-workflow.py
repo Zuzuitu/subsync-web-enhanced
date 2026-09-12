@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import functools
 import http.server
 import json
@@ -11,13 +12,17 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--browser", choices=("chromium", "webkit"), default="chromium")
+args = parser.parse_args()
+
 ROOT = Path(__file__).resolve().parents[2]
 DIST = ROOT / "web" / "dist"
 FIXTURE_DIR = ROOT / "tests" / "generated" / "romanian-audio-e2e"
 SRT_IN = FIXTURE_DIR / "target.rum.srt"
 MKV_IN = FIXTURE_DIR / "reference-romanian.mkv"
-RESULT = FIXTURE_DIR / "browser-romanian-audio.json"
-SAVED = FIXTURE_DIR / "output.rum.srt"
+RESULT = FIXTURE_DIR / f"{args.browser}-romanian-audio.json"
+SAVED = FIXTURE_DIR / f"{args.browser}-output.rum.srt"
 
 class QuietHandler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
@@ -50,14 +55,16 @@ browser_path = (
 
 try:
     with sync_playwright() as p:
-        launch = {
-            "headless": True,
-            "args": ["--no-sandbox", "--disable-dev-shm-usage"],
-        }
-        if browser_path:
-            launch["executable_path"] = browser_path
-
-        browser = p.chromium.launch(**launch)
+        if args.browser == "chromium":
+            launch = {
+                "headless": True,
+                "args": ["--no-sandbox", "--disable-dev-shm-usage"],
+            }
+            if browser_path:
+                launch["executable_path"] = browser_path
+            browser = p.chromium.launch(**launch)
+        else:
+            browser = p.webkit.launch(headless=True)
         context = browser.new_context(accept_downloads=True)
         page = context.new_page()
 
@@ -187,6 +194,7 @@ try:
 
         details = {
             "status": "pass",
+            "browser": args.browser,
             "url": url,
             "detectedReferenceLanguage": detected,
             "referenceWords": reference_words,
