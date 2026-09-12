@@ -125,6 +125,24 @@ jobs:
           set -euxo pipefail
           docker run --rm             -v "$GITHUB_WORKSPACE:/src"             -w /src/web             subsync-web-build             emmake make -j4
 
+      - name: Prepare pinned Romanian Whisper source
+        shell: bash
+        run: |
+          set -euxo pipefail
+          if [ ! -d web/node_modules/whispercpp/.git ]; then
+            rm -rf web/node_modules/whispercpp web/node_modules/whispercpp-tmp
+            mkdir -p web/node_modules
+            git -C web/node_modules init whispercpp-tmp
+            git -C web/node_modules/whispercpp-tmp remote add origin https://github.com/ggml-org/whisper.cpp.git
+            git -C web/node_modules/whispercpp-tmp fetch --depth 1 origin "$WHISPERCPP_SHA"
+            git -C web/node_modules/whispercpp-tmp checkout --detach FETCH_HEAD
+            mv web/node_modules/whispercpp-tmp web/node_modules/whispercpp
+          fi
+          test "$(git -C web/node_modules/whispercpp rev-parse HEAD)" = "$WHISPERCPP_SHA"
+          python3 scripts/prepare-whisper-single-thread.py \
+            --source web/node_modules/whispercpp \
+            --destination web/deps/src/whispercpp
+
       - name: Build pinned Romanian Whisper SIMD toolchain
         shell: bash
         run: |
