@@ -82,6 +82,9 @@ jobs:
       - name: Exercise staged PWA shell
         run: python3 tests/web/run-app-shell-smoke.py
 
+      - name: Exercise pinned upstream language assets on demand
+        run: python3 tests/web/run-upstream-assets-smoke.py
+
       - name: Upload staged PWA
         if: always()
         uses: actions/upload-artifact@v4
@@ -96,6 +99,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: subsync2-pwa-fast-diagnostics
-          path: tests/generated/web-app-smoke.json
+          path: |
+            tests/generated/web-app-smoke.json
+            tests/generated/web-upstream-assets-smoke.json
           if-no-files-found: warn
           retention-days: 7
