@@ -68,6 +68,23 @@
         "ron"
       ],
       "endToEndRequiredBeforeRelease": true
+    },
+    "originalLanguageCompatibility": {
+      "preservePinnedSc0tyCatalog": true,
+      "speechCatalogCodes": [
+        "chi",
+        "dut",
+        "eng",
+        "fre",
+        "ger",
+        "gre",
+        "ita",
+        "rus",
+        "spa"
+      ],
+      "dictionaryPackageCount": 217,
+      "noSilentRegression": true,
+      "fullPerLanguageE2EStillRequiredBeforeClaimingUniversalBehavioralParity": true
     }
   },
   "evidence": {
