@@ -60,6 +60,12 @@ export default class Assets {
     return Gizmo.instance.FS.readFile(path, {encoding: 'utf8'});
   }
 
+  static getBinaryAsset(asset) {
+    const path = Assets.getAssetPath(asset);
+    logger.log(`loading binary asset ${Assets.getAssetName(asset)} from "${path}"`);
+    return Gizmo.instance.FS.readFile(path);
+  }
+
   static getAssetName({type, params}) {
     return `${type}/${params.join('-')}`;
   }
