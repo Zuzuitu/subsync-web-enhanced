@@ -194,11 +194,15 @@ try:
             raise SystemExit(f"Romanian ASR produced too few usable reference words: {reference_words}")
 
         page.get_by_text("Show details", exact=True).click()
-        strong = page.locator("#subsync_app").locator("strong")
-        points = strong.nth(1).inner_text()
-        correlation = strong.nth(2).inner_text()
-        formula = strong.nth(3).inner_text()
-        max_change = strong.nth(4).inner_text()
+        details_strong = page.locator("#subsync_app dd:not([hidden]) strong")
+        if details_strong.count() < 5:
+            raise SystemExit(
+                f"Synchronization details exposed only {details_strong.count()} values"
+            )
+        points = details_strong.nth(1).inner_text()
+        correlation = details_strong.nth(2).inner_text()
+        formula = details_strong.nth(3).inner_text()
+        max_change = details_strong.nth(4).inner_text()
 
         save_button = page.get_by_role("button", name="Save subtitles", exact=True)
         if save_button.is_disabled():
