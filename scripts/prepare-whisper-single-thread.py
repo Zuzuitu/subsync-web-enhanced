@@ -85,6 +85,163 @@ text = text.replace(linux_affinity_old, linux_affinity_new, 1)
 
 ggml_path.write_text(text, encoding="utf-8")
 
+
+whisper_path = destination / "whisper.cpp"
+whisper = whisper_path.read_text(encoding="utf-8")
+
+replacements = [
+    (
+"""    {
+        std::vector<std::thread> workers(n_threads - 1);
+        for (int iw = 0; iw < n_threads - 1; ++iw) {
+            workers[iw] = std::thread(
+                    log_mel_spectrogram_worker_thread, iw + 1, std::cref(hann), samples_padded,
+                    n_samples + stage_2_pad, frame_size, frame_step, n_threads,
+                    std::cref(filters), std::ref(mel));
+        }
+
+        // main thread
+        log_mel_spectrogram_worker_thread(0, hann, samples_padded, n_samples + stage_2_pad, frame_size, frame_step, n_threads, filters, mel);
+
+        for (int iw = 0; iw < n_threads - 1; ++iw) {
+            workers[iw].join();
+        }
+    }
+""",
+"""    {
+        // SubSync2's browser adapter deliberately runs Whisper without pthreads.
+        // The production caller always passes n_threads=1.
+        log_mel_spectrogram_worker_thread(
+                0, hann, samples_padded, n_samples + stage_2_pad,
+                frame_size, frame_step, 1, filters, mel);
+    }
+"""
+    ),
+    (
+"""        /*.n_threads         =*/ std::min(4, (int32_t) std::thread::hardware_concurrency()),
+""",
+"""        /*.n_threads         =*/ 1,
+"""
+    ),
+    (
+"""                    const int n_threads = std::min(params.n_threads, n_decoders_cur);
+
+                    if (n_threads == 1) {
+                        process();
+                    } else {
+                        std::vector<std::thread> threads(n_threads - 1);
+
+                        for (int t = 0; t < n_threads - 1; ++t) {
+                            threads[t] = std::thread(process);
+                        }
+
+                        process();
+
+                        for (int t = 0; t < n_threads - 1; ++t) {
+                            threads[t].join();
+                        }
+                    }
+""",
+"""                    // SubSync2 single-thread browser build.
+                    process();
+"""
+    ),
+    (
+"""                        const int n_threads = std::min(params.n_threads, n_decoders_cur);
+
+                        if (n_threads == 1) {
+                            process();
+                        } else {
+                            std::vector<std::thread> threads(n_threads - 1);
+
+                            for (int t = 0; t < n_threads - 1; ++t) {
+                                threads[t] = std::thread(process);
+                            }
+
+                            process();
+
+                            for (int t = 0; t < n_threads - 1; ++t) {
+                                threads[t].join();
+                            }
+                        }
+""",
+"""                        // SubSync2 single-thread browser build.
+                        process();
+"""
+    ),
+    (
+"""    if (n_processors == 1) {
+        return whisper_full(ctx, params, samples, n_samples);
+    }
+    int ret = 0;
+""",
+"""    if (n_processors == 1) {
+        return whisper_full(ctx, params, samples, n_samples);
+    }
+#if defined(SUBSYNC2_WHISPER_SINGLE_THREAD)
+    (void) ctx;
+    (void) params;
+    (void) samples;
+    (void) n_samples;
+    return -1;
+#else
+    int ret = 0;
+"""
+    ),
+    (
+"""    return ret;
+}
+
+int whisper_full_n_segments_from_state(struct whisper_state * state) {
+""",
+"""    return ret;
+#endif
+}
+
+int whisper_full_n_segments_from_state(struct whisper_state * state) {
+"""
+    ),
+    (
+"""    for (int32_t k = 1; k <= n_threads; k++) {
+""",
+"""#if defined(SUBSYNC2_WHISPER_SINGLE_THREAD)
+    n_threads = 1;
+#endif
+    for (int32_t k = 1; k <= n_threads; k++) {
+"""
+    ),
+    (
+"""        std::vector<std::thread> threads(k - 1);
+        for (int32_t th = 0; th < k - 1; ++th) {
+            threads[th] = std::thread(helper, th);
+        }
+
+        helper(k - 1);
+
+        for (int32_t th = 0; th < k - 1; ++th) {
+            threads[th].join();
+        }
+""",
+"""        helper(0);
+"""
+    ),
+]
+
+for old, new in replacements:
+    count = whisper.count(old)
+    if count != 1:
+        raise SystemExit(
+            "whisper.cpp single-thread patch drift: "
+            + old.splitlines()[0]
+            + f" (expected 1, found {count})"
+        )
+    whisper = whisper.replace(old, new, 1)
+
+if "std::thread" in whisper:
+    raise SystemExit("whisper.cpp still contains std::thread after single-thread preparation")
+
+whisper_path.write_text(whisper, encoding="utf-8")
+
 (destination / ".subsync2-single-thread").write_text(
     "whisper.cpp prepared for SubSync2 single-thread WebAssembly; n_threads must remain 1.\n",
     encoding="utf-8",
