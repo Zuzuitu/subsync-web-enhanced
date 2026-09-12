@@ -394,11 +394,14 @@ Completed additionally:
 22. language-asset download/cache UX with progress, IDBFS reuse and deliberate cache cleanup;
 23. stage-specific synchronization diagnostics with evidence-backed failure explanations.
 
+Completed additionally:
+24. historical real-world direct-MKV failure remains reproduction-dependent on a representative failing file;
+25. explicit >=128 MiB direct-MKV browser stress coverage in Chromium and iPhone-like WebKit, with process-RSS baselines.
+
 Next:
-24. reproduce/isolate the historical direct-MKV failure with a representative real-world case when available;
-25. add explicit large-file/browser-memory stress coverage;
-26. return to genuine Romanian-audio support near completion;
-27. consider batch/multi-upload only after single-file reliability is solid.
+26. implement genuine Romanian-audio speech recognition with a pinned, redistributable local/browser model;
+27. perform final release-candidate regression + deliberate preview deployment and physical-iPhone validation;
+28. consider batch/multi-upload only after single-file reliability is solid.
 
 ## Language asset UX and cache management
 
@@ -454,6 +457,39 @@ Regression evidence on the final PR head:
 - Legacy WebAssembly Build run `34685301223`: **PASS**.
 
 The non-primary silence fixture specifically verifies that the PWA identifies the speech-recognition stage and explains that no usable reference words were produced.
+
+## Large-file browser / memory stress coverage
+
+Large-file browser stress run `34688234561`: **PASS**.
+
+The canonical stress fixture is generated locally in CI and is not committed:
+- direct Matroska file;
+- H.264 1280x720 high-byte-rate video;
+- English AAC reference audio;
+- duration: `90.064 s`;
+- file size: **143,952,449 bytes (137.28 MiB)**.
+
+The real staged PWA selects the MKV through the browser file input, reads stream metadata through WORKERFS, selects the intended English audio stream, loads the normal pinned ENG↔RO dictionary and English speech model, and processes the direct MKV to a normal terminal state.
+
+Chromium result:
+- stream metadata load: `0.093 s`;
+- terminal state reached in `5.351 s`;
+- descendant-process peak RSS observed: **1160.16 MiB**;
+- zero console errors;
+- zero page errors;
+- zero HTTP failures.
+
+iPhone-like WebKit result:
+- stream metadata load: `0.834 s`;
+- terminal state reached in `13.620 s`;
+- descendant-process peak RSS observed: **1807.29 MiB**;
+- zero console errors;
+- zero page errors;
+- zero HTTP failures.
+
+The synthetic sine reference intentionally produces zero usable recognized words, so the expected user-visible outcome is `Couldn't synchronize` with the evidence-backed speech-recognition diagnosis. The test is a file-size / WORKERFS / browser-survival regression, not a speech-accuracy test.
+
+Memory numbers are **process-tree RSS measurements on Linux CI**, not exact tab memory and not physical-iPhone measurements. They are recorded as a baseline for regression comparison; no arbitrary hard RSS cap is claimed yet. In particular, the higher WebKit baseline is a watch item for future physical-device stress validation, not proof of an iOS crash.
 
 ## Product direction decided in this session
 
