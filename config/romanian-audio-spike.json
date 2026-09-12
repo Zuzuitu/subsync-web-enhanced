@@ -1,0 +1,29 @@
+{
+  "purpose": "Feasibility spike for genuine Romanian audio recognition without changing main synchronization semantics.",
+  "engine": {
+    "name": "whisper.cpp",
+    "repository": "ggml-org/whisper.cpp",
+    "commit": "1da4dc82fa7996d4edda05890dca65aeceaafd6d",
+    "license": "MIT"
+  },
+  "model": {
+    "name": "tiny-q5_1",
+    "multilingual": true,
+    "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny-q5_1.bin",
+    "sha1": "2827a03e495b1ed3048ef28a6a4620537db4ee51",
+    "sha256": "818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7",
+    "approximateMiB": 31
+  },
+  "language": {
+    "whisperCode": "ro",
+    "projectCode": "rum"
+  },
+  "guardrails": {
+    "spikeOnly": true,
+    "doNotReplaceOriginalSc0tySpeechModels": true,
+    "doNotChangeCorrelationThresholds": true,
+    "browserLocalOnly": true,
+    "noBackendMediaUpload": true,
+    "productionAdoptionRequiresMeasuredRomanianE2E": true
+  }
+}
