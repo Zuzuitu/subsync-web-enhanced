@@ -23,14 +23,14 @@ export default class Pipeline {
     }
   }
 
-  makePipeline(stream, params, path) {
+  makePipeline(stream, params, path, romanianSpeechRec=null) {
     let output = null;
 
     stream.lang = canonicalizeLanguageCode(stream.lang);
     const otherLang = canonicalizeLanguageCode(params.otherLang);
 
     if (stream.type === 'audio') {
-      output = this.makeSpeechPipeline(stream);
+      output = this.makeSpeechPipeline(stream, romanianSpeechRec);
     } else if (stream.type === 'subtitle/text') {
       output = this.makeSubPipeline(stream, path);
     }
@@ -92,7 +92,7 @@ export default class Pipeline {
     }
   }
 
-  makeSpeechPipeline(stream) {
+  makeSpeechPipeline(stream, romanianSpeechRec=null) {
     stream.lang = canonicalizeLanguageCode(stream.lang);
     if (!stream.lang) {
       throw {
@@ -102,7 +102,7 @@ export default class Pipeline {
     }
     const gizmo = Gizmo.instance;
     if (stream.lang === 'rum') {
-      return this.makeRomanianSpeechPipeline(stream);
+      return this.makeRomanianSpeechPipeline(stream, romanianSpeechRec);
     }
 
     const speechModel = Assets.loadSpeechModel(stream.lang);
@@ -135,27 +135,36 @@ export default class Pipeline {
     return this.speechRec;
   }
 
-  makeRomanianSpeechPipeline(stream) {
+  makeRomanianSpeechPipeline(stream, romanianSpeechRec) {
     const gizmo = Gizmo.instance;
-    const modelPath = Assets.getAssetPath({ type: 'asr', params: [ 'rum' ] });
-    this.speechRec = new gizmo.WhisperSpeechRecognition();
-    this.speechRec.setModelPath(modelPath);
+    if (!romanianSpeechRec) {
+      throw {
+        message: 'Romanian speech recognition module is not initialized',
+        file: stream.file && stream.file.name,
+        language: stream.lang,
+      };
+    }
+
+    this.speechRec = romanianSpeechRec;
     this.speechRec.setLanguage('ro');
     this.speechRec.setMinWordProb(settings.minWordProb);
     this.speechRec.setMinWordLen(settings.minWordLen);
 
     this.dec = new gizmo.AudioDec();
     this.resampler = new gizmo.Resampler();
+    this.pcmSink = new gizmo.PcmSink();
+    this.speechRec.connectPcmSink(this.pcmSink);
+
     this.demux.connectDec(this.dec, stream.no);
     this.dec.connectOutput(this.resampler);
     this.resampler.connectOutput(
-      this.speechRec,
+      this.pcmSink,
       gizmo.AVSampleFormat.FLT,
       16000,
       32*1024
     );
 
-    logger.log('using local single-thread Whisper model for Romanian audio');
+    logger.log('using isolated single-thread SIMD Whisper for Romanian audio');
     return this.speechRec;
   }
 
@@ -168,12 +177,14 @@ export default class Pipeline {
     if (this.dec) this.dec.delete();
     if (this.speechRec) this.speechRec.delete();
     if (this.resampler) this.resampler.delete();
+    if (this.pcmSink) this.pcmSink.delete();
     if (this.ngramSplitter) this.ngramSplitter.delete();
     if (this.translator) this.translator.delete();
     this.demux = undefined;
     this.dec = undefined;
     this.speechRec = undefined;
     this.resampler = undefined;
+    this.pcmSink = undefined;
     this.ngramSplitter = undefined;
     this.translator = undefined;
   }
