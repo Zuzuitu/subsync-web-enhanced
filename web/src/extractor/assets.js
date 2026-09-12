@@ -121,13 +121,34 @@ export default class Assets {
       report({ state: 'downloading', cached: false, ...progress });
     });
 
-    report({
-      state: 'extracting',
-      cached: false,
-      loadedBytes: data.byteLength,
-      totalBytes: data.byteLength,
-    });
-    await Assets.extractAsset(data);
+    if (description.sha256) {
+      report({
+        state: 'verifying',
+        cached: false,
+        loadedBytes: data.byteLength,
+        totalBytes: data.byteLength,
+      });
+      await Assets.verifySha256(data, description.sha256);
+    }
+
+    if (description.type === 'binary') {
+      report({
+        state: 'storing',
+        cached: false,
+        loadedBytes: data.byteLength,
+        totalBytes: data.byteLength,
+      });
+      Filesystem.mkdirIfNotExist(Filesystem.join(ASSETS_DIR, asset.type));
+      Gizmo.instance.FS.writeFile(path, data);
+    } else {
+      report({
+        state: 'extracting',
+        cached: false,
+        loadedBytes: data.byteLength,
+        totalBytes: data.byteLength,
+      });
+      await Assets.extractAsset(data);
+    }
 
     if (asset.type === 'speech') {
       const FS = Gizmo.instance.FS;
@@ -160,6 +181,19 @@ export default class Assets {
       state: 'ready',
       bytes: data.byteLength,
     };
+  }
+
+  static async verifySha256(data, expected) {
+    if (!globalThis.crypto || !globalThis.crypto.subtle) {
+      throw new Error('Browser SHA-256 support is unavailable for Romanian speech model verification.');
+    }
+    const digest = await globalThis.crypto.subtle.digest('SHA-256', data);
+    const actual = Array.from(new Uint8Array(digest))
+      .map(byte => byte.toString(16).padStart(2, '0'))
+      .join('');
+    if (actual !== expected.toLowerCase()) {
+      throw new Error(`SHA-256 mismatch for downloaded language asset: ${actual} != ${expected}`);
+    }
   }
 
   static async extractAsset(data) {
@@ -249,6 +283,7 @@ export default class Assets {
 
     Filesystem.removeTree(Filesystem.join(ASSETS_DIR, 'dict'));
     Filesystem.removeTree(Filesystem.join(ASSETS_DIR, 'speech'));
+    Filesystem.removeTree(Filesystem.join(ASSETS_DIR, 'asr'));
     Filesystem.removeFileIfExists(CACHE_METADATA_PATH);
 
     return {
