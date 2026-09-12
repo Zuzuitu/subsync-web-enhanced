@@ -131,6 +131,9 @@ jobs:
           test -s web/scripts/correlator.wasm
           sha256sum             web/scripts/extractor.js             web/scripts/extractor.wasm             web/scripts/correlator.js             web/scripts/correlator.wasm             | tee web/scripts/SHA256SUMS
 
+      - name: Assert Romanian extractor does not require shared WebAssembly memory
+        run: python3 tests/wasm/assert-unshared-memory.py web/scripts/extractor.wasm
+
       - name: Generate deterministic MKV + Romanian SRT fixtures
         shell: bash
         run: |
