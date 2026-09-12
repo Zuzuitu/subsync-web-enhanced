@@ -2,6 +2,7 @@
 import functools
 import http.server
 import json
+import os
 import shutil
 import socketserver
 import threading
@@ -32,7 +33,10 @@ browser_path = (
     or shutil.which("chromium-browser")
 )
 
+strict_seek = os.environ.get("SUBSYNC2_STRICT_SEEK") == "1"
 url = f"http://127.0.0.1:{server.server_address[1]}/tests/wasm/browser-smoke.html"
+if strict_seek:
+    url += "?strictSeek=1"
 
 try:
     with sync_playwright() as p:
@@ -118,6 +122,7 @@ try:
                     "status": status,
                     "timedOut": timed_out,
                     "browserExecutable": browser_path or "playwright-bundled-chromium",
+                    "strictSeek": strict_seek,
                     "lastPhase": last_phase,
                     "details": details,
                     "phases": phases,
