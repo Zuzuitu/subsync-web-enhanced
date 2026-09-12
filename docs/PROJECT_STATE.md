@@ -106,7 +106,12 @@ The pinned original sc0ty `assets` release contains:
 - **217 dictionary packages**;
 - about **504 MiB** total across speech models and dictionaries.
 
-PR #13 restores this pinned catalog to the browser build without changing the original synchronization algorithm or product thresholds.
+PR #13 restored this pinned catalog to the browser build without changing the original synchronization algorithm or product thresholds. It merged to `main` at `6f32c78e231c0b5711d01231cde2807a3322d627`.
+
+Final PR #13 validation:
+- CI run `34661678278`: **PASS**;
+- Mobile WebKit Compatibility run `34661678268`: **PASS**;
+- authoritative Legacy WebAssembly Build run `34661678270`: **PASS**.
 
 Security and delivery design:
 - the original `assets.json` remains pinned by SHA-256 `f25ccee51728c6632fdb66a33744e33945cb054a562c4ff600afc03ced605da4`;
@@ -126,6 +131,24 @@ Representative browser validation, fast PWA run `34661554867`: **PASS**.
 - no page errors.
 
 The tiny Italian fixtures intentionally did not provide enough correlation evidence and ended in `Couldn't synchronize`. This test proves catalog restoration, signature verification, browser delivery, extraction and model/dictionary loading for representative non-primary assets; it does **not** claim that every original language has already passed a full recognition/correlation E2E.
+
+### Full original-language preview deployment
+
+Preview run `34662280482`: **PASS** for commit `6f32c78e231c0b5711d01231cde2807a3322d627`.
+
+Confirmed deployment evidence:
+- authoritative WASM/PWA build: PASS;
+- canonical MKV + Romanian SRT browser/WASM matrix: PASS;
+- ENG-audio + RO-subtitle E2E: PASS;
+- upstream-language smoke: PASS;
+- full original sc0ty asset mirror: PASS;
+- **226 signed packages** mirrored and verified: 9 speech models + 217 dictionaries;
+- verified mirrored payload: **528,928,835 bytes** (~504.4 MiB);
+- GitHub Pages artifact upload: PASS;
+- GitHub Pages deployment: PASS;
+- public preview remains `https://zuzuitu.github.io/subsync-web-enhanced/`.
+
+This means the public preview now publishes the complete pinned original sc0ty speech/dictionary catalog. It does **not** mean every one of the 226 packages has individually passed a full synchronization E2E; representative non-primary loading is validated, while full per-language behavioral coverage remains future work.
 
 ## Original historical MKV issue
 
@@ -305,13 +328,41 @@ Completed additionally:
 19. physical iPhone/Safari validation reported successful by the user.
 
 Next:
-20. complete and deploy the restored original sc0ty language catalog;
-21. validate the public Pages build with representative non-primary languages;
-22. expand realistic MKV coverage;
-23. reproduce/isolate the historical direct-MKV failure with a representative real-world case when available;
-24. return to Romanian-audio support near completion.
+20. validate representative non-primary languages against the public Pages preview;
+21. expand realistic MKV coverage;
+22. improve language-asset download/cache UX;
+23. add stage-specific synchronization diagnostics;
+24. reproduce/isolate the historical direct-MKV failure with a representative real-world case when available;
+25. return to genuine Romanian-audio support near completion;
+26. consider batch/multi-upload only after single-file reliability is solid.
+
+## Product direction decided in this session
+
+SubSync2 is **not** intended to be only the old SubSync wrapped in a browser. The product direction is to preserve the useful behavior and language coverage of sc0ty/SubSync, then add meaningful modern capabilities around it.
+
+Already differentiating SubSync2 from the historical version:
+- installable browser-first PWA;
+- local media processing in the browser without server media upload;
+- physical iPhone/Safari operation;
+- reproducible/pinned WASM toolchain and browser builds;
+- automated MKV, Romanian subtitle, WebKit and full-PWA regressions;
+- Romanian alias/encoding/diacritics hardening;
+- signed/pinned original-language asset publication;
+- controlled HTTPS preview deployment;
+- explicit privacy and upstream attribution.
+
+Improvement order agreed:
+1. preserve and validate original sc0ty language compatibility;
+2. expand realistic MKV reliability coverage: H.264/H.265 container combinations, stereo/5.1, AAC/AC3/E-AC3, multiple tracks, seeking, long files, memory pressure and unusual metadata;
+3. improve model/dictionary UX: required asset, download size/progress, locally cached state and cache cleanup;
+4. improve diagnostics so failures identify the actual stage (demux, decode, audio, speech model, dictionary, correlation) instead of only generic errors;
+5. add genuine Romanian-audio speech recognition near completion rather than pretending another model is Romanian;
+6. consider multi-upload/batch only after the single-file path is demonstrably reliable.
+
+Original-language compatibility is now a project guardrail: future work must not silently drop the original pinned speech/dictionary catalog while improving SubSync2.
 
 ## Open blockers
 
 - historical real-world MKV failure class is not yet reproduced;
+- not every original language/model pair has a dedicated full synchronization E2E, despite the complete signed catalog now being deployed;
 - Romanian audio speech recognition remains deferred until the main workflow is near completion.
