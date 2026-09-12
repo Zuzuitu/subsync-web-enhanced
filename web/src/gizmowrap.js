@@ -26,10 +26,6 @@ export default class Gizmo {
 }
 
 function locateFile(path, prefix, noSuffix) {
-  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(path)) {
-    return path;
-  }
-
   let res = `${settings.url}${prefix || ''}${path}`;
   if (!noSuffix && version.hash) {
     res += `?${version.hash}`;
