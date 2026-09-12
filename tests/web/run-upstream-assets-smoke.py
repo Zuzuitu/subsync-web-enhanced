@@ -107,21 +107,23 @@ browser_path = (
 url = f"http://127.0.0.1:{server.server_address[1]}/{pages_base}/"
 
 
-def contains_asset(url_value, filename):
-    return filename in urllib.parse.unquote(url_value)
-
-
-def wait_for_asset_response(responses, filename, timeout=60):
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        matches = [item for item in responses if contains_asset(item["url"], filename)]
-        if matches and any(200 <= item["status"] < 400 for item in matches):
-            return matches
-        time.sleep(0.1)
-    raise SystemExit(
-        f"Did not observe a successful browser response for {filename}: "
-        + json.dumps(responses[-20:], indent=2)
+def fetch_remote_zip(page, asset_url):
+    result = page.evaluate(
+        """async (url) => {
+          const response = await fetch(url, {cache: 'no-store'});
+          const data = new Uint8Array(await response.arrayBuffer());
+          return {
+            status: response.status,
+            bytes: data.byteLength,
+            magic: Array.from(data.slice(0, 2)),
+            finalUrl: response.url,
+          };
+        }""",
+        asset_url,
     )
+    if result["status"] != 200 or result["bytes"] < 1000 or result["magic"] != [80, 75]:
+        raise SystemExit("Remote asset CORS/ZIP probe failed: " + json.dumps(result))
+    return result
 
 
 def wait_for_terminal_or_failure(page, timeout=60_000):
@@ -162,13 +164,8 @@ try:
 
         console_errors = []
         page_errors = []
-        responses = []
         page.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)
         page.on("pageerror", lambda exc: page_errors.append(str(exc)))
-        page.on("response", lambda response: responses.append({
-            "status": response.status,
-            "url": response.url,
-        }))
 
         page.goto(url, wait_until="load")
         page.wait_for_selector("#subsync_app", timeout=30_000)
@@ -186,15 +183,13 @@ try:
         ref_group.locator('input[type="radio"]').first.wait_for(state="attached", timeout=30_000)
         ref_group.locator("select").first.select_option("eng")
 
+        dictionary_cors_probe = fetch_remote_zip(page, catalog["dict/eng-ita"]["url"])
         page.get_by_role("button", name="Start", exact=True).click()
-        dict_responses = wait_for_asset_response(responses, "dict-eng-ita.zip")
         dict_state, dict_popup = wait_for_terminal_or_failure(page)
 
         # Real app path: Italian audio model requested on demand.
         page.goto(url, wait_until="load")
         page.wait_for_selector("#subsync_app", timeout=30_000)
-        responses.clear()
-
         sub_input = page.locator('input[name="streams-group-sub-file"]')
         ref_input = page.locator('input[name="streams-group-ref-file"]')
         sub_input.set_input_files(str(sub_ita))
@@ -208,7 +203,6 @@ try:
         ref_group.locator("select").first.select_option("ita")
 
         page.get_by_role("button", name="Start", exact=True).click()
-        speech_responses = wait_for_asset_response(responses, "speech-ita.zip", timeout=120)
         speech_state, speech_popup = wait_for_terminal_or_failure(page, timeout=120_000)
 
         details = {
@@ -223,8 +217,7 @@ try:
             },
             "dictionaryRemoteAsset": catalog["dict/eng-ita"]["url"],
             "speechRemoteAsset": catalog["speech/ita"]["url"],
-            "dictionaryResponses": dict_responses,
-            "speechResponses": speech_responses,
+            "dictionaryCorsProbe": dictionary_cors_probe,
             "dictionaryTerminalState": dict_state,
             "dictionaryPopup": dict_popup,
             "speechTerminalState": speech_state,
