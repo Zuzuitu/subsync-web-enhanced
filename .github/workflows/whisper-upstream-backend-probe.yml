@@ -73,7 +73,7 @@ jobs:
             -v "$GITHUB_WORKSPACE:/src" \
             -w /src/web/probe \
             subsync2-whisper-simd-probe \
-            bash -lc '
+            bash -c '
               set -euxo pipefail
               CFLAGS="-O3 -DNDEBUG -msimd128 -DSUBSYNC2_WHISPER_SINGLE_THREAD=1 -D_XOPEN_SOURCE=600 -Iwhisper"
               emcc -c whisper/ggml.c -o obj/ggml.o -std=c11 $CFLAGS
