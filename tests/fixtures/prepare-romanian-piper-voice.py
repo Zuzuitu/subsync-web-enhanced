@@ -2,6 +2,8 @@
 import hashlib
 import json
 import shutil
+import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -18,9 +20,26 @@ model_path = OUT / f'{VOICE["voice"]}.onnx'
 config_path = OUT / f'{VOICE["voice"]}.onnx.json'
 
 def download(url, destination):
-    request = urllib.request.Request(url, headers={"User-Agent": "SubSync2-CI"})
-    with urllib.request.urlopen(request, timeout=300) as response, destination.open("wb") as output:
-        shutil.copyfileobj(response, output)
+    partial = destination.with_name(destination.name + ".part")
+    errors = []
+    for attempt in range(5):
+        if partial.exists():
+            partial.unlink()
+        try:
+            request = urllib.request.Request(url, headers={"User-Agent": "SubSync2-CI"})
+            with urllib.request.urlopen(request, timeout=300) as response, partial.open("wb") as output:
+                shutil.copyfileobj(response, output)
+            partial.replace(destination)
+            return
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, OSError) as exc:
+            if partial.exists():
+                partial.unlink()
+            errors.append(f"attempt {attempt + 1}: {type(exc).__name__}: {exc}")
+            if attempt < 4:
+                time.sleep(min(2 ** (attempt + 1), 16))
+    raise SystemExit(
+        f"Unable to download pinned fixture asset {url}: " + " | ".join(errors)
+    )
 
 def sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
