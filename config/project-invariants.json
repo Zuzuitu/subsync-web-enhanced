@@ -122,6 +122,16 @@
       "required": true,
       "preserveNativeModuleEvidence": true,
       "noRootCauseClaimFromFallbackOnly": true
+    },
+    "largeFileBrowserStress": {
+      "required": true,
+      "minimumFixtureMiB": 128,
+      "browsers": [
+        "Chromium",
+        "iPhone-like WebKit"
+      ],
+      "physicalIPhoneClaimRequiresPhysicalDeviceEvidence": true,
+      "rssMetricIsProcessTreeBaselineNotTabMemory": true
     }
   },
   "deployment": {
