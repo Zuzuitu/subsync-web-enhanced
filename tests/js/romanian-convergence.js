@@ -70,7 +70,7 @@ state = tracker.observe(
   {
     correlated: true,
     points: 22,
-    formula: { a: 1, b: -8.0 },
+    formula: { a: 1, b: -8.4 },
     evidenceStart: 100,
     evidenceEnd: 7000,
   }
@@ -83,7 +83,7 @@ state = tracker.observe(
   {
     correlated: true,
     points: 23,
-    formula: { a: 1.00002, b: -8.05 },
+    formula: { a: 1.00002, b: -8.45 },
     evidenceStart: 100,
     evidenceEnd: 7000,
   }
@@ -96,7 +96,7 @@ state = tracker.observe(
   {
     correlated: true,
     points: 24,
-    formula: { a: 1.00001, b: -8.10 },
+    formula: { a: 1.00001, b: -8.50 },
     evidenceStart: 100,
     evidenceEnd: 7000,
   }
