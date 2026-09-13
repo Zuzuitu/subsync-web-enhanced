@@ -18,6 +18,8 @@ PREVIEW_URL = os.environ.get(
     "https://zuzuitu.github.io/subsync-web-enhanced/",
 ).rstrip("/") + "/"
 MIN_CORRELATION_BUCKETS = 20
+MIN_SPARSE_CUES = 64
+MIN_SPARSE_CUES_PER_MINUTE = 8.0
 
 
 def parse_srt_start(text):
@@ -37,6 +39,24 @@ browser_path = (
 
 fixture = json.loads((FIXTURE_DIR / "fixture.json").read_text(encoding="utf-8"))
 cue_count = len(fixture.get("phrases", []))
+if fixture.get("sparseRegression"):
+    if fixture.get("speechLayout") != "distributed":
+        raise SystemExit("Public Romanian sparse E2E fixture is not distributed across the timeline")
+    if float(fixture.get("speechSpanRatio", 0)) < 0.85:
+        raise SystemExit(
+            "Public Romanian sparse E2E fixture does not span enough of the timeline: "
+            + str(fixture.get("speechSpanRatio"))
+        )
+    if cue_count < MIN_SPARSE_CUES:
+        raise SystemExit(
+            f"Public Romanian sparse E2E fixture has only {cue_count} cues; "
+            f"expected at least {MIN_SPARSE_CUES}"
+        )
+    if float(fixture.get("cueDensityPerMinute", 0)) < MIN_SPARSE_CUES_PER_MINUTE:
+        raise SystemExit(
+            "Public Romanian sparse E2E fixture cue density is too low: "
+            + str(fixture.get("cueDensityPerMinute"))
+        )
 if cue_count <= MIN_CORRELATION_BUCKETS:
     raise SystemExit(
         f"Romanian E2E fixture has only {cue_count} cues; "
@@ -188,6 +208,22 @@ with sync_playwright() as p:
     if reference_words < 20:
         raise SystemExit(f"Public Romanian ASR produced too few usable reference words: {reference_words}")
 
+    probe_match = re.search(
+        r"Romanian probes:\s*(\d+)\s*/\s*(\d+).*adaptive lock:\s*verified",
+        app_text,
+    )
+    if not probe_match:
+        raise SystemExit(
+            "Public Romanian audio workflow did not expose a verified adaptive convergence lock: "
+            + app_text
+        )
+    completed_probes, total_probes = map(int, probe_match.groups())
+    if completed_probes >= total_probes:
+        raise SystemExit(
+            f"Public Romanian adaptive ASR did not stop early: "
+            f"{completed_probes}/{total_probes} probes"
+        )
+
     page.get_by_text("Show details", exact=True).click()
     details_strong = page.locator("#subsync_app dd:not([hidden]) strong")
     if details_strong.count() < 5:
@@ -231,6 +267,8 @@ with sync_playwright() as p:
         "url": PREVIEW_URL,
         "detectedReferenceLanguage": detected,
         "referenceWords": reference_words,
+        "romanianAdaptiveProbesCompleted": completed_probes,
+        "romanianAdaptiveProbesTotal": total_probes,
         "assetTransitions": transitions,
         "modelResponses": model_responses,
         "whisperJsResponses": whisper_js,
