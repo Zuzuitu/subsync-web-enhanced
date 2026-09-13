@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-13 14:14 Europe/Rome
+LAST_UPDATED: 2026-09-13 14:40 Europe/Rome
 
 ## Canonical status
 
@@ -76,10 +76,14 @@ intermediate result after about five minutes and it still had roughly 4–5 s
 residual error. The full old job was not allowed to finish because its projected
 runtime was much longer.
 
-Therefore the next physical milestone is a **retest of the current adaptive
-build on the real iPhone**, letting the adaptive lock finish before saving.
-Do not claim that the new optimization is physically validated until that test
-is reported.
+The first physical retest of the 16-probe adaptive build is now a confirmed
+**FAIL / INCONCLUSIVE** reproduction. The real title completed all 16 probes
+without reaching the canonical 20-point minimum. This is now the primary
+production reproduction for Romanian long-title convergence.
+
+A rescue-probe fix is under development on top of this evidence. Do not mark
+Romanian single-file support physically release-stable until the rescue build
+passes on the same real iPhone/title class.
 
 Batch/multi-upload remains deferred until the optimized single-file path is
 confirmed on the physical device.
@@ -320,6 +324,83 @@ windows in this automated fixture, versus consuming the full 240 s candidate
 budget. This is an automated-browser result, not a promise of a specific
 physical-iPhone wall-clock time.
 
+
+### Physical iPhone reproduction — 13 September 2026
+
+The first full physical retest of the PR #29 adaptive build used the public
+Pages PWA on real iPhone/Safari with a real >2 GB dual-audio
+`Frozen.II.2019.1080p.10bit.BluRay.Dual.RoDubbed.x265.HEVC-PSA.mkv`,
+Romanian audio selected, and the corresponding Romanian SRT.
+
+Observed evidence:
+- Romanian Whisper model was already **Cached · 30.7 MiB**, so model download
+  time did not explain the runtime;
+- at elapsed **5:23**, probe **9/16**:
+  - 84 reference words;
+  - 10 synchronization points;
+  - displayed correlation 100.00%;
+  - formula `1.0004x-1.851`;
+  - max change `0:01:829`;
+  - stable checks 0;
+  - evidence span 0%;
+  - adaptive lock pending;
+  - **Save subtitles was incorrectly enabled while the adaptive lock was
+    pending**;
+- at elapsed **10:05**, probe **16/16**:
+  - 151 reference words;
+  - 15 synchronization points;
+  - displayed correlation 100.00%;
+  - formula `1.0007x-2.531`;
+  - max change `0:02:495`;
+  - stable checks 0;
+  - evidence span 0%;
+  - adaptive lock pending;
+  - terminal state: `Synchronization inconclusive`;
+  - diagnostic: 15 points found, canonical minimum remains 20.
+
+The user reports that the output behavior recovered most of the deliberately
+large (>10 s) offset but remained visibly out of sync. Treat that as practical
+device evidence, while the noncanonical intermediate formula itself must not be
+treated as an accepted final synchronization result.
+
+Confirmed conclusions:
+- the physical failure is **not** caused by lowering/raising thresholds; the
+  canonical 20-point guard correctly rejected an under-evidenced result;
+- Romanian ASR itself produced substantial evidence (151 reference words), but
+  the 16 × 15 s primary sample budget produced only 15 canonical candidate
+  points on this real title;
+- the synthetic fixture was easier than this real movie and therefore cannot be
+  the sole release criterion;
+- exposing Save while `adaptive lock: pending` is a real UX/safety bug.
+
+### Rescue-probe design driven by the physical reproduction
+
+The accepted next fix keeps the successful fast path intact and adds a bounded
+second stage:
+- primary stage remains **16 × 15 s** progressive/farthest-first probes;
+- if adaptive convergence verifies during the primary stage, processing still
+  stops early exactly as before;
+- if primary probing does not verify, append up to **8 rescue probes** sampled
+  only from previously unscanned timeline gaps;
+- rescue windows are capped at 15 s and may be shorter in small remaining gaps;
+- rescue probes never intentionally overlap already sampled primary/rescue
+  regions;
+- maximum sparse candidate count becomes **24**;
+- maximum sampled Romanian audio becomes **360 s / 6 minutes** for long titles;
+- canonical sc0ty thresholds remain unchanged;
+- adaptive verification still requires canonical correlation, fresh point gain,
+  formula stability and broad evidence span.
+
+The Save policy is also fail-closed for long Romanian adaptive runs:
+- `Save subtitles` must stay disabled while adaptive lock is pending;
+- the weaker legacy `Synchronization inconclusive` save fallback is forbidden
+  for Romanian adaptive runs;
+- only a verified adaptive lock may enable export for this path.
+
+The rescue stage is intentionally bounded: it trades at most 50% more sampled
+audio than the 16-probe primary budget for a materially better chance of
+reaching the unchanged 20-point minimum on sparse/real-world titles.
+
 ## Merged-main release-candidate validation
 
 Release-candidate regression was run from exact merged-main commit
@@ -496,55 +577,36 @@ cause. Native exception module/stage information is authoritative when present.
 The primary ENG-audio + RO-subtitle workflow was previously confirmed on a real
 iPhone/Safari device.
 
-Romanian audio now has two distinct physical-device milestones:
+Romanian audio physical status:
 
-1. **Pre-adaptive physical test — partial PASS**
-   - real >2 GB dual-audio MKV;
+1. **Pre-adaptive test — partial PASS**
+   - real >2 GB direct MKV opened;
    - Romanian audio selected;
-   - Romanian SRT deliberately offset by more than 10 s;
-   - model download succeeded;
-   - direct media processing produced enough evidence to enable save;
-   - user saved the early intermediate result after roughly five minutes;
-   - that intermediate result remained roughly 4–5 s out of sync;
-   - full completion was not observed because the old path appeared too slow.
+   - Romanian model and local processing worked;
+   - an early save improved timing but remained materially inaccurate.
 
-2. **Current adaptive build — PHYSICAL RETEST STARTING**
-   - deployed product commit:
-     `9768cd3daf4d0368993ab6e4b1ae3b9cd84affe7`;
-   - repository checkpoint/test main:
-     `1798452e1782cfa2e20b5d63eec59bc77bee7b98`;
-   - automated Chromium, iPhone-like WebKit and live Public Pages evidence are
-     green;
-   - the user is starting the real iPhone/Safari retest immediately after this
-     checkpoint update;
-   - no result is recorded yet, so do not claim physical
-     performance/accuracy confirmation until the user reports the completed
-     terminal run.
+2. **PR #29 16-probe adaptive retest — FAIL / INCONCLUSIVE**
+   - real iPhone/Safari;
+   - model reused from cache;
+   - run stayed foregrounded and reached terminal state;
+   - 10:05 elapsed;
+   - 16/16 probes completed;
+   - 151 reference words;
+   - 15 points versus canonical minimum 20;
+   - adaptive lock never verified;
+   - practical synchronization remained incorrect;
+   - Save was observed enabled prematurely at 9/16 while lock was pending.
 
-Physical retest protocol for the current adaptive build:
-1. use the public Pages preview and the same real >2 GB dual-audio MKV class;
-2. use a Romanian SRT with a deliberately known offset and select Romanian
-   reference audio;
-3. keep Safari foregrounded for the whole synchronization run;
-4. do **not** save at the first intermediate correlation; wait for the terminal
-   synchronized state and visible adaptive lock;
-5. record elapsed wall-clock time and the visible `Romanian probes: X/16`;
-6. record reference words, synchronization points, displayed correlation,
-   formula/max-change diagnostics and the saved timing correction;
-7. verify practical alignment at least near the beginning, middle and end of
-   the movie, not only the first scene;
-8. report any residual offset in seconds and whether it is constant or changes
-   through the title;
-9. note whether the Romanian model was reused from local cache or downloaded
-   again;
-10. if Safari is backgrounded/reloaded/suspended, record that separately; do
-    not count a resumed-looking partial run as a normal pass unless the final
-    result is demonstrably correct.
+3. **Rescue-probe build — IMPLEMENTATION / VALIDATION IN PROGRESS**
+   - preserve the 16-probe fast path;
+   - add up to 8 non-overlapping rescue probes only if needed;
+   - block Save until adaptive lock is verified;
+   - physical retest on the same title class is required after CI + deliberate
+     deployment.
 
-Model bytes persist through the browser IDBFS lifecycle, but active
-synchronization-job persistence/resume across Safari suspension is **not**
-implemented. Until explicitly tested otherwise, keeping Safari foregrounded is
-part of the physical validation protocol.
+Model bytes persist through browser IDBFS. Active job persistence/resume across
+Safari background suspension is still not implemented; physical release tests
+must keep Safari foregrounded unless resume behavior is explicitly under test.
 
 ## Fork / modernization review
 
@@ -581,18 +643,21 @@ Canonical decisions:
 
 ## Next sequence
 
-1. Complete the physical iPhone/Safari retest now in progress using the protocol
-   above; let adaptive convergence reach its terminal result before saving.
-2. Record elapsed time, adaptive probe count, correlation evidence and practical
-   residual sync error across beginning/middle/end.
-3. If the physical result passes, update this checkpoint again and mark the
-   optimized Romanian single-file workflow release-stable for this milestone.
-4. If it fails, treat the physical diagnostics as the new reproduction:
-   isolate whether the failure is ASR runtime, convergence, Safari lifecycle,
-   media decode/seek or output timing before changing code.
-5. Only after physical single-file stability, consider batch/multi-upload,
-   optional piecewise synchronization, broader multi-ASR abstraction, or the
-   future Android/NVIDIA Shield Pro application.
+1. Finish CI for the rescue-probe + Save-lock branch.
+2. Require governance/unit regressions plus PWA build/browser regressions.
+3. Require fresh Legacy WebAssembly Romanian Chromium and iPhone-like WebKit
+   E2E before merge; do not weaken `minPointsNo=20`.
+4. Merge only when green, deliberately deploy the new runtime to Pages, then
+   run the strengthened live Public Pages smoke.
+5. Retest the same real iPhone/title class:
+   - let the job reach terminal state;
+   - record whether rescue is entered and at which rescue probe lock verifies;
+   - record elapsed time, reference words, points, correlation, formula and
+     evidence span;
+   - confirm Save stays disabled before verified lock;
+   - verify practical sync at beginning/middle/end.
+6. Only after that physical pass mark Romanian single-file support
+   release-stable.
 
 ## Session closeout — 13 September 2026
 
@@ -623,8 +688,8 @@ Decisions confirmed in this engineering session:
 
 ## Open blockers
 
-- the adaptive Romanian build is undergoing its full physical-iPhone/Safari
-  retest; result not yet recorded;
+- the 16-probe adaptive Romanian build failed the full physical iPhone retest
+  with 15/20 required points; rescue-probe validation is now required;
 - browser job resume/persistence across Safari suspension/backgrounding is not
   implemented;
 - the historical real-world direct-MKV failure class remains
