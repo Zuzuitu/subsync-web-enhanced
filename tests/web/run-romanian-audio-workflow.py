@@ -225,6 +225,13 @@ try:
         if reference_words < 20:
             raise SystemExit(f"Romanian ASR produced too few usable reference words: {reference_words}")
 
+        anchor_match = re.search(r"context anchors:\s*(\d+)", app_text)
+        if not anchor_match:
+            raise SystemExit("Romanian audio workflow did not expose context-anchor diagnostics")
+        context_anchors = int(anchor_match.group(1))
+        if context_anchors <= 0:
+            raise SystemExit("Romanian audio workflow produced no lexical context anchors")
+
         probe_match = re.search(
             r"Romanian probes:\s*(\d+)\s*/\s*(\d+).*adaptive lock:\s*verified",
             app_text,
@@ -285,6 +292,7 @@ try:
             "url": url,
             "detectedReferenceLanguage": detected,
             "referenceWords": reference_words,
+            "romanianContextAnchors": context_anchors,
             "romanianAdaptiveProbesCompleted": completed_probes,
             "romanianAdaptiveProbesTotal": total_probes,
             "assetTransitions": transitions,
