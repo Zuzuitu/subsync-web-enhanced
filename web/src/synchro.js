@@ -206,11 +206,13 @@ export default class Synchronizer {
       }
 
       if (!issub && this.romanianConvergence && s.windowCompleted) {
+        let primarySummary = null;
         if (
           this.romanianScan
           && this.romanianScan.primarySummaries.length < this.romanianScan.primaryWindows.length
         ) {
-          this.romanianScan.primarySummaries.push({ ...s.windowCompleted });
+          primarySummary = { ...s.windowCompleted };
+          this.romanianScan.primarySummaries.push(primarySummary);
         }
 
         let rawStats;
@@ -228,6 +230,11 @@ export default class Synchronizer {
           s.windowCompleted.wordCount || 0,
           rawStats
         );
+        if (primarySummary) {
+          primarySummary.candidatePointGain = convergence.candidatePointGain || 0;
+          primarySummary.candidatePoints = convergence.lastPoints || 0;
+          primarySummary.candidateSpan = convergence.candidateProbeCoverageRatio || 0;
+        }
         this.diagnostics.romanianConvergence = convergence;
 
         logger.log(
