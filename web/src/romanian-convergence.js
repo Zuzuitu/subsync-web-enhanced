@@ -45,6 +45,7 @@ class RomanianConvergenceTracker {
     this.informativeWindows = 0;
     this.stableCorrelatedWindows = 0;
     this.completedCenters = [];
+    this.confirmedCenters = [];
     this.lastFormula = null;
     this.lastFormulaDeltaSeconds = null;
     this.lastWindowWords = 0;
@@ -59,8 +60,11 @@ class RomanianConvergenceTracker {
 
     const start = Number(window && window.start);
     const end = Number(window && window.end);
-    if (Number.isFinite(start) && Number.isFinite(end) && end >= start) {
-      this.completedCenters.push((start + end) / 2);
+    const center = Number.isFinite(start) && Number.isFinite(end) && end >= start
+      ? (start + end) / 2
+      : null;
+    if (center != null) {
+      this.completedCenters.push(center);
     }
 
     const informative = this.lastWindowWords >= this.minInformativeWords;
@@ -89,11 +93,13 @@ class RomanianConvergenceTracker {
         // never inherits confirmations from the old formula.
         this.stableCorrelatedWindows = informative ? 1 : 0;
         this.lastConfirmedPoints = informative ? points : null;
+        this.confirmedCenters = informative && center != null ? [center] : [];
         this.lastPointGain = 0;
       } else if (informative) {
         if (this.lastConfirmedPoints == null) {
           this.stableCorrelatedWindows = 1;
           this.lastConfirmedPoints = points;
+          this.confirmedCenters = center != null ? [center] : [];
           this.lastPointGain = 0;
         } else {
           this.lastPointGain = Math.max(0, points - this.lastConfirmedPoints);
@@ -102,6 +108,9 @@ class RomanianConvergenceTracker {
             // fresh canonical correlation evidence from another probe.
             this.stableCorrelatedWindows += 1;
             this.lastConfirmedPoints = points;
+            if (center != null) {
+              this.confirmedCenters.push(center);
+            }
           }
         }
       } else {
@@ -120,12 +129,13 @@ class RomanianConvergenceTracker {
       this.lastFormulaDeltaSeconds = null;
       this.stableCorrelatedWindows = 1;
       this.lastConfirmedPoints = points;
+      this.confirmedCenters = center != null ? [center] : [];
       this.lastPointGain = 0;
     } else if (!correlated) {
-      this.lastFormula = null;
-      this.lastFormulaDeltaSeconds = null;
-      this.stableCorrelatedWindows = 0;
-      this.lastConfirmedPoints = null;
+      // No canonical correlation in this probe is absence of confirmation, not
+      // contradictory evidence. Keep prior confirmations and wait for another
+      // canonical snapshot; a materially different canonical formula resets
+      // the sequence above.
       this.lastPointGain = 0;
     }
 
@@ -136,13 +146,13 @@ class RomanianConvergenceTracker {
     if (
       !Number.isFinite(this.duration)
       || this.duration <= 0
-      || this.completedCenters.length < 2
+      || this.confirmedCenters.length < 2
     ) {
       return 0;
     }
 
-    const min = Math.min(...this.completedCenters);
-    const max = Math.max(...this.completedCenters);
+    const min = Math.min(...this.confirmedCenters);
+    const max = Math.max(...this.confirmedCenters);
     return Math.max(0, Math.min(1, (max - min) / this.duration));
   }
 

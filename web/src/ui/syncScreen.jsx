@@ -281,6 +281,10 @@ export default class SyncScreen {
     const convergenceText = convergence
       ? ` · Romanian probes: ${convergence.completedWindows}/${convergence.totalWindows}`
         + ` · stable checks: ${convergence.stableCorrelatedWindows}`
+        + ` · last probe words: ${convergence.lastWindowWords || 0}`
+        + ` · points: ${convergence.lastPoints || 0}`
+        + ` (+${convergence.lastPointGain || 0})`
+        + ` · evidence span: ${Math.round(100 * (convergence.probeCoverageRatio || 0))}%`
         + ` · adaptive lock: ${convergence.verified ? 'verified' : 'pending'}`
       : '';
     this.diagnosticEvidence.textContent =

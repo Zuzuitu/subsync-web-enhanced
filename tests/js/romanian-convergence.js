@@ -112,4 +112,35 @@ assert.strictEqual(
   'a probe with recognized speech but no new correlation bucket must not confirm convergence'
 );
 
+
+const gaps = new RomanianConvergenceTracker(1000, 16);
+state = gaps.observe(
+  { start: 0, end: 15 },
+  6,
+  { correlated: true, points: 20, formula: { a: 1, b: -8 } }
+);
+assert.strictEqual(state.stableCorrelatedWindows, 1);
+state = gaps.observe(
+  { start: 500, end: 515 },
+  0,
+  null
+);
+assert.strictEqual(
+  state.stableCorrelatedWindows,
+  1,
+  'an inconclusive/silent probe must not erase a previous canonical confirmation'
+);
+assert.strictEqual(
+  state.probeCoverageRatio,
+  0,
+  'unconfirmed probe locations must not inflate evidence coverage'
+);
+state = gaps.observe(
+  { start: 800, end: 815 },
+  6,
+  { correlated: true, points: 21, formula: { a: 1.00001, b: -8.05 } }
+);
+assert.strictEqual(state.stableCorrelatedWindows, 2);
+assert(state.probeCoverageRatio > 0.75);
+
 console.log('Romanian adaptive convergence tracker: OK');

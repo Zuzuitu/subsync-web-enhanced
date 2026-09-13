@@ -28,6 +28,8 @@ jobs:
         run: node tests/js/romanian-windows.js
       - name: Validate Romanian adaptive convergence
         run: node tests/js/romanian-convergence.js
+      - name: Validate canonical correlation status selection
+        run: node tests/js/correlation-status.js
       - name: Validate legacy web package metadata
         run: |
           python3 - <<'PY'

@@ -6,6 +6,7 @@ import Logger from './logger.js';
 import { annotateErrorStage, classifyErrorStage } from './diagnostics.js';
 const { makeRomanianTimeWindows } = require('./romanian-windows.js');
 const { RomanianConvergenceTracker } = require('./romanian-convergence.js');
+const { selectCanonicalStatus } = require('./correlation-status.js');
 const logger = Logger.logger.get('[Synchronizer]');
 
 export default class Synchronizer {
@@ -191,32 +192,23 @@ export default class Synchronizer {
       }
 
       if (!issub && this.romanianConvergence && s.windowCompleted) {
-        let convergenceStats;
-        try {
-          convergenceStats = await this.correlator.getStats();
-        } catch (e) {
-          const err = this.recordError(listener, annotateErrorStage(e, 'correlation'));
-          onError(err);
-          return;
-        }
-
-        if (convergenceStats) {
-          // Keep the last canonical correlated formula for save/UI semantics.
-          // A later raw snapshot may become temporarily inconclusive as new
-          // evidence arrives; the adaptive tracker sees that raw state and
-          // resets its stability streak, but we do not replace a known-good
-          // output formula with an inconclusive one.
-          if (convergenceStats.correlated || !this.status.correlated) {
-            this.status = convergenceStats;
-          }
-        }
-
+        const canonicalStats = this.status && this.status.correlated
+          ? this.status
+          : null;
         const convergence = this.romanianConvergence.observe(
           s.windowCompleted,
           s.windowCompleted.wordCount || 0,
-          convergenceStats
+          canonicalStats
         );
         this.diagnostics.romanianConvergence = convergence;
+
+        logger.log(
+          `Romanian ASR probe ${convergence.completedWindows}/${convergence.totalWindows}: `
+          + `words=${convergence.lastWindowWords}, points=${convergence.lastPoints}, `
+          + `pointGain=${convergence.lastPointGain}, stable=${convergence.stableCorrelatedWindows}, `
+          + `coverage=${(100 * convergence.probeCoverageRatio).toFixed(1)}%, `
+          + `verified=${convergence.verified}`
+        );
 
         if (convergence.verified && this.gotAllSubs) {
           logger.log(
@@ -258,18 +250,12 @@ export default class Synchronizer {
 
   async addSubWord(word) {
     const status = await this.correlator.addSubWord(word);
-    if (status) {
-      status.correlated = this.status.correlated || status.correlated;
-      this.status = status;
-    }
+    this.status = selectCanonicalStatus(this.status, status);
   }
 
   async addRefWord(word) {
     const status = await this.correlator.addRefWord(word);
-    if (status) {
-      status.correlated = this.status.correlated || status.correlated;
-      this.status = status;
-    }
+    this.status = selectCanonicalStatus(this.status, status);
   }
 
   recordStage(listener, stage, state, details) {
