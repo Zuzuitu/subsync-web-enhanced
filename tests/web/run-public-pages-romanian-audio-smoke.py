@@ -169,6 +169,10 @@ with sync_playwright() as p:
         raise
 
     app_text = page.locator("#subsync_app").inner_text()
+    if page.evaluate("window.__roPrematureSaveEnabled"):
+        raise SystemExit(
+            "Public Romanian Save subtitles became enabled before adaptive lock verification"
+        )
     if "Subtitles synchronized" not in app_text:
         raise SystemExit("Public Pages Romanian audio workflow did not synchronize: " + app_text)
 
