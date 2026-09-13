@@ -158,4 +158,64 @@ assert.strictEqual(
 );
 assert.strictEqual(state.probeCoverageRatio, 0.85);
 
+
+const rescueTracker = new RomanianConvergenceTracker(7200, 24, { primaryWindows: 16 });
+for (let i = 0; i < 16; i++) {
+  state = rescueTracker.observe(
+    { start: i * 30, end: i * 30 + 15 },
+    8,
+    {
+      correlated: false,
+      points: Math.min(15, i),
+      formula: { a: 1, b: -2.5 },
+    }
+  );
+}
+assert.strictEqual(state.verified, false);
+assert.strictEqual(state.rescueWindowsCompleted, 0);
+assert.strictEqual(state.lastPoints, 15);
+
+state = rescueTracker.observe(
+  { start: 1000, end: 1015 },
+  10,
+  {
+    correlated: true,
+    points: 20,
+    formula: { a: 1, b: -8.2 },
+    evidenceStart: 200,
+    evidenceEnd: 6800,
+  }
+);
+assert.strictEqual(state.rescueWindowsCompleted, 1);
+assert.strictEqual(state.stableCorrelatedWindows, 1);
+assert.strictEqual(state.verified, false);
+
+state = rescueTracker.observe(
+  { start: 3000, end: 3015 },
+  11,
+  {
+    correlated: true,
+    points: 21,
+    formula: { a: 1.00001, b: -8.25 },
+    evidenceStart: 150,
+    evidenceEnd: 6900,
+  }
+);
+assert.strictEqual(state.stableCorrelatedWindows, 2);
+
+state = rescueTracker.observe(
+  { start: 5000, end: 5015 },
+  9,
+  {
+    correlated: true,
+    points: 22,
+    formula: { a: 1.00001, b: -8.30 },
+    evidenceStart: 100,
+    evidenceEnd: 7000,
+  }
+);
+assert.strictEqual(state.stableCorrelatedWindows, 3);
+assert.strictEqual(state.verified, true);
+assert.strictEqual(state.phase, 'rescue');
+
 console.log('Romanian adaptive convergence tracker: OK');

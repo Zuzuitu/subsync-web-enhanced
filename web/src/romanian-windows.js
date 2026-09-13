@@ -1,8 +1,12 @@
 'use strict';
 
 const WINDOW_SECONDS = 15;
-const MAX_WINDOWS = 16;
-const FULL_SCAN_SECONDS = WINDOW_SECONDS * MAX_WINDOWS;
+const PRIMARY_WINDOWS = 16;
+const RESCUE_WINDOWS = 8;
+const MAX_WINDOWS = PRIMARY_WINDOWS + RESCUE_WINDOWS;
+const FULL_SCAN_SECONDS = WINDOW_SECONDS * PRIMARY_WINDOWS;
+const MAX_SPARSE_AUDIO_SECONDS = WINDOW_SECONDS * MAX_WINDOWS;
+const MIN_RESCUE_WINDOW_SECONDS = 3;
 
 function farthestFirstOrder(count) {
   if (count <= 0) return [];
@@ -37,14 +41,22 @@ function farthestFirstOrder(count) {
   return selected;
 }
 
-function makeRomanianTimeWindows(duration) {
-  if (!Number.isFinite(duration) || duration <= 0 || duration <= FULL_SCAN_SECONDS) {
+function centeredWindow(start, end, maxLength = WINDOW_SECONDS) {
+  const gap = end - start;
+  if (!Number.isFinite(gap) || gap < MIN_RESCUE_WINDOW_SECONDS) {
     return null;
   }
 
-  const bucket = duration / MAX_WINDOWS;
+  const length = Math.min(maxLength, gap);
+  const center = (start + end) / 2;
+  const windowStart = Math.max(start, center - length / 2);
+  return [windowStart, windowStart + length];
+}
+
+function makePrimaryWindows(duration) {
+  const bucket = duration / PRIMARY_WINDOWS;
   const chronological = [];
-  for (let i = 0; i < MAX_WINDOWS; i++) {
+  for (let i = 0; i < PRIMARY_WINDOWS; i++) {
     const center = (i + 0.5) * bucket;
     let start = Math.max(0, center - WINDOW_SECONDS / 2);
     let end = Math.min(duration, start + WINDOW_SECONDS);
@@ -52,15 +64,56 @@ function makeRomanianTimeWindows(duration) {
     chronological.push([start, end]);
   }
 
-  // Progressive coverage matters for adaptive convergence: probe the beginning
-  // and end regions first, then repeatedly fill the largest temporal gaps.
-  return farthestFirstOrder(MAX_WINDOWS).map(index => chronological[index]);
+  return farthestFirstOrder(PRIMARY_WINDOWS).map(index => chronological[index]);
+}
+
+function makeRescueWindows(duration, primaryWindows) {
+  const chronological = primaryWindows.slice().sort((a, b) => a[0] - b[0]);
+  const gaps = [];
+
+  let cursor = 0;
+  for (const [start, end] of chronological) {
+    if (start > cursor) {
+      gaps.push([cursor, start]);
+    }
+    cursor = Math.max(cursor, end);
+  }
+  if (cursor < duration) {
+    gaps.push([cursor, duration]);
+  }
+
+  const candidates = gaps
+    .map(([start, end]) => centeredWindow(start, end))
+    .filter(Boolean);
+
+  const order = farthestFirstOrder(candidates.length);
+  return order.slice(0, RESCUE_WINDOWS).map(index => candidates[index]);
+}
+
+function makeRomanianTimeWindows(duration) {
+  if (!Number.isFinite(duration) || duration <= 0 || duration <= FULL_SCAN_SECONDS) {
+    return null;
+  }
+
+  const primary = makePrimaryWindows(duration);
+  const rescue = makeRescueWindows(duration, primary);
+
+  // Stage 1 is deliberately identical in spirit to the previous fast path:
+  // 16 progressive probes. Rescue probes are appended only so they are reached
+  // when the canonical correlator has not converged during the primary stage.
+  return primary.concat(rescue);
 }
 
 module.exports = {
   WINDOW_SECONDS,
+  PRIMARY_WINDOWS,
+  RESCUE_WINDOWS,
   MAX_WINDOWS,
   FULL_SCAN_SECONDS,
+  MAX_SPARSE_AUDIO_SECONDS,
+  MIN_RESCUE_WINDOW_SECONDS,
   farthestFirstOrder,
+  makePrimaryWindows,
+  makeRescueWindows,
   makeRomanianTimeWindows,
 };
