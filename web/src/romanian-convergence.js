@@ -69,9 +69,14 @@ class RomanianConvergenceTracker {
     this.lastPoints = 0;
     this.lastConfirmedPoints = null;
     this.lastPointGain = 0;
+    this.previousCandidatePoints = null;
+    this.candidatePointGain = 0;
     this.probeCoverageRatio = 0;
     this.evidenceStart = null;
     this.evidenceEnd = null;
+    this.candidateProbeCoverageRatio = 0;
+    this.candidateEvidenceStart = null;
+    this.candidateEvidenceEnd = null;
   }
 
   observe(window, words, stats) {
@@ -92,6 +97,25 @@ class RomanianConvergenceTracker {
     const points = Number(stats && stats.points) || 0;
     this.lastPoints = points;
     this.lastPointGain = 0;
+    this.candidatePointGain = this.previousCandidatePoints == null
+      ? 0
+      : Math.max(0, points - this.previousCandidatePoints);
+    this.previousCandidatePoints = points;
+
+    const candidateStart = Number(stats && stats.candidateEvidenceStart);
+    const candidateEnd = Number(stats && stats.candidateEvidenceEnd);
+    if (
+      Number.isFinite(candidateStart)
+      && Number.isFinite(candidateEnd)
+      && candidateEnd >= candidateStart
+    ) {
+      this.candidateEvidenceStart = candidateStart;
+      this.candidateEvidenceEnd = candidateEnd;
+      this.candidateProbeCoverageRatio = evidenceSpanRatio({
+        evidenceStart: candidateStart,
+        evidenceEnd: candidateEnd,
+      }, this.duration);
+    }
 
     if (correlated) {
       const coverage = evidenceSpanRatio(stats, this.duration);
@@ -150,6 +174,15 @@ class RomanianConvergenceTracker {
     return this.getStatus();
   }
 
+  setTotalWindows(totalWindows) {
+    const parsed = Number(totalWindows);
+    if (Number.isFinite(parsed) && parsed >= this.completedWindows) {
+      this.totalWindows = parsed;
+      this.primaryWindows = Math.min(this.primaryWindows, this.totalWindows);
+    }
+    return this.getStatus();
+  }
+
   getStatus() {
     const verified = (
       this.stableCorrelatedWindows >= this.requiredStableWindows
@@ -175,6 +208,10 @@ class RomanianConvergenceTracker {
       lastWindowWords: this.lastWindowWords,
       lastPoints: this.lastPoints,
       lastPointGain: this.lastPointGain,
+      candidatePointGain: this.candidatePointGain,
+      candidateProbeCoverageRatio: this.candidateProbeCoverageRatio,
+      candidateEvidenceStart: this.candidateEvidenceStart,
+      candidateEvidenceEnd: this.candidateEvidenceEnd,
       verified,
     };
   }
