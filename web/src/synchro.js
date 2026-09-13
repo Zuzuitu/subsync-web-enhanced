@@ -192,20 +192,30 @@ export default class Synchronizer {
       }
 
       if (!issub && this.romanianConvergence && s.windowCompleted) {
-        const canonicalStats = this.status && this.status.correlated
-          ? this.status
-          : null;
+        let rawStats;
+        try {
+          rawStats = await this.correlator.getStats();
+        } catch (e) {
+          const err = this.recordError(listener, annotateErrorStage(e, 'correlation'));
+          onError(err);
+          return;
+        }
+
+        this.status = selectCanonicalStatus(this.status, rawStats);
         const convergence = this.romanianConvergence.observe(
           s.windowCompleted,
           s.windowCompleted.wordCount || 0,
-          canonicalStats
+          rawStats
         );
         this.diagnostics.romanianConvergence = convergence;
 
         logger.log(
           `Romanian ASR probe ${convergence.completedWindows}/${convergence.totalWindows}: `
           + `words=${convergence.lastWindowWords}, points=${convergence.lastPoints}, `
+          + `correlated=${Boolean(rawStats && rawStats.correlated)}, `
           + `pointGain=${convergence.lastPointGain}, stable=${convergence.stableCorrelatedWindows}, `
+          + `evidence=${convergence.evidenceStart == null ? 'n/a' : convergence.evidenceStart.toFixed(1)}-`
+          + `${convergence.evidenceEnd == null ? 'n/a' : convergence.evidenceEnd.toFixed(1)}, `
           + `coverage=${(100 * convergence.probeCoverageRatio).toFixed(1)}%, `
           + `verified=${convergence.verified}`
         );

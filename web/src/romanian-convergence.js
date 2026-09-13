@@ -28,6 +28,21 @@ function formulaDeltaSeconds(previous, current, duration) {
   );
 }
 
+function evidenceSpanRatio(stats, duration) {
+  const start = Number(stats && stats.evidenceStart);
+  const end = Number(stats && stats.evidenceEnd);
+  if (
+    !Number.isFinite(duration)
+    || duration <= 0
+    || !Number.isFinite(start)
+    || !Number.isFinite(end)
+    || end < start
+  ) {
+    return 0;
+  }
+  return Math.max(0, Math.min(1, (end - start) / duration));
+}
+
 class RomanianConvergenceTracker {
   constructor(duration, totalWindows, options = {}) {
     this.duration = duration;
@@ -44,28 +59,21 @@ class RomanianConvergenceTracker {
     this.completedWindows = 0;
     this.informativeWindows = 0;
     this.stableCorrelatedWindows = 0;
-    this.completedCenters = [];
-    this.confirmedCenters = [];
     this.lastFormula = null;
     this.lastFormulaDeltaSeconds = null;
     this.lastWindowWords = 0;
     this.lastPoints = 0;
     this.lastConfirmedPoints = null;
     this.lastPointGain = 0;
+    this.probeCoverageRatio = 0;
+    this.evidenceStart = null;
+    this.evidenceEnd = null;
   }
 
   observe(window, words, stats) {
+    void window;
     this.completedWindows += 1;
     this.lastWindowWords = Number(words) || 0;
-
-    const start = Number(window && window.start);
-    const end = Number(window && window.end);
-    const center = Number.isFinite(start) && Number.isFinite(end) && end >= start
-      ? (start + end) / 2
-      : null;
-    if (center != null) {
-      this.completedCenters.push(center);
-    }
 
     const informative = this.lastWindowWords >= this.minInformativeWords;
     if (informative) {
@@ -79,88 +87,69 @@ class RomanianConvergenceTracker {
     );
     const points = Number(stats && stats.points) || 0;
     this.lastPoints = points;
+    this.lastPointGain = 0;
 
-    if (correlated && this.lastFormula) {
-      this.lastFormulaDeltaSeconds = formulaDeltaSeconds(
-        this.lastFormula,
-        stats.formula,
-        this.duration
-      );
+    if (correlated) {
+      const coverage = evidenceSpanRatio(stats, this.duration);
+      this.probeCoverageRatio = coverage;
+      this.evidenceStart = Number.isFinite(Number(stats.evidenceStart))
+        ? Number(stats.evidenceStart)
+        : null;
+      this.evidenceEnd = Number.isFinite(Number(stats.evidenceEnd))
+        ? Number(stats.evidenceEnd)
+        : null;
 
-      if (this.lastFormulaDeltaSeconds > this.maxFormulaDeltaSeconds) {
-        // A materially different formula invalidates the previous stability
-        // streak. A speech-bearing window can establish a new baseline, but
-        // never inherits confirmations from the old formula.
-        this.stableCorrelatedWindows = informative ? 1 : 0;
-        this.lastConfirmedPoints = informative ? points : null;
-        this.confirmedCenters = informative && center != null ? [center] : [];
-        this.lastPointGain = 0;
-      } else if (informative) {
-        if (this.lastConfirmedPoints == null) {
-          this.stableCorrelatedWindows = 1;
-          this.lastConfirmedPoints = points;
-          this.confirmedCenters = center != null ? [center] : [];
-          this.lastPointGain = 0;
-        } else {
-          this.lastPointGain = Math.max(0, points - this.lastConfirmedPoints);
-          if (this.lastPointGain >= this.minPointGain) {
-            // A stable formula alone is not enough: each confirmation must add
-            // fresh canonical correlation evidence from another probe.
-            this.stableCorrelatedWindows += 1;
+      if (this.lastFormula) {
+        this.lastFormulaDeltaSeconds = formulaDeltaSeconds(
+          this.lastFormula,
+          stats.formula,
+          this.duration
+        );
+
+        if (this.lastFormulaDeltaSeconds > this.maxFormulaDeltaSeconds) {
+          // A materially different canonical formula is contradictory evidence:
+          // restart the confirmation sequence from this probe.
+          this.stableCorrelatedWindows = informative ? 1 : 0;
+          this.lastConfirmedPoints = informative ? points : null;
+        } else if (informative) {
+          if (this.lastConfirmedPoints == null) {
+            this.stableCorrelatedWindows = 1;
             this.lastConfirmedPoints = points;
-            if (center != null) {
-              this.confirmedCenters.push(center);
+          } else {
+            this.lastPointGain = Math.max(0, points - this.lastConfirmedPoints);
+            if (this.lastPointGain >= this.minPointGain) {
+              // Each confirmation must add a fresh canonical subtitle bucket.
+              this.stableCorrelatedWindows += 1;
+              this.lastConfirmedPoints = points;
             }
           }
         }
-      } else {
-        this.lastPointGain = 0;
-      }
 
-      this.lastFormula = {
-        a: stats.formula.a,
-        b: stats.formula.b,
-      };
-    } else if (correlated && informative) {
-      this.lastFormula = {
-        a: stats.formula.a,
-        b: stats.formula.b,
-      };
-      this.lastFormulaDeltaSeconds = null;
-      this.stableCorrelatedWindows = 1;
-      this.lastConfirmedPoints = points;
-      this.confirmedCenters = center != null ? [center] : [];
-      this.lastPointGain = 0;
-    } else if (!correlated) {
-      // No canonical correlation in this probe is absence of confirmation, not
-      // contradictory evidence. Keep prior confirmations and wait for another
-      // canonical snapshot; a materially different canonical formula resets
-      // the sequence above.
-      this.lastPointGain = 0;
+        this.lastFormula = {
+          a: stats.formula.a,
+          b: stats.formula.b,
+        };
+      } else if (informative) {
+        this.lastFormula = {
+          a: stats.formula.a,
+          b: stats.formula.b,
+        };
+        this.lastFormulaDeltaSeconds = null;
+        this.stableCorrelatedWindows = 1;
+        this.lastConfirmedPoints = points;
+      }
     }
 
+    // An inconclusive probe is neutral: it neither confirms nor invalidates a
+    // previous canonical result. Only a materially different canonical formula
+    // can reset the sequence above.
     return this.getStatus();
   }
 
-  getProbeCoverageRatio() {
-    if (
-      !Number.isFinite(this.duration)
-      || this.duration <= 0
-      || this.confirmedCenters.length < 2
-    ) {
-      return 0;
-    }
-
-    const min = Math.min(...this.confirmedCenters);
-    const max = Math.max(...this.confirmedCenters);
-    return Math.max(0, Math.min(1, (max - min) / this.duration));
-  }
-
   getStatus() {
-    const probeCoverageRatio = this.getProbeCoverageRatio();
     const verified = (
       this.stableCorrelatedWindows >= this.requiredStableWindows
-      && probeCoverageRatio >= this.minProbeCoverageRatio
+      && this.probeCoverageRatio >= this.minProbeCoverageRatio
     );
 
     return {
@@ -168,7 +157,9 @@ class RomanianConvergenceTracker {
       totalWindows: this.totalWindows,
       informativeWindows: this.informativeWindows,
       stableCorrelatedWindows: this.stableCorrelatedWindows,
-      probeCoverageRatio,
+      probeCoverageRatio: this.probeCoverageRatio,
+      evidenceStart: this.evidenceStart,
+      evidenceEnd: this.evidenceEnd,
       lastFormulaDeltaSeconds: this.lastFormulaDeltaSeconds,
       lastWindowWords: this.lastWindowWords,
       lastPoints: this.lastPoints,
@@ -185,5 +176,6 @@ module.exports = {
   MIN_PROBE_COVERAGE_RATIO,
   MAX_FORMULA_DELTA_SECONDS,
   formulaDeltaSeconds,
+  evidenceSpanRatio,
   RomanianConvergenceTracker,
 };

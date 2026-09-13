@@ -38,6 +38,56 @@ PHRASES = [
     "Prietenii găsesc împreună răspunsul potrivit pentru întrebare.",
 ]
 
+
+EXTRA_SUBJECTS = [
+    "Bibliotecarul",
+    "Mecanicul",
+    "Medicul",
+    "Arhitectul",
+    "Grădinarul",
+    "Jurnalistul",
+    "Fotograful",
+]
+
+EXTRA_VERBS = [
+    "verifică",
+    "pregătește",
+    "citește",
+    "compară",
+    "aranjează",
+    "explică",
+    "analizează",
+    "revizuiește",
+]
+
+EXTRA_OBJECTS = [
+    "documentele importante",
+    "programul dimineții",
+    "mesajul familiei",
+    "planul clădirii",
+    "lista călătorilor",
+    "răspunsul complet",
+    "povestea vecinilor",
+    "rezultatul întâlnirii",
+]
+
+EXTRA_TAILS = [
+    "înainte de plecare",
+    "lângă fereastra deschisă",
+    "pentru echipa de astăzi",
+    "după câteva minute",
+    "în camera liniștită",
+    "împreună cu prietenii",
+    "pentru discuția de seară",
+    "în centrul orașului",
+]
+
+for subject_index, subject in enumerate(EXTRA_SUBJECTS):
+    for action_index, verb in enumerate(EXTRA_VERBS):
+        obj = EXTRA_OBJECTS[(action_index + 3 * subject_index) % len(EXTRA_OBJECTS)]
+        tail = EXTRA_TAILS[(2 * action_index + subject_index) % len(EXTRA_TAILS)]
+        PHRASES.append(f"{subject} {verb} {obj} {tail}.")
+
 RATE = 16000
 WIDTH = 2
 CHANNELS = 1
@@ -46,9 +96,11 @@ INITIAL_SILENCE = 1.0
 GAP = 0.65
 PIPER_URL = "http://127.0.0.1:5001/synthesize"
 MIN_CORRELATION_BUCKETS = 20
+MIN_SPARSE_CUES = 64
+MIN_SPARSE_CUES_PER_MINUTE = 8.0
 SPARSE_REGRESSION = os.environ.get("SUBSYNC_ROMANIAN_SPARSE_REGRESSION", "1") == "1"
 SPARSE_DURATION = 481.0
-SPARSE_EDGE_MARGIN = 18.0
+SPARSE_EDGE_MARGIN = 12.0
 MIN_SPEECH_SPAN_RATIO = 0.85
 
 if len(PHRASES) <= MIN_CORRELATION_BUCKETS:
@@ -116,27 +168,27 @@ if SPARSE_REGRESSION:
     # without coupling the fixture to the planner implementation.
     total_samples = round(SPARSE_DURATION * RATE)
     combined = bytearray(b"\x00" * total_samples * WIDTH)
-    previous_end = 0.0
-    centers_span = SPARSE_DURATION - 2 * SPARSE_EDGE_MARGIN
+    usable_duration = SPARSE_DURATION - 2 * SPARSE_EDGE_MARGIN
+    speech_duration = sum(segment["duration"] for segment in segments)
+    if speech_duration >= usable_duration:
+        raise SystemExit(
+            f"Romanian sparse fixture speech is too long: "
+            f"{speech_duration:.3f}s >= {usable_duration:.3f}s"
+        )
+    distributed_gap = (
+        (usable_duration - speech_duration) / (len(segments) - 1)
+        if len(segments) > 1
+        else 0.0
+    )
+    cursor = SPARSE_EDGE_MARGIN
 
     for idx, segment in enumerate(segments):
-        center = (
-            SPARSE_EDGE_MARGIN
-            if len(segments) == 1
-            else SPARSE_EDGE_MARGIN + idx * centers_span / (len(segments) - 1)
-        )
-        start = center - segment["duration"] / 2
+        start = cursor
         end = start + segment["duration"]
-
         if start < 0 or end > SPARSE_DURATION:
             raise SystemExit(
                 f"Distributed Romanian fixture segment {idx} falls outside timeline: "
                 f"{start:.3f}-{end:.3f}s"
-            )
-        if idx and start <= previous_end:
-            raise SystemExit(
-                f"Distributed Romanian fixture segments overlap at {idx}: "
-                f"{start:.3f}s <= {previous_end:.3f}s"
             )
 
         start_sample = round(start * RATE)
@@ -154,10 +206,20 @@ if SPARSE_REGRESSION:
             "subtitleStart": actual_start + OFFSET,
             "subtitleEnd": actual_end + OFFSET,
         })
-        previous_end = actual_end
+        cursor = actual_end + distributed_gap
 
     speech_span = timeline[-1]["audioEnd"] - timeline[0]["audioStart"]
     speech_span_ratio = speech_span / SPARSE_DURATION
+    if len(timeline) < MIN_SPARSE_CUES:
+        raise SystemExit(
+            f"Romanian sparse fixture has only {len(timeline)} cues; "
+            f"expected at least {MIN_SPARSE_CUES}"
+        )
+    cue_density_per_minute = len(timeline) / (SPARSE_DURATION / 60.0)
+    if cue_density_per_minute < MIN_SPARSE_CUES_PER_MINUTE:
+        raise SystemExit(
+            f"Romanian sparse fixture density is only {cue_density_per_minute:.2f} cues/min"
+        )
     if speech_span_ratio < MIN_SPEECH_SPAN_RATIO:
         raise SystemExit(
             f"Distributed Romanian fixture covers only {speech_span_ratio:.3f} of timeline"
@@ -178,6 +240,7 @@ else:
         combined.extend(b"\x00" * int(RATE * GAP) * WIDTH)
     speech_span = timeline[-1]["audioEnd"] - timeline[0]["audioStart"]
     speech_span_ratio = speech_span / (len(combined) / WIDTH / RATE)
+    cue_density_per_minute = len(timeline) / ((len(combined) / WIDTH / RATE) / 60.0)
 
 wav_path = OUT / "reference-romanian.wav"
 with wave.open(str(wav_path), "wb") as wav:
@@ -222,6 +285,7 @@ fixture = {
     "speechSpanSeconds": speech_span,
     "speechSpanRatio": speech_span_ratio,
     "speechLayout": "distributed" if SPARSE_REGRESSION else "sequential",
+    "cueDensityPerMinute": cue_density_per_minute,
 }
 (OUT / "fixture.json").write_text(
     json.dumps(fixture, indent=2, ensure_ascii=False) + "\n",
@@ -235,4 +299,5 @@ print(json.dumps({
     "sparseRegression": SPARSE_REGRESSION,
     "speechSpanRatio": fixture["speechSpanRatio"],
     "speechLayout": fixture["speechLayout"],
+    "cueDensityPerMinute": fixture["cueDensityPerMinute"],
 }, indent=2, ensure_ascii=False))

@@ -24,6 +24,8 @@ MKV_IN = FIXTURE_DIR / "reference-romanian.mkv"
 RESULT = FIXTURE_DIR / f"{args.browser}-romanian-audio.json"
 SAVED = FIXTURE_DIR / f"{args.browser}-output.rum.srt"
 MIN_CORRELATION_BUCKETS = 20
+MIN_SPARSE_CUES = 64
+MIN_SPARSE_CUES_PER_MINUTE = 8.0
 
 class QuietHandler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
@@ -96,6 +98,16 @@ try:
                 raise SystemExit(
                     "Romanian sparse E2E fixture does not span enough of the timeline: "
                     + str(fixture.get("speechSpanRatio"))
+                )
+            if cue_count < MIN_SPARSE_CUES:
+                raise SystemExit(
+                    f"Romanian sparse E2E fixture has only {cue_count} cues; "
+                    f"expected at least {MIN_SPARSE_CUES}"
+                )
+            if float(fixture.get("cueDensityPerMinute", 0)) < MIN_SPARSE_CUES_PER_MINUTE:
+                raise SystemExit(
+                    "Romanian sparse E2E fixture cue density is too low: "
+                    + str(fixture.get("cueDensityPerMinute"))
                 )
         if cue_count <= MIN_CORRELATION_BUCKETS:
             raise SystemExit(
