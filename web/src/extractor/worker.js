@@ -110,6 +110,7 @@ class Extractor {
       this.timeWindow = this.timeWindows[0];
       this.words = [];
       this.subtitles = [];
+      this.windowWordCount = 0;
 
       stream.lang = canonicalizeLanguageCode(stream.lang);
       let romanianSpeechRec = null;
@@ -122,7 +123,10 @@ class Extractor {
       const output = this.pipeline.makePipeline(
         stream, params, path, romanianSpeechRec
       );
-      output.addWordsListener( word => this.words.push(word) );
+      output.addWordsListener(word => {
+        this.words.push(word);
+        this.windowWordCount += 1;
+      });
 
       if (params.postSubtitles) {
         this.pipeline.addSubsListener( subtitle => this.subtitles.push(subtitle) );
@@ -150,20 +154,28 @@ class Extractor {
       return false;
     }
 
-    if (this.romanianSpeechRec) {
-      this.romanianSpeechRec.discontinuity();
-    }
-
     const demux = this.pipeline.demux;
     demux.stop();
     this.windowIndex += 1;
     this.timeWindow = this.timeWindows[this.windowIndex];
+    this.windowWordCount = 0;
     const startTime = this.timeWindow[0] || 0;
     if (startTime) {
       demux.seek(startTime);
     }
     demux.start();
     return true;
+  }
+
+  currentWindowSummary() {
+    return {
+      index: this.windowIndex,
+      start: this.timeWindow[0] || 0,
+      end: this.timeWindow[1] == null
+        ? this.pipeline.demux.getDuration()
+        : this.timeWindow[1],
+      wordCount: this.windowWordCount,
+    };
   }
 
   getWindowProgress(position) {
@@ -184,19 +196,30 @@ class Extractor {
       while (!finished) {
         const [ , endTime ] = this.timeWindow;
         if (endTime != null && demux.getPosition() >= endTime) {
-          if (this.advanceTimeWindow()) {
-            status.done = false;
-            continue;
-          }
           if (this.romanianSpeechRec) {
             this.romanianSpeechRec.discontinuity();
           }
-          finished = true;
+          status.windowCompleted = this.currentWindowSummary();
+          if (this.advanceTimeWindow()) {
+            status.done = false;
+          } else {
+            finished = true;
+          }
+          // Return at every window boundary so the main synchronizer can
+          // evaluate convergence against exactly this window's evidence.
           break;
         }
 
         if (!demux.step()) {
-          finished = true;
+          // Demux::step() flushes and emits a discontinuity at EOF. Sparse
+          // probes may intentionally visit the end before earlier regions, so
+          // EOF is only the end of the current probe, not necessarily the scan.
+          status.windowCompleted = this.currentWindowSummary();
+          if (this.advanceTimeWindow()) {
+            status.done = false;
+          } else {
+            finished = true;
+          }
           break;
         }
 
@@ -236,6 +259,7 @@ class Extractor {
       this.timeWindows = undefined;
       this.windowIndex = undefined;
       this.romanianSpeechRec = undefined;
+      this.windowWordCount = undefined;
       Gizmo.instance.FS.unmount('/work');
     }
   }

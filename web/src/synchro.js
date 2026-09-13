@@ -5,6 +5,8 @@ import settings from './settings.js';
 import Logger from './logger.js';
 import { annotateErrorStage, classifyErrorStage } from './diagnostics.js';
 const { makeRomanianTimeWindows } = require('./romanian-windows.js');
+const { RomanianConvergenceTracker } = require('./romanian-convergence.js');
+const { selectCanonicalStatus } = require('./correlation-status.js');
 const logger = Logger.logger.get('[Synchronizer]');
 
 export default class Synchronizer {
@@ -41,6 +43,7 @@ export default class Synchronizer {
     this.subtitles = new Subtitles();
     this.status = {};
     this.gotAllSubs = false;
+    this.romanianConvergence = null;
     this.diagnostics = {
       currentStage: null,
       stages: {},
@@ -88,7 +91,14 @@ export default class Synchronizer {
           ? makeRomanianTimeWindows(ref.duration)
           : null;
         if (romanianWindows) {
-          logger.log(`Romanian ASR sparse scan: ${romanianWindows.length} distributed windows`);
+          this.romanianConvergence = new RomanianConvergenceTracker(
+            ref.duration,
+            romanianWindows.length
+          );
+          this.diagnostics.romanianConvergence = this.romanianConvergence.getStatus();
+          logger.log(
+            `Romanian ASR adaptive scan: ${romanianWindows.length} progressive distributed windows`
+          );
         }
         await Promise.all([
           this.subExtractor.open(sub, { otherLang: ref.lang, postSubtitles: true }),
@@ -181,6 +191,44 @@ export default class Synchronizer {
         }
       }
 
+      if (!issub && this.romanianConvergence && s.windowCompleted) {
+        let rawStats;
+        try {
+          rawStats = await this.correlator.getStats();
+        } catch (e) {
+          const err = this.recordError(listener, annotateErrorStage(e, 'correlation'));
+          onError(err);
+          return;
+        }
+
+        this.status = selectCanonicalStatus(this.status, rawStats);
+        const convergence = this.romanianConvergence.observe(
+          s.windowCompleted,
+          s.windowCompleted.wordCount || 0,
+          rawStats
+        );
+        this.diagnostics.romanianConvergence = convergence;
+
+        logger.log(
+          `Romanian ASR probe ${convergence.completedWindows}/${convergence.totalWindows}: `
+          + `words=${convergence.lastWindowWords}, points=${convergence.lastPoints}, `
+          + `correlated=${Boolean(rawStats && rawStats.correlated)}, `
+          + `pointGain=${convergence.lastPointGain}, stable=${convergence.stableCorrelatedWindows}, `
+          + `evidence=${convergence.evidenceStart == null ? 'n/a' : convergence.evidenceStart.toFixed(1)}-`
+          + `${convergence.evidenceEnd == null ? 'n/a' : convergence.evidenceEnd.toFixed(1)}, `
+          + `coverage=${(100 * convergence.probeCoverageRatio).toFixed(1)}%, `
+          + `verified=${convergence.verified}`
+        );
+
+        if (convergence.verified && this.gotAllSubs) {
+          logger.log(
+            `Romanian ASR adaptive convergence verified after ${convergence.completedWindows}/${convergence.totalWindows} probes`
+          );
+          this.progress[no] = 1;
+          break;
+        }
+      }
+
       this.progress[no] = s.progress;
       if (s.done) {
         break;
@@ -212,18 +260,12 @@ export default class Synchronizer {
 
   async addSubWord(word) {
     const status = await this.correlator.addSubWord(word);
-    if (status) {
-      status.correlated = this.status.correlated || status.correlated;
-      this.status = status;
-    }
+    this.status = selectCanonicalStatus(this.status, status);
   }
 
   async addRefWord(word) {
     const status = await this.correlator.addRefWord(word);
-    if (status) {
-      status.correlated = this.status.correlated || status.correlated;
-      this.status = status;
-    }
+    this.status = selectCanonicalStatus(this.status, status);
   }
 
   recordStage(listener, stage, state, details) {
@@ -272,6 +314,9 @@ export default class Synchronizer {
         subWords: this.diagnostics.subWords,
         refWords: this.diagnostics.refWords,
         subtitles: this.diagnostics.subtitles,
+        romanianConvergence: this.diagnostics.romanianConvergence
+          ? { ...this.diagnostics.romanianConvergence }
+          : null,
       } : null,
     };
   }

@@ -24,6 +24,8 @@ MKV_IN = FIXTURE_DIR / "reference-romanian.mkv"
 RESULT = FIXTURE_DIR / f"{args.browser}-romanian-audio.json"
 SAVED = FIXTURE_DIR / f"{args.browser}-output.rum.srt"
 MIN_CORRELATION_BUCKETS = 20
+MIN_SPARSE_CUES = 64
+MIN_SPARSE_CUES_PER_MINUTE = 8.0
 
 class QuietHandler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
@@ -89,6 +91,24 @@ try:
 
         fixture = json.loads((FIXTURE_DIR / "fixture.json").read_text(encoding="utf-8"))
         cue_count = len(fixture.get("phrases", []))
+        if fixture.get("sparseRegression"):
+            if fixture.get("speechLayout") != "distributed":
+                raise SystemExit("Romanian sparse E2E fixture is not distributed across the timeline")
+            if float(fixture.get("speechSpanRatio", 0)) < 0.85:
+                raise SystemExit(
+                    "Romanian sparse E2E fixture does not span enough of the timeline: "
+                    + str(fixture.get("speechSpanRatio"))
+                )
+            if cue_count < MIN_SPARSE_CUES:
+                raise SystemExit(
+                    f"Romanian sparse E2E fixture has only {cue_count} cues; "
+                    f"expected at least {MIN_SPARSE_CUES}"
+                )
+            if float(fixture.get("cueDensityPerMinute", 0)) < MIN_SPARSE_CUES_PER_MINUTE:
+                raise SystemExit(
+                    "Romanian sparse E2E fixture cue density is too low: "
+                    + str(fixture.get("cueDensityPerMinute"))
+                )
         if cue_count <= MIN_CORRELATION_BUCKETS:
             raise SystemExit(
                 f"Romanian E2E fixture has only {cue_count} cues; "
@@ -193,6 +213,21 @@ try:
         if reference_words < 20:
             raise SystemExit(f"Romanian ASR produced too few usable reference words: {reference_words}")
 
+        probe_match = re.search(
+            r"Romanian probes:\s*(\d+)\s*/\s*(\d+).*adaptive lock:\s*verified",
+            app_text,
+        )
+        if not probe_match:
+            raise SystemExit(
+                "Romanian audio workflow did not expose a verified adaptive convergence lock: "
+                + app_text
+            )
+        completed_probes, total_probes = map(int, probe_match.groups())
+        if completed_probes >= total_probes:
+            raise SystemExit(
+                f"Romanian adaptive ASR did not stop early: {completed_probes}/{total_probes} probes"
+            )
+
         page.get_by_text("Show details", exact=True).click()
         details_strong = page.locator("#subsync_app dd:not([hidden]) strong")
         if details_strong.count() < 5:
@@ -238,6 +273,8 @@ try:
             "url": url,
             "detectedReferenceLanguage": detected,
             "referenceWords": reference_words,
+            "romanianAdaptiveProbesCompleted": completed_probes,
+            "romanianAdaptiveProbesTotal": total_probes,
             "assetTransitions": transitions,
             "modelResponses": model_responses,
             "pointsText": points,

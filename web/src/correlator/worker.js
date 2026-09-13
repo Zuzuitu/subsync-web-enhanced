@@ -43,6 +43,10 @@ class Correlator {
       this.synchro.addSubtitle(s.start, s.end);
     }
   }
+
+  getStats() {
+    return this.synchro.getStats();
+  }
 }
 
 export default function() {

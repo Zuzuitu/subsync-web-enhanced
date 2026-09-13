@@ -41,6 +41,31 @@ static em::val addRefWord(shared_ptr<Synchronizer> s, float time, float duration
 		return em::val::undefined();
 }
 
+static em::val getStats(shared_ptr<Synchronizer> s)
+{
+	const CorrelationStats stats = s->correlate();
+	em::val res = convertCorrelationStats(stats);
+
+	if (stats.correlated)
+	{
+		const Points used = s->getUsedPoints();
+		if (!used.empty())
+		{
+			const Point &first = *used.begin();
+			float minRef = first.y;
+			float maxRef = first.y;
+			for (const Point &pt : used)
+			{
+				minRef = std::min(minRef, pt.y);
+				maxRef = std::max(maxRef, pt.y);
+			}
+			res.set("evidenceStart", minRef);
+			res.set("evidenceEnd", maxRef);
+		}
+	}
+	return res;
+}
+
 EMSCRIPTEN_BINDINGS(gizmo_correlator)
 {
 	em::class_<Synchronizer> sync("Synchronizer");
@@ -49,6 +74,7 @@ EMSCRIPTEN_BINDINGS(gizmo_correlator)
 	sync.function("addSubWord", &addSubWord);
 	sync.function("addRefWord", &addRefWord);
 	sync.function("addSubtitle", &Synchronizer::addSubtitle);
+	sync.function("getStats", &getStats);
 	sync.function("correlate", &Synchronizer::correlate);
 
 	em::class_<CorrelationStats> stats("CorrelationStats");
