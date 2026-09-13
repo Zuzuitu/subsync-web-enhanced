@@ -5,6 +5,10 @@ const {
   WINDOW_SECONDS,
   PRIMARY_WINDOWS,
   RESCUE_WINDOW_SECONDS,
+  RESCUE_CONFIRMATION_WINDOW_SECONDS,
+  RESCUE_LOCATIONS,
+  RESCUE_DISCOVERY_WINDOWS,
+  RESCUE_CONFIRMATION_WINDOWS,
   RESCUE_WINDOWS,
   MAX_WINDOWS,
   FULL_SCAN_SECONDS,
@@ -18,8 +22,12 @@ const {
 assert.strictEqual(WINDOW_SECONDS, 15);
 assert.strictEqual(PRIMARY_WINDOWS, 16);
 assert.strictEqual(RESCUE_WINDOW_SECONDS, 30);
-assert.strictEqual(RESCUE_WINDOWS, 4);
-assert.strictEqual(MAX_WINDOWS, 20);
+assert.strictEqual(RESCUE_CONFIRMATION_WINDOW_SECONDS, 15);
+assert.strictEqual(RESCUE_LOCATIONS, 4);
+assert.strictEqual(RESCUE_DISCOVERY_WINDOWS, 3);
+assert.strictEqual(RESCUE_CONFIRMATION_WINDOWS, 2);
+assert.strictEqual(RESCUE_WINDOWS, 5);
+assert.strictEqual(MAX_WINDOWS, 21);
 assert.strictEqual(FULL_SCAN_SECONDS, 240);
 assert.strictEqual(MAX_SPARSE_AUDIO_SECONDS, 360);
 assert.strictEqual(makeRomanianTimeWindows(undefined), null);
@@ -41,7 +49,7 @@ const summaries = primary.map(([start, end], index) => ({
   // Probe 6 contributed real candidate buckets despite modest speech volume.
   // Probe 12 has much more speech but no new candidate buckets.
   wordCount: index === 6 ? 8 : index === 12 ? 60 : 4 + index,
-  candidatePointGain: index === 6 ? 3 : 0,
+  candidatePointGain: index === 6 ? 3 : index === 3 ? 2 : 0,
 }));
 
 const rescue = makeRescueWindows(duration, primary, summaries);
@@ -56,15 +64,18 @@ for (const [start, end] of primary) {
   assert(end > start);
   assert(end - start <= WINDOW_SECONDS + 1e-9);
 }
-for (const [start, end] of rescue) {
-  assert(start >= 0);
-  assert(end <= duration);
-  assert(end > start);
-  assert(
-    Math.abs((end - start) - RESCUE_WINDOW_SECONDS) < 1e-9,
-    'long-title rescue should use native 30-second Whisper context'
-  );
-}
+
+const rescueDurations = rescue.map(([start, end]) => end - start);
+assert.strictEqual(
+  rescueDurations.filter(x => Math.abs(x - RESCUE_WINDOW_SECONDS) < 1e-9).length,
+  RESCUE_DISCOVERY_WINDOWS,
+  'three full 30-second discovery probes must remain'
+);
+assert.strictEqual(
+  rescueDurations.filter(x => Math.abs(x - RESCUE_CONFIRMATION_WINDOW_SECONDS) < 1e-9).length,
+  RESCUE_CONFIRMATION_WINDOWS,
+  'one 30-second location must become two 15-second confirmation probes'
+);
 
 const chronological = windows.slice().sort((a, b) => a[0] - b[0]);
 let previousEnd = -1;
@@ -90,12 +101,10 @@ assert.strictEqual(
 assert.strictEqual(
   windows.reduce((sum, [start, end]) => sum + end - start, 0),
   MAX_SPARSE_AUDIO_SECONDS,
-  'content-aware rescue must keep the total sampled-audio cap at six minutes'
+  'confirmation reserve must not increase the six-minute sampled-audio cap'
 );
 
-// Rescue must prioritize actual correlation gain over raw speech density.
-// The probe that added candidate buckets must influence rescue even though a
-// different probe contains far more recognized words.
+// Rescue must still prioritize actual correlation gain over raw speech density.
 const rich = primary[6];
 assert(
   rescue.some(([start, end]) =>
@@ -104,31 +113,35 @@ assert(
   'rescue planner should continue near a point-gain-rich primary probe'
 );
 
-// The rescue set must remain distributed across the title even when one scene
-// dominates the word count.
-const rescueQuarters = new Set(
-  rescue.map(([start, end]) =>
-    Math.min(3, Math.floor(4 * ((start + end) / 2) / duration))
-  )
-);
+// Five probe boundaries represent four physical timeline locations because the
+// confirmation location is split into two adjacent halves.
+const locationKeys = [];
+for (const [start, end] of rescue) {
+  const center = (start + end) / 2;
+  const quarter = Math.min(3, Math.floor(4 * center / duration));
+  if (!locationKeys.includes(quarter)) locationKeys.push(quarter);
+}
 assert.strictEqual(
-  rescueQuarters.size,
-  RESCUE_WINDOWS,
-  'rescue should preserve one speech-informed candidate per timeline quarter'
+  locationKeys.length,
+  RESCUE_LOCATIONS,
+  'rescue must preserve four-quarter title coverage'
 );
 
-// A near-threshold long title can have only small unused gaps. In that case rescue may be shorter than the
-// preferred 30-second context, but it must still avoid meaningless micro-probes.
 const mediumDuration = 300;
 const mediumPrimary = makePrimaryWindows(mediumDuration);
 const mediumRescue = makeRescueWindows(
   mediumDuration,
   mediumPrimary,
-  mediumPrimary.map(([start, end]) => ({ start, end, wordCount: 10 }))
+  mediumPrimary.map(([start, end]) => ({
+    start,
+    end,
+    wordCount: 10,
+    candidatePointGain: 1,
+  }))
 );
 assert(mediumRescue.length <= RESCUE_WINDOWS);
 for (const [start, end] of mediumRescue) {
   assert(end - start >= 15 - 1e-9);
 }
 
-console.log('Romanian content-aware rescue planner: OK');
+console.log('Romanian rescue discovery/confirmation planner: OK');
