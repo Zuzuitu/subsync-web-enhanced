@@ -8,6 +8,11 @@ import Synchronizer from '../synchro.js';
 import settings from '../settings.js';
 import languages from '../data/languages.json';
 import { makeFailureDiagnosis, stageLabel } from '../diagnostics.js';
+const {
+  isRomanianAdaptivePending,
+  isSaveReady,
+  canSaveInconclusive,
+} = require('../save-policy.js');
 import { timeStampFmt, timeStampFractionFmt, lineFormulaFmt, streamTypeName } from '../utils.js';
 import Logger from '../logger.js';
 const logger = Logger.logger.get('[SyncScreen]');
@@ -223,7 +228,7 @@ export default class SyncScreen {
       this.formula.textContent = lineFormulaFmt(status.formula);
       this.maxChange.textContent = timeStampFractionFmt(status.maxChange);
 
-      if (status.subReady && !this.subReady) {
+      if (isSaveReady(status) && !this.subReady) {
         this.subReady = true;
         this.saveBtn.disabled = false;
         this.setState(
@@ -239,7 +244,7 @@ export default class SyncScreen {
     this.backBtn.hidden = false;
     clearTimeout(this.updateTimer);
 
-    if (status.subReady) {
+    if (isSaveReady(status)) {
       this.diagnosticReason.hidden = true;
       if (status.maxChange && status.maxChange > 0.5) {
         this.setState(i18n`Subtitles synchronized`, true, 'sync_success');
@@ -252,11 +257,22 @@ export default class SyncScreen {
       this.saveBtn.disabled = false;
     } else if (finished) {
       this.renderFailureDiagnosis(status);
-      if (status.points > settings.minPointsNo / 2
-        && status.factor > Math.pow(settings.minCorrelation, 10)
-        && status.maxDistance < 2 * settings.maxPointDist) {
+      if (canSaveInconclusive(status, settings)) {
         this.setState(i18n`Synchronization inconclusive`);
         this.saveBtn.disabled = false;
+      } else if (isRomanianAdaptivePending(status)) {
+        this.setState(i18n`Synchronization inconclusive`);
+        this.saveBtn.disabled = true;
+        if (this.diagnosticReason.hidden) {
+          const convergence = status.diagnostics.romanianConvergence;
+          this.diagnosticPanel.hidden = false;
+          this.diagnosticReason.textContent =
+            `Romanian adaptive verification did not gather enough canonical evidence. `
+            + `Save stays disabled to avoid exporting an intermediate timing formula `
+            + `(probes ${convergence.completedWindows}/${convergence.totalWindows}, `
+            + `points ${convergence.lastPoints || status.points || 0}).`;
+          this.diagnosticReason.hidden = false;
+        }
       } else {
         this.setState(i18n`Couldn't synchronize`, false, 'sync_fail');
       }
@@ -278,8 +294,16 @@ export default class SyncScreen {
     const subWords = diagnostics.subWords || 0;
     const refWords = diagnostics.refWords || 0;
     const convergence = diagnostics.romanianConvergence;
+    const rescueText = convergence && convergence.rescueWindowsTotal
+      ? convergence.rescueWindowsCompleted > 0
+        ? ` · rescue: ${convergence.rescueWindowsCompleted}/${convergence.rescueWindowsTotal}`
+        : convergence.completedWindows >= convergence.primaryWindows
+          ? ` · rescue: ready 0/${convergence.rescueWindowsTotal}`
+          : ''
+      : '';
     const convergenceText = convergence
       ? ` · Romanian probes: ${convergence.completedWindows}/${convergence.totalWindows}`
+        + rescueText
         + ` · stable checks: ${convergence.stableCorrelatedWindows}`
         + ` · last probe words: ${convergence.lastWindowWords || 0}`
         + ` · points: ${convergence.lastPoints || 0}`

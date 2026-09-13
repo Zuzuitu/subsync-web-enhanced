@@ -55,6 +55,10 @@ class RomanianConvergenceTracker {
       options.minProbeCoverageRatio || MIN_PROBE_COVERAGE_RATIO;
     this.maxFormulaDeltaSeconds =
       options.maxFormulaDeltaSeconds || MAX_FORMULA_DELTA_SECONDS;
+    this.primaryWindows = Math.min(
+      this.totalWindows,
+      Number(options.primaryWindows) || this.totalWindows
+    );
 
     this.completedWindows = 0;
     this.informativeWindows = 0;
@@ -152,9 +156,16 @@ class RomanianConvergenceTracker {
       && this.probeCoverageRatio >= this.minProbeCoverageRatio
     );
 
+    const rescueWindowsTotal = Math.max(0, this.totalWindows - this.primaryWindows);
+    const rescueWindowsCompleted = Math.max(0, this.completedWindows - this.primaryWindows);
+
     return {
       completedWindows: this.completedWindows,
       totalWindows: this.totalWindows,
+      primaryWindows: this.primaryWindows,
+      rescueWindowsTotal,
+      rescueWindowsCompleted,
+      phase: rescueWindowsCompleted > 0 ? 'rescue' : 'primary',
       informativeWindows: this.informativeWindows,
       stableCorrelatedWindows: this.stableCorrelatedWindows,
       probeCoverageRatio: this.probeCoverageRatio,

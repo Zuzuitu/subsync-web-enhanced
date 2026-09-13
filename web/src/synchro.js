@@ -4,7 +4,10 @@ import Subtitles from './subtitle.js';
 import settings from './settings.js';
 import Logger from './logger.js';
 import { annotateErrorStage, classifyErrorStage } from './diagnostics.js';
-const { makeRomanianTimeWindows } = require('./romanian-windows.js');
+const {
+  PRIMARY_WINDOWS,
+  makeRomanianTimeWindows,
+} = require('./romanian-windows.js');
 const { RomanianConvergenceTracker } = require('./romanian-convergence.js');
 const { selectCanonicalStatus } = require('./correlation-status.js');
 const logger = Logger.logger.get('[Synchronizer]');
@@ -93,11 +96,13 @@ export default class Synchronizer {
         if (romanianWindows) {
           this.romanianConvergence = new RomanianConvergenceTracker(
             ref.duration,
-            romanianWindows.length
+            romanianWindows.length,
+            { primaryWindows: Math.min(PRIMARY_WINDOWS, romanianWindows.length) }
           );
           this.diagnostics.romanianConvergence = this.romanianConvergence.getStatus();
           logger.log(
-            `Romanian ASR adaptive scan: ${romanianWindows.length} progressive distributed windows`
+            `Romanian ASR adaptive scan: ${Math.min(PRIMARY_WINDOWS, romanianWindows.length)} primary + `
+            + `${Math.max(0, romanianWindows.length - PRIMARY_WINDOWS)} rescue windows`
           );
         }
         await Promise.all([

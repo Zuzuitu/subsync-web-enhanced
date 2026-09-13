@@ -120,12 +120,20 @@ try:
 
         page.evaluate("""() => {
           window.__roAsrTransitions = [];
+          window.__roPrematureSaveEnabled = false;
           const record = () => {
             for (const item of document.querySelectorAll('[data-asset-name="asr/rum"]')) {
               const value = [item.dataset.assetName, item.dataset.assetState, item.textContent].join('|');
               if (!window.__roAsrTransitions.includes(value)) {
                 window.__roAsrTransitions.push(value);
               }
+            }
+            const app = document.querySelector('#subsync_app');
+            const text = app?.innerText || '';
+            const save = [...(app?.querySelectorAll('button') || [])]
+              .find(button => button.textContent.trim() === 'Save subtitles');
+            if (text.includes('adaptive lock: pending') && save && !save.disabled) {
+              window.__roPrematureSaveEnabled = true;
             }
           };
           new MutationObserver(record).observe(document.querySelector('#subsync_app'), {
@@ -190,6 +198,10 @@ try:
             raise
 
         app_text = page.locator("#subsync_app").inner_text()
+        if page.evaluate("window.__roPrematureSaveEnabled"):
+            raise SystemExit(
+                "Romanian Save subtitles became enabled before adaptive lock verification"
+            )
         if "Subtitles synchronized" not in app_text:
             raise SystemExit("Romanian audio PWA workflow did not synchronize: " + app_text)
 
