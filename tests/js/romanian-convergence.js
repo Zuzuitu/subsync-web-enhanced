@@ -57,7 +57,7 @@ assert.strictEqual(state.stableCorrelatedWindows, 1);
 assert.strictEqual(state.verified, false);
 
 state = tracker.observe(
-  { start: 1700, end: 1715 },
+  { start: 500, end: 515 },
   18,
   { correlated: true, points: 22, formula: { a: 1.00002, b: -8.05 } }
 );
@@ -65,7 +65,7 @@ assert.strictEqual(state.stableCorrelatedWindows, 2);
 assert.strictEqual(state.verified, false);
 
 state = tracker.observe(
-  { start: 5300, end: 5315 },
+  { start: 6800, end: 6815 },
   22,
   { correlated: true, points: 23, formula: { a: 1.00001, b: -8.10 } }
 );
