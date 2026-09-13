@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-13 11:25 Europe/Rome
+LAST_UPDATED: 2026-09-13 11:35 Europe/Rome
 
 ## Canonical status
 
@@ -37,9 +37,13 @@ Latest deliberate product preview deployment:
 - GitHub Pages artifact/deployment: **PASS**;
 - complete pinned original sc0ty catalog mirrored and signature-verified: **226 packages** = 9 speech models + 217 dictionaries.
 
-A post-deploy public Pages validation was triggered as run `34749523692`.
-At the time this checkpoint draft was prepared it was still queued; record the
-terminal live result before merging this checkpoint PR.
+Post-deploy public Pages validation:
+- first trigger `34749523692`: GitHub Actions **startup_failure** before any
+  job started; this was infrastructure-only and produced no product verdict;
+- retry `34749671716`: **PASS**;
+- representative Italian/French/Spanish live assets: **PASS**;
+- public manifest: 226 packages / 528,928,835 bytes, signatures verified;
+- live Romanian audio E2E: **PASS** against the deployed `9768cd3d...` build.
 
 ## Immediate milestone
 
@@ -378,13 +382,26 @@ Historical live validation for the earlier Romanian release:
   99.99%, formula `1.0022x-8.410`, saved shift `-8.391 s`.
 
 Post-adaptive deployment validation:
-- run `34749523692`: **QUEUED at checkpoint draft time**.
-- Before merging this checkpoint, replace this line with the terminal result
-  and measured live Romanian evidence.
+- initial trigger `34749523692`: GitHub Actions **startup_failure** before a
+  runner/job started; no SubSync2 code executed;
+- retry `34749671716`: **PASS**;
+- public manifest: 226 packages / 528,928,835 bytes;
+- representative Italian/French/Spanish dictionary/speech assets: HTTP 200;
+- live Romanian reference words: **159**;
+- synchronization points: **28**;
+- displayed correlation: **100.00%**;
+- formula: `0.9996x-8.762`;
+- saved timing correction: **-8.770 s** for the +8 s fixture;
+- `whisper.js`, `whisper.wasm` and the pinned Romanian model: HTTP 200;
+- live JS/WASM URLs carried version hash
+  `9768cd3daf4d0368993ab6e4b1ae3b9cd84affe7`;
+- model lifecycle download -> verify -> store -> ready: **PASS**;
+- Romanian diacritics preserved;
+- zero console, page and HTTP errors.
 
-The permanent live Romanian smoke is being strengthened to require not only a
-valid saved SRT but also a verified adaptive lock that stops before all candidate
-probes are consumed.
+The permanent live Romanian smoke is strengthened in the checkpoint PR to
+require not only a valid saved SRT but also a verified adaptive lock that stops
+before all candidate probes are consumed.
 
 ## MKV reliability status
 
@@ -510,24 +527,21 @@ Canonical decisions:
 
 ## Next sequence
 
-1. Wait for post-deploy live Pages run `34749523692`; if it fails, diagnose
-   the public-delivery/runtime cause before merging the checkpoint.
-2. Merge the strengthened permanent public Romanian smoke only after it proves
-   the deployed site reaches a verified adaptive lock before 16/16 probes.
-3. Retest the current public preview on the physical iPhone using the real >2 GB
+1. Merge the strengthened permanent public Romanian smoke only after its PR
+   validation proves the deployed site reaches a verified adaptive lock before
+   16/16 probes.
+2. Retest the current public preview on the physical iPhone using the real >2 GB
    Romanian-audio file and deliberately shifted Romanian SRT. Let the adaptive
    job reach its terminal result before saving.
-4. Record physical elapsed time, adaptive probe count shown in diagnostics and
+3. Record physical elapsed time, adaptive probe count shown in diagnostics and
    practical final residual sync error.
-5. If the optimized single-file path passes physically, mark Romanian
+4. If the optimized single-file path passes physically, mark Romanian
    single-file support release-stable for this milestone.
-6. Only then prioritize batch/multi-upload or larger modernization work such as
+5. Only then prioritize batch/multi-upload or larger modernization work such as
    optional piecewise sync / multi-ASR abstractions.
 
 ## Open blockers
 
-- post-deploy public Pages validation `34749523692` must reach a terminal green
-  result before this checkpoint is merged;
 - the adaptive Romanian build still needs a full physical-iPhone/Safari retest;
 - browser job resume/persistence across Safari suspension/backgrounding is not
   implemented;
