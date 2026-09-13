@@ -167,6 +167,45 @@ class Extractor {
     return true;
   }
 
+  appendTimeWindows(windows) {
+    const extra = (windows || []).filter(window =>
+      Array.isArray(window)
+      && window.length >= 2
+      && Number.isFinite(window[0])
+      && Number.isFinite(window[1])
+      && window[1] > window[0]
+    );
+    if (!extra.length) {
+      return { added: 0, total: this.timeWindows.length, resumed: false };
+    }
+
+    this.timeWindows.push(...extra);
+
+    // This is called after the last primary window has returned its boundary
+    // status. Resume from the first newly appended rescue window without
+    // rebuilding the pipeline or Whisper context.
+    let resumed = false;
+    if (this.windowIndex + 1 < this.timeWindows.length) {
+      const demux = this.pipeline.demux;
+      demux.stop();
+      this.windowIndex += 1;
+      this.timeWindow = this.timeWindows[this.windowIndex];
+      this.windowWordCount = 0;
+      const startTime = this.timeWindow[0] || 0;
+      if (startTime) {
+        demux.seek(startTime);
+      }
+      demux.start();
+      resumed = true;
+    }
+
+    return {
+      added: extra.length,
+      total: this.timeWindows.length,
+      resumed,
+    };
+  }
+
   currentWindowSummary() {
     return {
       index: this.windowIndex,
