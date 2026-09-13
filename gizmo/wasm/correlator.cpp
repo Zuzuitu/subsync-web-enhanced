@@ -51,8 +51,9 @@ static em::val getStats(shared_ptr<Synchronizer> s)
 		const Points used = s->getUsedPoints();
 		if (!used.empty())
 		{
-			float minRef = used.front().y;
-			float maxRef = used.front().y;
+			const Point &first = *used.begin();
+			float minRef = first.y;
+			float maxRef = first.y;
 			for (const Point &pt : used)
 			{
 				minRef = std::min(minRef, pt.y);
