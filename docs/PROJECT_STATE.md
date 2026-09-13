@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-13 11:42 Europe/Rome
+LAST_UPDATED: 2026-09-13 14:14 Europe/Rome
 
 ## Canonical status
 
@@ -25,8 +25,15 @@ Public preview: `https://zuzuitu.github.io/subsync-web-enhanced/`
 
 Current `main`:
 - PR #29 `Verify Romanian ASR adaptively before early completion`: **MERGED**;
-- merge commit: `9768cd3daf4d0368993ab6e4b1ae3b9cd84affe7`;
-- main-push CI `34747473269`: **PASS**.
+- product-runtime merge commit: `9768cd3daf4d0368993ab6e4b1ae3b9cd84affe7`;
+- PR #30 `Checkpoint adaptive Romanian ASR release`: **MERGED**;
+- current main commit: `1798452e1782cfa2e20b5d63eec59bc77bee7b98`;
+- main-push CI `34756563878`: **PASS**.
+
+PR #30 changed checkpoint/test coverage only; it did not change shipped PWA
+runtime assets. Therefore no second product redeploy was required after PR #30.
+The public PWA intentionally remains the validated product build from PR #29,
+commit `9768cd3daf4d0368993ab6e4b1ae3b9cd84affe7`.
 
 Latest deliberate product preview deployment:
 - Deploy PWA Preview run `34747503470`: **PASS**;
@@ -403,15 +410,21 @@ The permanent live Romanian smoke is strengthened in PR #30 to require not
 only a valid saved SRT but also a verified adaptive lock that stops before all
 candidate probes are consumed.
 
-PR #30 live validation run `34749834500`: **PASS**:
-- adaptive lock verified after **10/16** probes;
-- 174 usable Romanian reference words;
-- 28 synchronization points;
-- displayed correlation **100.00%**;
-- formula `1.0001x-8.834`;
-- saved timing correction **-8.833 s**;
-- Romanian diacritics preserved;
-- zero console, page and HTTP errors.
+PR #30 validation closed the checkpoint/test milestone:
+- governance CI `34750061594`: **PASS**;
+- Public Pages Language Smoke `34750061643`: **PASS**;
+- Legacy WebAssembly Build `34750061609`: **PASS**;
+- final live adaptive regression independently verified early completion before
+  all candidate probes were consumed;
+- earlier PR #30 live run `34749834500`: **PASS** with adaptive lock after
+  **10/16** probes, 174 usable Romanian reference words, 28 synchronization
+  points, displayed correlation **100.00%**, formula `1.0001x-8.834`, saved
+  timing correction **-8.833 s**, Romanian diacritics preserved, and zero
+  console/page/HTTP errors.
+
+PR #30 merged at
+`1798452e1782cfa2e20b5d63eec59bc77bee7b98`; main-push CI
+`34756563878`: **PASS**.
 
 ## MKV reliability status
 
@@ -495,16 +508,43 @@ Romanian audio now has two distinct physical-device milestones:
    - that intermediate result remained roughly 4–5 s out of sync;
    - full completion was not observed because the old path appeared too slow.
 
-2. **Current adaptive build — RETEST REQUIRED**
-   - deployed commit: `9768cd3daf4d0368993ab6e4b1ae3b9cd84affe7`;
-   - automated Chromium and iPhone-like WebKit evidence is green;
-   - the optimized build has not yet been allowed to finish on the physical
-     iPhone, so do not claim physical performance/accuracy confirmation yet.
+2. **Current adaptive build — PHYSICAL RETEST STARTING**
+   - deployed product commit:
+     `9768cd3daf4d0368993ab6e4b1ae3b9cd84affe7`;
+   - repository checkpoint/test main:
+     `1798452e1782cfa2e20b5d63eec59bc77bee7b98`;
+   - automated Chromium, iPhone-like WebKit and live Public Pages evidence are
+     green;
+   - the user is starting the real iPhone/Safari retest immediately after this
+     checkpoint update;
+   - no result is recorded yet, so do not claim physical
+     performance/accuracy confirmation until the user reports the completed
+     terminal run.
 
-Model bytes persist through the browser cache/IDBFS lifecycle, but active
-synchronization-job persistence/resume across Safari suspension is not
-implemented. Until explicitly tested otherwise, keep Safari foregrounded while
-the Romanian job is running.
+Physical retest protocol for the current adaptive build:
+1. use the public Pages preview and the same real >2 GB dual-audio MKV class;
+2. use a Romanian SRT with a deliberately known offset and select Romanian
+   reference audio;
+3. keep Safari foregrounded for the whole synchronization run;
+4. do **not** save at the first intermediate correlation; wait for the terminal
+   synchronized state and visible adaptive lock;
+5. record elapsed wall-clock time and the visible `Romanian probes: X/16`;
+6. record reference words, synchronization points, displayed correlation,
+   formula/max-change diagnostics and the saved timing correction;
+7. verify practical alignment at least near the beginning, middle and end of
+   the movie, not only the first scene;
+8. report any residual offset in seconds and whether it is constant or changes
+   through the title;
+9. note whether the Romanian model was reused from local cache or downloaded
+   again;
+10. if Safari is backgrounded/reloaded/suspended, record that separately; do
+    not count a resumed-looking partial run as a normal pass unless the final
+    result is demonstrably correct.
+
+Model bytes persist through the browser IDBFS lifecycle, but active
+synchronization-job persistence/resume across Safari suspension is **not**
+implemented. Until explicitly tested otherwise, keeping Safari foregrounded is
+part of the physical validation protocol.
 
 ## Fork / modernization review
 
@@ -534,22 +574,57 @@ Canonical decisions:
   on fork behavior;
 - modernization should be imported as small reviewed ideas, with SubSync2 tests
   and invariants remaining authoritative.
+- a simple Android/NVIDIA Shield Pro application is a future product option,
+  but only after the browser single-file workflow is release-stable on the
+  physical iPhone; it should reuse the validated synchronization/ASR concepts
+  or core rather than diverge into a second algorithm prematurely.
 
 ## Next sequence
 
-1. Retest the current public preview on the physical iPhone using the real >2 GB
-   Romanian-audio file and deliberately shifted Romanian SRT. Let the adaptive
-   job reach its terminal result before saving.
-2. Record physical elapsed time, adaptive probe count shown in diagnostics and
-   practical final residual sync error.
-3. If the optimized single-file path passes physically, mark Romanian
-   single-file support release-stable for this milestone.
-4. Only then prioritize batch/multi-upload or larger modernization work such as
-   optional piecewise sync / multi-ASR abstractions.
+1. Complete the physical iPhone/Safari retest now in progress using the protocol
+   above; let adaptive convergence reach its terminal result before saving.
+2. Record elapsed time, adaptive probe count, correlation evidence and practical
+   residual sync error across beginning/middle/end.
+3. If the physical result passes, update this checkpoint again and mark the
+   optimized Romanian single-file workflow release-stable for this milestone.
+4. If it fails, treat the physical diagnostics as the new reproduction:
+   isolate whether the failure is ASR runtime, convergence, Safari lifecycle,
+   media decode/seek or output timing before changing code.
+5. Only after physical single-file stability, consider batch/multi-upload,
+   optional piecewise synchronization, broader multi-ASR abstraction, or the
+   future Android/NVIDIA Shield Pro application.
+
+## Session closeout — 13 September 2026
+
+Decisions confirmed in this engineering session:
+- repository truth and branch -> PR -> green CI -> merge remain mandatory;
+- no canonical sc0ty threshold was weakened to obtain a green result;
+- fixed-budget Romanian ASR reductions were rejected as the primary strategy;
+- adaptive convergence is the accepted long-title strategy;
+- the correlator must preserve the last canonical valid formula instead of
+  allowing weaker intermediate snapshots to replace it;
+- adaptive confirmation depends on fresh canonical points, stable formula and
+  broad evidence span, not simply on elapsed windows;
+- Romanian long-title tests must use realistic distributed dialogue density;
+- live Pages regression must prove adaptive lock **and early stop**, not merely
+  successful SRT download;
+- a GitHub Actions `startup_failure` before any job runs is infrastructure
+  evidence only and must not be labeled a SubSync2 product failure;
+- the public runtime was deliberately deployed once from PR #29; the later
+  checkpoint/test PR #30 required no redeploy;
+- Safari background job resume is not implemented and is not assumed;
+- the physical iPhone result remains authoritative for physical-device claims;
+- browser-first/local processing, GPLv3/sc0ty attribution, original 226-package
+  catalog preservation and the no-paid-service-without-approval rule remain
+  unchanged;
+- fork ideas are harvested selectively; no wholesale fork migration is planned;
+- Android/NVIDIA Shield work is deferred until the web single-file path is
+  physically release-stable.
 
 ## Open blockers
 
-- the adaptive Romanian build still needs a full physical-iPhone/Safari retest;
+- the adaptive Romanian build is undergoing its full physical-iPhone/Safari
+  retest; result not yet recorded;
 - browser job resume/persistence across Safari suspension/backgrounding is not
   implemented;
 - the historical real-world direct-MKV failure class remains
