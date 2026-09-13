@@ -150,10 +150,6 @@ class Extractor {
       return false;
     }
 
-    if (this.romanianSpeechRec) {
-      this.romanianSpeechRec.discontinuity();
-    }
-
     const demux = this.pipeline.demux;
     demux.stop();
     this.windowIndex += 1;
@@ -164,6 +160,16 @@ class Extractor {
     }
     demux.start();
     return true;
+  }
+
+  currentWindowSummary() {
+    return {
+      index: this.windowIndex,
+      start: this.timeWindow[0] || 0,
+      end: this.timeWindow[1] == null
+        ? this.pipeline.demux.getDuration()
+        : this.timeWindow[1],
+    };
   }
 
   getWindowProgress(position) {
@@ -184,19 +190,30 @@ class Extractor {
       while (!finished) {
         const [ , endTime ] = this.timeWindow;
         if (endTime != null && demux.getPosition() >= endTime) {
-          if (this.advanceTimeWindow()) {
-            status.done = false;
-            continue;
-          }
           if (this.romanianSpeechRec) {
             this.romanianSpeechRec.discontinuity();
           }
-          finished = true;
+          status.windowCompleted = this.currentWindowSummary();
+          if (this.advanceTimeWindow()) {
+            status.done = false;
+          } else {
+            finished = true;
+          }
+          // Return at every window boundary so the main synchronizer can
+          // evaluate convergence against exactly this window's evidence.
           break;
         }
 
         if (!demux.step()) {
-          finished = true;
+          // Demux::step() flushes and emits a discontinuity at EOF. Sparse
+          // probes may intentionally visit the end before earlier regions, so
+          // EOF is only the end of the current probe, not necessarily the scan.
+          status.windowCompleted = this.currentWindowSummary();
+          if (this.advanceTimeWindow()) {
+            status.done = false;
+          } else {
+            finished = true;
+          }
           break;
         }
 

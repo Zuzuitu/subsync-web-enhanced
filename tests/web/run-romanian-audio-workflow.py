@@ -193,6 +193,21 @@ try:
         if reference_words < 20:
             raise SystemExit(f"Romanian ASR produced too few usable reference words: {reference_words}")
 
+        probe_match = re.search(
+            r"Romanian probes:\s*(\d+)\s*/\s*(\d+).*adaptive lock:\s*verified",
+            app_text,
+        )
+        if not probe_match:
+            raise SystemExit(
+                "Romanian audio workflow did not expose a verified adaptive convergence lock: "
+                + app_text
+            )
+        completed_probes, total_probes = map(int, probe_match.groups())
+        if completed_probes >= total_probes:
+            raise SystemExit(
+                f"Romanian adaptive ASR did not stop early: {completed_probes}/{total_probes} probes"
+            )
+
         page.get_by_text("Show details", exact=True).click()
         details_strong = page.locator("#subsync_app dd:not([hidden]) strong")
         if details_strong.count() < 5:
@@ -238,6 +253,8 @@ try:
             "url": url,
             "detectedReferenceLanguage": detected,
             "referenceWords": reference_words,
+            "romanianAdaptiveProbesCompleted": completed_probes,
+            "romanianAdaptiveProbesTotal": total_probes,
             "assetTransitions": transitions,
             "modelResponses": model_responses,
             "pointsText": points,

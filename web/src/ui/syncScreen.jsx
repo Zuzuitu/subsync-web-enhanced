@@ -277,8 +277,15 @@ export default class SyncScreen {
     const subCount = diagnostics.subtitles || 0;
     const subWords = diagnostics.subWords || 0;
     const refWords = diagnostics.refWords || 0;
+    const convergence = diagnostics.romanianConvergence;
+    const convergenceText = convergence
+      ? ` · Romanian probes: ${convergence.completedWindows}/${convergence.totalWindows}`
+        + ` · stable checks: ${convergence.stableCorrelatedWindows}`
+        + ` · adaptive lock: ${convergence.verified ? 'verified' : 'pending'}`
+      : '';
     this.diagnosticEvidence.textContent =
-      `Decoded subtitles: ${subCount} · subtitle words: ${subWords} · reference words: ${refWords}`;
+      `Decoded subtitles: ${subCount} · subtitle words: ${subWords} · reference words: ${refWords}`
+      + convergenceText;
   }
 
   renderFailureDiagnosis(status) {

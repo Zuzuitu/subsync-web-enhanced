@@ -5,6 +5,7 @@ import settings from './settings.js';
 import Logger from './logger.js';
 import { annotateErrorStage, classifyErrorStage } from './diagnostics.js';
 const { makeRomanianTimeWindows } = require('./romanian-windows.js');
+const { RomanianConvergenceTracker } = require('./romanian-convergence.js');
 const logger = Logger.logger.get('[Synchronizer]');
 
 export default class Synchronizer {
@@ -41,6 +42,7 @@ export default class Synchronizer {
     this.subtitles = new Subtitles();
     this.status = {};
     this.gotAllSubs = false;
+    this.romanianConvergence = null;
     this.diagnostics = {
       currentStage: null,
       stages: {},
@@ -88,7 +90,14 @@ export default class Synchronizer {
           ? makeRomanianTimeWindows(ref.duration)
           : null;
         if (romanianWindows) {
-          logger.log(`Romanian ASR sparse scan: ${romanianWindows.length} distributed windows`);
+          this.romanianConvergence = new RomanianConvergenceTracker(
+            ref.duration,
+            romanianWindows.length
+          );
+          this.diagnostics.romanianConvergence = this.romanianConvergence.getStatus();
+          logger.log(
+            `Romanian ASR adaptive scan: ${romanianWindows.length} progressive distributed windows`
+          );
         }
         await Promise.all([
           this.subExtractor.open(sub, { otherLang: ref.lang, postSubtitles: true }),
@@ -178,6 +187,39 @@ export default class Synchronizer {
           if (!this.running) {
             break;
           }
+        }
+      }
+
+      if (!issub && this.romanianConvergence && s.windowCompleted) {
+        let convergenceStats;
+        try {
+          convergenceStats = await this.correlator.getStats();
+        } catch (e) {
+          const err = this.recordError(listener, annotateErrorStage(e, 'correlation'));
+          onError(err);
+          return;
+        }
+
+        if (convergenceStats) {
+          this.status = {
+            ...convergenceStats,
+            correlated: this.status.correlated || convergenceStats.correlated,
+          };
+        }
+
+        const convergence = this.romanianConvergence.observe(
+          s.windowCompleted,
+          s.words ? s.words.length : 0,
+          convergenceStats
+        );
+        this.diagnostics.romanianConvergence = convergence;
+
+        if (convergence.verified && this.gotAllSubs) {
+          logger.log(
+            `Romanian ASR adaptive convergence verified after ${convergence.completedWindows}/${convergence.totalWindows} probes`
+          );
+          this.progress[no] = 1;
+          break;
         }
       }
 
@@ -272,6 +314,9 @@ export default class Synchronizer {
         subWords: this.diagnostics.subWords,
         refWords: this.diagnostics.refWords,
         subtitles: this.diagnostics.subtitles,
+        romanianConvergence: this.diagnostics.romanianConvergence
+          ? { ...this.diagnostics.romanianConvergence }
+          : null,
       } : null,
     };
   }
