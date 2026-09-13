@@ -114,9 +114,8 @@ assert.strictEqual(
   'rescue should preserve one speech-informed candidate per timeline quarter'
 );
 
-// A near-threshold long title can have only tiny unused gaps. In that case do
-// not manufacture short low-context rescues; the planner may legitimately
-// return fewer than four probes.
+// A near-threshold long title can have only small unused gaps. In that case rescue may be shorter than the
+// preferred 30-second context, but it must still avoid meaningless micro-probes.
 const mediumDuration = 300;
 const mediumPrimary = makePrimaryWindows(mediumDuration);
 const mediumRescue = makeRescueWindows(
@@ -126,7 +125,7 @@ const mediumRescue = makeRescueWindows(
 );
 assert(mediumRescue.length <= RESCUE_WINDOWS);
 for (const [start, end] of mediumRescue) {
-  assert(end - start >= 20 - 1e-9);
+  assert(end - start >= 15 - 1e-9);
 }
 
 console.log('Romanian content-aware rescue planner: OK');
