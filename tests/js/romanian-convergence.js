@@ -56,6 +56,8 @@ state = tracker.observe(
     formula: { a: 1, b: -7.5 },
     evidenceStart: 100,
     evidenceEnd: 7000,
+    candidateEvidenceStart: 100,
+    candidateEvidenceEnd: 7000,
   }
 );
 assert.strictEqual(
@@ -159,7 +161,7 @@ assert.strictEqual(
 assert.strictEqual(state.probeCoverageRatio, 0.85);
 
 
-const rescueTracker = new RomanianConvergenceTracker(7200, 24, { primaryWindows: 16 });
+const rescueTracker = new RomanianConvergenceTracker(7200, 20, { primaryWindows: 16 });
 for (let i = 0; i < 16; i++) {
   state = rescueTracker.observe(
     { start: i * 30, end: i * 30 + 15 },
@@ -168,12 +170,21 @@ for (let i = 0; i < 16; i++) {
       correlated: false,
       points: Math.min(15, i),
       formula: { a: 1, b: -2.5 },
+      candidateEvidenceStart: 100,
+      candidateEvidenceEnd: 5000 + i * 50,
     }
   );
 }
 assert.strictEqual(state.verified, false);
 assert.strictEqual(state.rescueWindowsCompleted, 0);
 assert.strictEqual(state.lastPoints, 15);
+
+assert(state.candidateProbeCoverageRatio > 0.7);
+assert.strictEqual(state.candidatePointGain, 1);
+
+state = rescueTracker.setTotalWindows(20);
+assert.strictEqual(state.totalWindows, 20);
+assert.strictEqual(state.rescueWindowsTotal, 4);
 
 state = rescueTracker.observe(
   { start: 1000, end: 1015 },
@@ -184,6 +195,8 @@ state = rescueTracker.observe(
     formula: { a: 1, b: -8.2 },
     evidenceStart: 200,
     evidenceEnd: 6800,
+    candidateEvidenceStart: 200,
+    candidateEvidenceEnd: 6800,
   }
 );
 assert.strictEqual(state.rescueWindowsCompleted, 1);
@@ -199,6 +212,8 @@ state = rescueTracker.observe(
     formula: { a: 1.00001, b: -8.25 },
     evidenceStart: 150,
     evidenceEnd: 6900,
+    candidateEvidenceStart: 150,
+    candidateEvidenceEnd: 6900,
   }
 );
 assert.strictEqual(state.stableCorrelatedWindows, 2);
