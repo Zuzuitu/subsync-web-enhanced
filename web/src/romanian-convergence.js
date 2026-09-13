@@ -1,6 +1,7 @@
 'use strict';
 
-const MIN_INFORMATIVE_WORDS = 8;
+const MIN_INFORMATIVE_WORDS = 4;
+const MIN_POINT_GAIN = 1;
 const REQUIRED_STABLE_CORRELATED_WINDOWS = 3;
 const MIN_PROBE_COVERAGE_RATIO = 0.75;
 const MAX_FORMULA_DELTA_SECONDS = 0.75;
@@ -32,6 +33,7 @@ class RomanianConvergenceTracker {
     this.duration = duration;
     this.totalWindows = totalWindows;
     this.minInformativeWords = options.minInformativeWords || MIN_INFORMATIVE_WORDS;
+    this.minPointGain = options.minPointGain || MIN_POINT_GAIN;
     this.requiredStableWindows =
       options.requiredStableWindows || REQUIRED_STABLE_CORRELATED_WINDOWS;
     this.minProbeCoverageRatio =
@@ -46,6 +48,9 @@ class RomanianConvergenceTracker {
     this.lastFormula = null;
     this.lastFormulaDeltaSeconds = null;
     this.lastWindowWords = 0;
+    this.lastPoints = 0;
+    this.lastConfirmedPoints = null;
+    this.lastPointGain = 0;
   }
 
   observe(window, words, stats) {
@@ -68,6 +73,8 @@ class RomanianConvergenceTracker {
       && stats.correlated
       && validFormula(stats.formula)
     );
+    const points = Number(stats && stats.points) || 0;
+    this.lastPoints = points;
 
     if (correlated && this.lastFormula) {
       this.lastFormulaDeltaSeconds = formulaDeltaSeconds(
@@ -78,11 +85,27 @@ class RomanianConvergenceTracker {
 
       if (this.lastFormulaDeltaSeconds > this.maxFormulaDeltaSeconds) {
         // A materially different formula invalidates the previous stability
-        // streak. A speech-bearing window can immediately establish a new
-        // baseline, but does not inherit any previous confirmations.
+        // streak. A speech-bearing window can establish a new baseline, but
+        // never inherits confirmations from the old formula.
         this.stableCorrelatedWindows = informative ? 1 : 0;
+        this.lastConfirmedPoints = informative ? points : null;
+        this.lastPointGain = 0;
       } else if (informative) {
-        this.stableCorrelatedWindows += 1;
+        if (this.lastConfirmedPoints == null) {
+          this.stableCorrelatedWindows = 1;
+          this.lastConfirmedPoints = points;
+          this.lastPointGain = 0;
+        } else {
+          this.lastPointGain = Math.max(0, points - this.lastConfirmedPoints);
+          if (this.lastPointGain >= this.minPointGain) {
+            // A stable formula alone is not enough: each confirmation must add
+            // fresh canonical correlation evidence from another probe.
+            this.stableCorrelatedWindows += 1;
+            this.lastConfirmedPoints = points;
+          }
+        }
+      } else {
+        this.lastPointGain = 0;
       }
 
       this.lastFormula = {
@@ -96,10 +119,14 @@ class RomanianConvergenceTracker {
       };
       this.lastFormulaDeltaSeconds = null;
       this.stableCorrelatedWindows = 1;
+      this.lastConfirmedPoints = points;
+      this.lastPointGain = 0;
     } else if (!correlated) {
       this.lastFormula = null;
       this.lastFormulaDeltaSeconds = null;
       this.stableCorrelatedWindows = 0;
+      this.lastConfirmedPoints = null;
+      this.lastPointGain = 0;
     }
 
     return this.getStatus();
@@ -134,6 +161,8 @@ class RomanianConvergenceTracker {
       probeCoverageRatio,
       lastFormulaDeltaSeconds: this.lastFormulaDeltaSeconds,
       lastWindowWords: this.lastWindowWords,
+      lastPoints: this.lastPoints,
+      lastPointGain: this.lastPointGain,
       verified,
     };
   }
@@ -141,6 +170,7 @@ class RomanianConvergenceTracker {
 
 module.exports = {
   MIN_INFORMATIVE_WORDS,
+  MIN_POINT_GAIN,
   REQUIRED_STABLE_CORRELATED_WINDOWS,
   MIN_PROBE_COVERAGE_RATIO,
   MAX_FORMULA_DELTA_SECONDS,

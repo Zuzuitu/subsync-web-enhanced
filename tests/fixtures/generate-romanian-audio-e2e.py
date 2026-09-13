@@ -48,6 +48,8 @@ PIPER_URL = "http://127.0.0.1:5001/synthesize"
 MIN_CORRELATION_BUCKETS = 20
 SPARSE_REGRESSION = os.environ.get("SUBSYNC_ROMANIAN_SPARSE_REGRESSION", "1") == "1"
 SPARSE_DURATION = 481.0
+SPARSE_EDGE_MARGIN = 18.0
+MIN_SPEECH_SPAN_RATIO = 0.85
 
 if len(PHRASES) <= MIN_CORRELATION_BUCKETS:
     raise SystemExit(
@@ -75,8 +77,7 @@ def srt_ts(seconds):
     seconds_i, millis = divmod(rem, 1000)
     return f"{hours:02d}:{minutes:02d}:{seconds_i:02d},{millis:03d}"
 
-combined = bytearray(b"\x00" * int(RATE * INITIAL_SILENCE) * WIDTH)
-timeline = []
+segments = []
 
 with tempfile.TemporaryDirectory() as tmp:
     tmp = Path(tmp)
@@ -100,26 +101,83 @@ with tempfile.TemporaryDirectory() as tmp:
                 raise SystemExit(f"Unexpected normalized audio format for fixture item {idx}")
             frames = wav.readframes(wav.getnframes())
 
+        segments.append({
+            "phrase": phrase,
+            "frames": frames,
+            "duration": len(frames) / WIDTH / RATE,
+        })
+
+timeline = []
+
+if SPARSE_REGRESSION:
+    # The sparse regression must resemble a real long title: speech is spread
+    # across the whole timeline instead of being front-loaded and followed by
+    # synthetic silence. This gives distributed probes independent evidence
+    # without coupling the fixture to the planner implementation.
+    total_samples = round(SPARSE_DURATION * RATE)
+    combined = bytearray(b"\x00" * total_samples * WIDTH)
+    previous_end = 0.0
+    centers_span = SPARSE_DURATION - 2 * SPARSE_EDGE_MARGIN
+
+    for idx, segment in enumerate(segments):
+        center = (
+            SPARSE_EDGE_MARGIN
+            if len(segments) == 1
+            else SPARSE_EDGE_MARGIN + idx * centers_span / (len(segments) - 1)
+        )
+        start = center - segment["duration"] / 2
+        end = start + segment["duration"]
+
+        if start < 0 or end > SPARSE_DURATION:
+            raise SystemExit(
+                f"Distributed Romanian fixture segment {idx} falls outside timeline: "
+                f"{start:.3f}-{end:.3f}s"
+            )
+        if idx and start <= previous_end:
+            raise SystemExit(
+                f"Distributed Romanian fixture segments overlap at {idx}: "
+                f"{start:.3f}s <= {previous_end:.3f}s"
+            )
+
+        start_sample = round(start * RATE)
+        end_sample = start_sample + len(segment["frames"]) // WIDTH
+        byte_start = start_sample * WIDTH
+        byte_end = byte_start + len(segment["frames"])
+        combined[byte_start:byte_end] = segment["frames"]
+
+        actual_start = start_sample / RATE
+        actual_end = end_sample / RATE
+        timeline.append({
+            "phrase": segment["phrase"],
+            "audioStart": actual_start,
+            "audioEnd": actual_end,
+            "subtitleStart": actual_start + OFFSET,
+            "subtitleEnd": actual_end + OFFSET,
+        })
+        previous_end = actual_end
+
+    speech_span = timeline[-1]["audioEnd"] - timeline[0]["audioStart"]
+    speech_span_ratio = speech_span / SPARSE_DURATION
+    if speech_span_ratio < MIN_SPEECH_SPAN_RATIO:
+        raise SystemExit(
+            f"Distributed Romanian fixture covers only {speech_span_ratio:.3f} of timeline"
+        )
+else:
+    combined = bytearray(b"\x00" * int(RATE * INITIAL_SILENCE) * WIDTH)
+    for segment in segments:
         start = len(combined) / WIDTH / RATE
-        combined.extend(frames)
+        combined.extend(segment["frames"])
         end = len(combined) / WIDTH / RATE
         timeline.append({
-            "phrase": phrase,
+            "phrase": segment["phrase"],
             "audioStart": start,
             "audioEnd": end,
             "subtitleStart": start + OFFSET,
             "subtitleEnd": end + OFFSET,
         })
         combined.extend(b"\x00" * int(RATE * GAP) * WIDTH)
-
-if SPARSE_REGRESSION:
-    current_duration = len(combined) / WIDTH / RATE
-    if current_duration >= SPARSE_DURATION:
-        raise SystemExit(
-            f"Base Romanian fixture unexpectedly exceeds sparse target: {current_duration:.3f}s"
-        )
-    padding_samples = round((SPARSE_DURATION - current_duration) * RATE)
-    combined.extend(b"\x00" * padding_samples * WIDTH)
+    speech_span = timeline[-1]["audioEnd"] - timeline[0]["audioStart"]
+    speech_span_ratio = speech_span / (len(combined) / WIDTH / RATE)
 
 wav_path = OUT / "reference-romanian.wav"
 with wave.open(str(wav_path), "wb") as wav:
@@ -161,6 +219,9 @@ fixture = {
     "subtitle": "target.rum.srt",
     "durationSeconds": len(combined) / WIDTH / RATE,
     "sparseRegression": SPARSE_REGRESSION,
+    "speechSpanSeconds": speech_span,
+    "speechSpanRatio": speech_span_ratio,
+    "speechLayout": "distributed" if SPARSE_REGRESSION else "sequential",
 }
 (OUT / "fixture.json").write_text(
     json.dumps(fixture, indent=2, ensure_ascii=False) + "\n",
@@ -172,4 +233,6 @@ print(json.dumps({
     "segments": len(timeline),
     "durationSeconds": fixture["durationSeconds"],
     "sparseRegression": SPARSE_REGRESSION,
+    "speechSpanRatio": fixture["speechSpanRatio"],
+    "speechLayout": fixture["speechLayout"],
 }, indent=2, ensure_ascii=False))

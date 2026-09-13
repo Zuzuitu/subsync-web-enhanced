@@ -89,6 +89,14 @@ try:
 
         fixture = json.loads((FIXTURE_DIR / "fixture.json").read_text(encoding="utf-8"))
         cue_count = len(fixture.get("phrases", []))
+        if fixture.get("sparseRegression"):
+            if fixture.get("speechLayout") != "distributed":
+                raise SystemExit("Romanian sparse E2E fixture is not distributed across the timeline")
+            if float(fixture.get("speechSpanRatio", 0)) < 0.85:
+                raise SystemExit(
+                    "Romanian sparse E2E fixture does not span enough of the timeline: "
+                    + str(fixture.get("speechSpanRatio"))
+                )
         if cue_count <= MIN_CORRELATION_BUCKETS:
             raise SystemExit(
                 f"Romanian E2E fixture has only {cue_count} cues; "

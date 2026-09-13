@@ -110,6 +110,7 @@ class Extractor {
       this.timeWindow = this.timeWindows[0];
       this.words = [];
       this.subtitles = [];
+      this.windowWordCount = 0;
 
       stream.lang = canonicalizeLanguageCode(stream.lang);
       let romanianSpeechRec = null;
@@ -122,7 +123,10 @@ class Extractor {
       const output = this.pipeline.makePipeline(
         stream, params, path, romanianSpeechRec
       );
-      output.addWordsListener( word => this.words.push(word) );
+      output.addWordsListener(word => {
+        this.words.push(word);
+        this.windowWordCount += 1;
+      });
 
       if (params.postSubtitles) {
         this.pipeline.addSubsListener( subtitle => this.subtitles.push(subtitle) );
@@ -154,6 +158,7 @@ class Extractor {
     demux.stop();
     this.windowIndex += 1;
     this.timeWindow = this.timeWindows[this.windowIndex];
+    this.windowWordCount = 0;
     const startTime = this.timeWindow[0] || 0;
     if (startTime) {
       demux.seek(startTime);
@@ -169,6 +174,7 @@ class Extractor {
       end: this.timeWindow[1] == null
         ? this.pipeline.demux.getDuration()
         : this.timeWindow[1],
+      wordCount: this.windowWordCount,
     };
   }
 
@@ -253,6 +259,7 @@ class Extractor {
       this.timeWindows = undefined;
       this.windowIndex = undefined;
       this.romanianSpeechRec = undefined;
+      this.windowWordCount = undefined;
       Gizmo.instance.FS.unmount('/work');
     }
   }

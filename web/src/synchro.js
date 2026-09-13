@@ -213,7 +213,7 @@ export default class Synchronizer {
 
         const convergence = this.romanianConvergence.observe(
           s.windowCompleted,
-          s.words ? s.words.length : 0,
+          s.windowCompleted.wordCount || 0,
           convergenceStats
         );
         this.diagnostics.romanianConvergence = convergence;
