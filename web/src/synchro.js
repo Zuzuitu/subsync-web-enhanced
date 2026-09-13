@@ -201,10 +201,14 @@ export default class Synchronizer {
         }
 
         if (convergenceStats) {
-          this.status = {
-            ...convergenceStats,
-            correlated: this.status.correlated || convergenceStats.correlated,
-          };
+          // Keep the last canonical correlated formula for save/UI semantics.
+          // A later raw snapshot may become temporarily inconclusive as new
+          // evidence arrives; the adaptive tracker sees that raw state and
+          // resets its stability streak, but we do not replace a known-good
+          // output formula with an inconclusive one.
+          if (convergenceStats.correlated || !this.status.correlated) {
+            this.status = convergenceStats;
+          }
         }
 
         const convergence = this.romanianConvergence.observe(
