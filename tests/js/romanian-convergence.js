@@ -161,7 +161,7 @@ assert.strictEqual(
 assert.strictEqual(state.probeCoverageRatio, 0.85);
 
 
-const rescueTracker = new RomanianConvergenceTracker(7200, 20, { primaryWindows: 16 });
+const rescueTracker = new RomanianConvergenceTracker(7200, 21, { primaryWindows: 16 });
 for (let i = 0; i < 16; i++) {
   state = rescueTracker.observe(
     { start: i * 30, end: i * 30 + 15 },
@@ -182,9 +182,9 @@ assert.strictEqual(state.lastPoints, 15);
 assert(state.candidateProbeCoverageRatio > 0.7);
 assert.strictEqual(state.candidatePointGain, 1);
 
-state = rescueTracker.setTotalWindows(20);
-assert.strictEqual(state.totalWindows, 20);
-assert.strictEqual(state.rescueWindowsTotal, 4);
+state = rescueTracker.setTotalWindows(21);
+assert.strictEqual(state.totalWindows, 21);
+assert.strictEqual(state.rescueWindowsTotal, 5);
 
 state = rescueTracker.observe(
   { start: 1000, end: 1015 },
