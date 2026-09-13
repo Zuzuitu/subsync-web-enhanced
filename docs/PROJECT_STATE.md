@@ -119,6 +119,7 @@ canonical sc0ty thresholds:
 
 Branch under validation:
 `fix/romanian-context-confirmation`.
+Branch push CI `34786777927`: **PASS**. Full PR browser/fresh-WASM gates remain pending.
 
 Do not mark Romanian single-file support release-stable until this branch passes
 fresh-WASM/Chromium/WebKit/large-file gates, is deliberately deployed, and the
