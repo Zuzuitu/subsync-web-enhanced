@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-13 11:35 Europe/Rome
+LAST_UPDATED: 2026-09-13 11:42 Europe/Rome
 
 ## Canonical status
 
@@ -399,9 +399,19 @@ Post-adaptive deployment validation:
 - Romanian diacritics preserved;
 - zero console, page and HTTP errors.
 
-The permanent live Romanian smoke is strengthened in the checkpoint PR to
-require not only a valid saved SRT but also a verified adaptive lock that stops
-before all candidate probes are consumed.
+The permanent live Romanian smoke is strengthened in PR #30 to require not
+only a valid saved SRT but also a verified adaptive lock that stops before all
+candidate probes are consumed.
+
+PR #30 live validation run `34749834500`: **PASS**:
+- adaptive lock verified after **10/16** probes;
+- 174 usable Romanian reference words;
+- 28 synchronization points;
+- displayed correlation **100.00%**;
+- formula `1.0001x-8.834`;
+- saved timing correction **-8.833 s**;
+- Romanian diacritics preserved;
+- zero console, page and HTTP errors.
 
 ## MKV reliability status
 
@@ -527,17 +537,14 @@ Canonical decisions:
 
 ## Next sequence
 
-1. Merge the strengthened permanent public Romanian smoke only after its PR
-   validation proves the deployed site reaches a verified adaptive lock before
-   16/16 probes.
-2. Retest the current public preview on the physical iPhone using the real >2 GB
+1. Retest the current public preview on the physical iPhone using the real >2 GB
    Romanian-audio file and deliberately shifted Romanian SRT. Let the adaptive
    job reach its terminal result before saving.
-3. Record physical elapsed time, adaptive probe count shown in diagnostics and
+2. Record physical elapsed time, adaptive probe count shown in diagnostics and
    practical final residual sync error.
-4. If the optimized single-file path passes physically, mark Romanian
+3. If the optimized single-file path passes physically, mark Romanian
    single-file support release-stable for this milestone.
-5. Only then prioritize batch/multi-upload or larger modernization work such as
+4. Only then prioritize batch/multi-upload or larger modernization work such as
    optional piecewise sync / multi-ASR abstractions.
 
 ## Open blockers
