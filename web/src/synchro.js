@@ -6,7 +6,9 @@ import Logger from './logger.js';
 import { annotateErrorStage, classifyErrorStage } from './diagnostics.js';
 const {
   PRIMARY_WINDOWS,
-  makeRomanianTimeWindows,
+  RESCUE_WINDOWS,
+  makePrimaryWindows,
+  makeRescueWindows,
 } = require('./romanian-windows.js');
 const { RomanianConvergenceTracker } = require('./romanian-convergence.js');
 const { selectCanonicalStatus } = require('./correlation-status.js');
@@ -47,6 +49,7 @@ export default class Synchronizer {
     this.status = {};
     this.gotAllSubs = false;
     this.romanianConvergence = null;
+    this.romanianScan = null;
     this.diagnostics = {
       currentStage: null,
       stages: {},
@@ -90,26 +93,32 @@ export default class Synchronizer {
 
       try {
         this.recordStage(listener, 'pipeline-open', 'running');
-        const romanianWindows = ref.type === 'audio' && ref.lang === 'rum'
-          ? makeRomanianTimeWindows(ref.duration)
+        const romanianPrimaryWindows = ref.type === 'audio' && ref.lang === 'rum'
+          ? makePrimaryWindows(ref.duration)
           : null;
-        if (romanianWindows) {
+        if (romanianPrimaryWindows) {
+          this.romanianScan = {
+            duration: ref.duration,
+            primaryWindows: romanianPrimaryWindows,
+            primarySummaries: [],
+            rescueAdded: false,
+          };
           this.romanianConvergence = new RomanianConvergenceTracker(
             ref.duration,
-            romanianWindows.length,
-            { primaryWindows: Math.min(PRIMARY_WINDOWS, romanianWindows.length) }
+            romanianPrimaryWindows.length + RESCUE_WINDOWS,
+            { primaryWindows: romanianPrimaryWindows.length }
           );
           this.diagnostics.romanianConvergence = this.romanianConvergence.getStatus();
           logger.log(
-            `Romanian ASR adaptive scan: ${Math.min(PRIMARY_WINDOWS, romanianWindows.length)} primary + `
-            + `${Math.max(0, romanianWindows.length - PRIMARY_WINDOWS)} rescue windows`
+            `Romanian ASR adaptive scan: ${romanianPrimaryWindows.length} primary probes; `
+            + `up to ${RESCUE_WINDOWS} content-aware 30 s rescue probes if needed`
           );
         }
         await Promise.all([
           this.subExtractor.open(sub, { otherLang: ref.lang, postSubtitles: true }),
           ...refExtractors.map((ex, i) => ex.open(ref, {
             timeWindow: ref.duration && [ i * ref.duration / refJobsNo, (i + 1) * ref.duration / refJobsNo + 1 ],
-            timeWindows: romanianWindows,
+            timeWindows: romanianPrimaryWindows,
           }))
         ]);
         this.recordStage(listener, 'pipeline-open', 'ready');
@@ -197,6 +206,13 @@ export default class Synchronizer {
       }
 
       if (!issub && this.romanianConvergence && s.windowCompleted) {
+        if (
+          this.romanianScan
+          && this.romanianScan.primarySummaries.length < this.romanianScan.primaryWindows.length
+        ) {
+          this.romanianScan.primarySummaries.push({ ...s.windowCompleted });
+        }
+
         let rawStats;
         try {
           rawStats = await this.correlator.getStats();
@@ -207,7 +223,7 @@ export default class Synchronizer {
         }
 
         this.status = selectCanonicalStatus(this.status, rawStats);
-        const convergence = this.romanianConvergence.observe(
+        let convergence = this.romanianConvergence.observe(
           s.windowCompleted,
           s.windowCompleted.wordCount || 0,
           rawStats
@@ -217,11 +233,11 @@ export default class Synchronizer {
         logger.log(
           `Romanian ASR probe ${convergence.completedWindows}/${convergence.totalWindows}: `
           + `words=${convergence.lastWindowWords}, points=${convergence.lastPoints}, `
+          + `candidateGain=${convergence.candidatePointGain}, `
           + `correlated=${Boolean(rawStats && rawStats.correlated)}, `
-          + `pointGain=${convergence.lastPointGain}, stable=${convergence.stableCorrelatedWindows}, `
-          + `evidence=${convergence.evidenceStart == null ? 'n/a' : convergence.evidenceStart.toFixed(1)}-`
-          + `${convergence.evidenceEnd == null ? 'n/a' : convergence.evidenceEnd.toFixed(1)}, `
-          + `coverage=${(100 * convergence.probeCoverageRatio).toFixed(1)}%, `
+          + `canonicalGain=${convergence.lastPointGain}, stable=${convergence.stableCorrelatedWindows}, `
+          + `candidateCoverage=${(100 * convergence.candidateProbeCoverageRatio).toFixed(1)}%, `
+          + `canonicalCoverage=${(100 * convergence.probeCoverageRatio).toFixed(1)}%, `
           + `verified=${convergence.verified}`
         );
 
@@ -231,6 +247,38 @@ export default class Synchronizer {
           );
           this.progress[no] = 1;
           break;
+        }
+
+        if (
+          this.romanianScan
+          && !this.romanianScan.rescueAdded
+          && convergence.completedWindows === this.romanianScan.primaryWindows.length
+        ) {
+          const rescueWindows = makeRescueWindows(
+            this.romanianScan.duration,
+            this.romanianScan.primaryWindows,
+            this.romanianScan.primarySummaries
+          );
+          this.romanianScan.rescueAdded = true;
+          convergence = this.romanianConvergence.setTotalWindows(
+            this.romanianScan.primaryWindows.length + rescueWindows.length
+          );
+          this.diagnostics.romanianConvergence = convergence;
+
+          if (rescueWindows.length) {
+            const appended = await extractor.appendTimeWindows(rescueWindows);
+            if (appended && appended.resumed) {
+              s.done = false;
+              logger.log(
+                `Romanian ASR primary stage remained noncanonical at ${convergence.lastPoints} points; `
+                + `continuing with ${rescueWindows.length} content-aware 30 s rescue probes`
+              );
+            }
+          } else {
+            logger.log(
+              'Romanian ASR primary stage remained noncanonical and no suitable unused rescue gaps were available'
+            );
+          }
         }
       }
 
