@@ -38,7 +38,10 @@ assert.strictEqual(primary.length, PRIMARY_WINDOWS);
 const summaries = primary.map(([start, end], index) => ({
   start,
   end,
-  wordCount: index === 6 ? 42 : index === 12 ? 30 : 4 + index,
+  // Probe 6 contributed real candidate buckets despite modest speech volume.
+  // Probe 12 has much more speech but no new candidate buckets.
+  wordCount: index === 6 ? 8 : index === 12 ? 60 : 4 + index,
+  candidatePointGain: index === 6 ? 3 : 0,
 }));
 
 const rescue = makeRescueWindows(duration, primary, summaries);
@@ -90,15 +93,15 @@ assert.strictEqual(
   'content-aware rescue must keep the total sampled-audio cap at six minutes'
 );
 
-// Rescue must use observed speech density rather than a fixed uniform order.
-// The deliberately speech-rich primary probe should influence at least one
-// adjacent rescue window.
+// Rescue must prioritize actual correlation gain over raw speech density.
+// The probe that added candidate buckets must influence rescue even though a
+// different probe contains far more recognized words.
 const rich = primary[6];
 assert(
   rescue.some(([start, end]) =>
     Math.abs(start - rich[1]) < 0.05 || Math.abs(end - rich[0]) < 0.05
   ),
-  'rescue planner should continue near a speech-rich primary probe'
+  'rescue planner should continue near a point-gain-rich primary probe'
 );
 
 // The rescue set must remain distributed across the title even when one scene
