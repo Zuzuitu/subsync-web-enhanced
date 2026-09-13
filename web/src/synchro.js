@@ -269,6 +269,8 @@ export default class Synchronizer {
             const appended = await extractor.appendTimeWindows(rescueWindows);
             if (appended && appended.resumed) {
               s.done = false;
+              s.progress = this.romanianScan.primaryWindows.length
+                / this.romanianConvergence.totalWindows;
               logger.log(
                 `Romanian ASR primary stage remained noncanonical at ${convergence.lastPoints} points; `
                 + `continuing with ${rescueWindows.length} content-aware 30 s rescue probes`
