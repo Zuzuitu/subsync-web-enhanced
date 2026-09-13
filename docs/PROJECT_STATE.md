@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-13 15:45 Europe/Rome
+LAST_UPDATED: 2026-09-13 22:30 Europe/Rome
 
 ## Canonical status
 
@@ -74,26 +74,47 @@ physical-iPhone reproduction that motivated PR #32.
 
 ## Immediate milestone
 
-PR #32 is merged, deliberately deployed, and independently validated on the
-public Pages URL. The next authoritative milestone is now the physical iPhone
-retest on the same real Frozen II title that failed the 16-probe build.
+The physical iPhone retest of deployed PR #32 is now a confirmed
+**FAIL / INCONCLUSIVE** reproduction. The bounded 8 × 15 s uniform rescue stage
+worked mechanically and increased evidence, but it still did not reach the
+unchanged canonical 20-point minimum on the real Frozen II title.
 
-The previous physical reproduction remains authoritative:
-- real iPhone/Safari;
-- real >2 GB dual-audio MKV;
-- Romanian audio + Romanian SRT;
-- model reused from cache;
-- 16/16 primary probes;
-- 151 reference words;
-- 15 synchronization points versus canonical minimum 20;
-- adaptive lock never verified;
-- Save was incorrectly enabled earlier at 9/16 while lock was pending.
+Latest physical evidence:
+- real iPhone/Safari, same >2 GB dual-audio Frozen II MKV + Romanian SRT;
+- Romanian Whisper model reused from **Cached · 30.7 MiB**;
+- terminal elapsed time **17:30**;
+- **24/24** total probes completed;
+- **8/8** rescue probes completed;
+- 224 usable reference words;
+- 18 synchronization points versus canonical minimum 20;
+- displayed correlation 100.00%;
+- provisional formula `1.0002x-1.029`;
+- max change `0:01:016`;
+- stable checks 0;
+- displayed canonical evidence span 0%;
+- adaptive lock remained pending;
+- terminal state: `Synchronization inconclusive`.
 
-The deployed PR #32 build is expected to continue automatically into rescue
-when the 16 primary probes do not verify convergence. Save must remain disabled
-while the adaptive lock is pending. Do not mark Romanian single-file support
-physically release-stable until this exact class of test reaches a verified
-terminal result and practical alignment is checked at beginning, middle and end.
+Compared with the earlier 16-probe physical reproduction, rescue added
+**73 reference words** (151 -> 224) but only **3 synchronization buckets**
+(15 -> 18). This is strong evidence that simply adding more uniformly placed
+15-second probes is not the right next step. The 100% displayed correlation on
+an 18-point noncanonical line is not an accepted synchronization result.
+
+The next fix therefore keeps the primary 16 × 15 s fast path and keeps the
+overall six-minute sampled-audio cap, but makes rescue content-aware:
+- collect actual word counts from all 16 primary probes;
+- only if primary remains noncanonical, dynamically append rescue;
+- spend the same 120-second rescue budget as up to **4 × 30 s** windows;
+- choose unused timeline gaps adjacent to speech-rich primary probes;
+- preserve broad temporal coverage by selecting across timeline quarters;
+- retain one Whisper context and all canonical sc0ty thresholds;
+- expose provisional candidate point gain/span separately from canonical lock
+  evidence so future physical failures are diagnosable instead of showing only
+  misleading `+0` / `0%` values.
+
+Branch under validation:
+`fix/romanian-content-aware-rescue`.
 
 Batch/multi-upload remains deferred until the optimized single-file path is
 confirmed on the physical device.
@@ -603,17 +624,29 @@ Romanian audio physical status:
    - practical synchronization remained incorrect;
    - Save was observed enabled prematurely at 9/16 while lock was pending.
 
-3. **PR #32 rescue build — DEPLOYED / PHYSICAL RETEST PENDING**
+3. **PR #32 uniform rescue retest — FAIL / INCONCLUSIVE**
    - product runtime:
      `b8c8a292957fce2f509c43d95c357091ae45adb3`;
-   - primary 16-probe fast path retained;
-   - up to 8 bounded, non-overlapping rescue probes available;
-   - maximum 24 probes / 360 s sampled audio;
-   - Save is fail-closed until verified adaptive lock;
-   - automated Chromium, iPhone-like WebKit, deploy and public live gates are
-     green;
-   - the same physical Frozen II test must now be rerun to verify rescue
-     behavior and practical alignment.
+   - real iPhone/Safari, same Frozen II title;
+   - Cached Romanian model;
+   - 17:30 elapsed;
+   - 24/24 probes, rescue 8/8;
+   - 224 reference words;
+   - 18 points versus canonical minimum 20;
+   - displayed 100.00% correlation but adaptive lock pending;
+   - provisional formula `1.0002x-1.029`;
+   - uniform rescue improved 15 -> 18 points but remained insufficient.
+
+4. **Content-aware contextual rescue — IMPLEMENTATION / VALIDATION IN PROGRESS**
+   - primary remains 16 × 15 s;
+   - rescue is generated only after observing all primary probe word counts;
+   - same 120 s rescue budget becomes up to 4 × 30 s windows;
+   - unused gaps next to speech-rich primary probes are preferred;
+   - selections remain distributed across the title;
+   - total sampled-audio cap remains 360 s / 6 minutes;
+   - provisional candidate evidence is exposed separately from canonical
+     convergence evidence;
+   - all canonical sc0ty thresholds remain unchanged.
 
 Model bytes persist through browser IDBFS. Active job persistence/resume across
 Safari background suspension is still not implemented; physical release tests
@@ -654,33 +687,30 @@ Canonical decisions:
 
 ## Next sequence
 
-1. Retest the same real Frozen II >2 GB dual-audio title on physical
-   iPhone/Safari with the deployed PR #32 runtime.
-2. Keep Safari foregrounded and let the job reach a terminal state.
-3. Record:
+1. Finish regression and fresh-WASM validation of
+   `fix/romanian-content-aware-rescue`.
+2. Require governance/unit CI, fresh Legacy WebAssembly Romanian E2E,
+   iPhone-like WebKit, large-file and PWA gates before merge.
+3. Merge only when green, deliberately move `deploy/pages-preview`, and run a
+   post-deploy public smoke against the exact new runtime.
+4. Retest the same physical Frozen II title with Safari foregrounded until
+   terminal state.
+5. Record:
    - elapsed time;
-   - Romanian probes X/24;
-   - whether rescue begins;
-   - rescue X/8;
+   - Romanian probes X/N;
+   - rescue X/4;
    - reference words;
-   - synchronization points;
-   - correlation;
-   - formula;
-   - evidence span;
+   - points and candidate point gain;
+   - candidate span and canonical span;
+   - correlation and formula;
    - adaptive lock verified/pending;
-   - exact moment Save becomes enabled;
-   - practical alignment at beginning / middle / end;
-   - residual offset and whether it is constant or drifts;
-   - model Cached versus downloaded.
-4. If primary remains below 20 points, rescue must continue automatically.
-5. If verified convergence occurs during rescue, early stop before 24 remains
-   valid.
-6. If all 24 probes still fail, do **not** lower `minPointsNo` or any canonical
-   threshold. Use the physical evidence to investigate recognition quality,
-   content/probe placement, dubbed-dialogue versus SRT wording, semantic
-   matching and correlation-point distribution.
-7. Only after a physical pass mark Romanian single-file support
-   release-stable. Batch/multi-upload remains deferred until then.
+   - Save state;
+   - practical alignment at beginning / middle / end.
+6. If contextual rescue still fails, do **not** add blind windows or lower
+   thresholds. Use candidate span / gain to decide between ASR recognition
+   quality, Romanian dub-vs-SRT lexical mismatch, or correlation distribution
+   as the next bottleneck.
+7. Only after a physical pass mark Romanian single-file support release-stable.
 
 ## Session closeout — 13 September 2026
 
@@ -711,9 +741,9 @@ Decisions and evidence confirmed in this engineering session:
 
 ## Open blockers
 
-- the deployed PR #32 rescue build still requires the same real physical
-  iPhone/Frozen II retest before Romanian single-file support can be called
-  physically release-stable;
+- PR #32 uniform rescue failed the real physical iPhone/Frozen II retest at
+  18/20 points after 24/24 probes; content-aware contextual rescue is now the
+  active fix under validation;
 - browser job resume/persistence across Safari suspension/backgrounding is not
   implemented;
 - the historical real-world direct-MKV failure class remains
