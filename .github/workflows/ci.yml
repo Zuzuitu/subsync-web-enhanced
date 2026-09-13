@@ -26,6 +26,8 @@ jobs:
         run: node tests/js/language-codes.js
       - name: Validate Romanian sparse-window planner
         run: node tests/js/romanian-windows.js
+      - name: Validate Romanian lexical context anchors
+        run: node tests/js/romanian-context-anchors.js
       - name: Validate Romanian adaptive convergence
         run: node tests/js/romanian-convergence.js
       - name: Validate canonical correlation status selection
