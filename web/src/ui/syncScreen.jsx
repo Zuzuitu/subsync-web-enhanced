@@ -307,8 +307,9 @@ export default class SyncScreen {
         + ` · stable checks: ${convergence.stableCorrelatedWindows}`
         + ` · last probe words: ${convergence.lastWindowWords || 0}`
         + ` · points: ${convergence.lastPoints || 0}`
-        + ` (+${convergence.lastPointGain || 0})`
-        + ` · evidence span: ${Math.round(100 * (convergence.probeCoverageRatio || 0))}%`
+        + ` · candidate gain: +${convergence.candidatePointGain || 0}`
+        + ` · candidate span: ${Math.round(100 * (convergence.candidateProbeCoverageRatio || 0))}%`
+        + ` · canonical span: ${Math.round(100 * (convergence.probeCoverageRatio || 0))}%`
         + ` · adaptive lock: ${convergence.verified ? 'verified' : 'pending'}`
       : '';
     this.diagnosticEvidence.textContent =
