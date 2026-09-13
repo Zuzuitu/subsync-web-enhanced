@@ -106,7 +106,8 @@ overall six-minute sampled-audio cap, but makes rescue content-aware:
 - collect actual word counts from all 16 primary probes;
 - only if primary remains noncanonical, dynamically append rescue;
 - spend the same 120-second rescue budget as up to **4 × 30 s** windows;
-- choose unused timeline gaps adjacent to speech-rich primary probes;
+- choose unused timeline gaps adjacent to primary probes that produced actual candidate synchronization-point gain;
+- use recognized speech volume only as a secondary ranking signal;
 - preserve broad temporal coverage by selecting across timeline quarters;
 - retain one Whisper context and all canonical sc0ty thresholds;
 - expose provisional candidate point gain/span separately from canonical lock
@@ -641,7 +642,8 @@ Romanian audio physical status:
    - primary remains 16 × 15 s;
    - rescue is generated only after observing all primary probe word counts;
    - same 120 s rescue budget becomes up to 4 × 30 s windows;
-   - unused gaps next to speech-rich primary probes are preferred;
+   - unused gaps next to primary probes with real candidate point gain are preferred;
+   - recognized speech volume is only a secondary ranking signal;
    - selections remain distributed across the title;
    - total sampled-audio cap remains 360 s / 6 minutes;
    - provisional candidate evidence is exposed separately from canonical
