@@ -292,7 +292,7 @@ export default class Synchronizer {
                 / this.romanianConvergence.totalWindows;
               logger.log(
                 `Romanian ASR primary stage remained noncanonical at ${convergence.lastPoints} points; `
-                + `continuing with ${rescueWindows.length} content-aware 30 s rescue probes`
+                + `continuing with ${rescueWindows.length} content-aware rescue checks within the 120 s reserve`
               );
             }
           } else {
