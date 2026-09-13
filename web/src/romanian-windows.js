@@ -73,12 +73,21 @@ function makePrimaryWindows(duration) {
   return farthestFirstOrder(PRIMARY_WINDOWS).map(index => chronological[index]);
 }
 
-function summaryWords(window, summaries) {
+function summaryEvidence(window, summaries) {
   const match = (summaries || []).find(summary =>
     Math.abs((Number(summary.start) || 0) - window[0]) < 0.05
     && Math.abs((Number(summary.end) || 0) - window[1]) < 0.05
   );
-  return match ? Number(match.wordCount) || 0 : 0;
+  return {
+    words: match ? Number(match.wordCount) || 0 : 0,
+    pointGain: match ? Number(match.candidatePointGain) || 0 : 0,
+  };
+}
+
+function evidencePriority(evidence) {
+  // Unique synchronization-bucket gain is the scarce signal on the physical
+  // reproduction. Speech volume only breaks ties between equally useful probes.
+  return evidence.pointGain * 1000 + evidence.words;
 }
 
 function makeGapCandidate(duration, gap, left, right, summaries) {
@@ -88,15 +97,18 @@ function makeGapCandidate(duration, gap, left, right, summaries) {
   }
 
   const length = Math.min(RESCUE_WINDOW_SECONDS, gapLength);
-  const leftWords = left ? summaryWords(left, summaries) : 0;
-  const rightWords = right ? summaryWords(right, summaries) : 0;
+  const leftEvidence = left ? summaryEvidence(left, summaries) : { words: 0, pointGain: 0 };
+  const rightEvidence = right ? summaryEvidence(right, summaries) : { words: 0, pointGain: 0 };
+  const leftPriority = evidencePriority(leftEvidence);
+  const rightPriority = evidencePriority(rightEvidence);
 
   let start;
-  if (leftWords > rightWords) {
-    // Continue immediately after the speech-richer primary probe.
+  if (leftPriority > rightPriority) {
+    // Continue immediately after the primary probe that contributed stronger
+    // matching evidence (point gain first, speech volume second).
     start = gap[0];
-  } else if (rightWords > leftWords) {
-    // Capture the lead-in immediately before the speech-richer primary probe.
+  } else if (rightPriority > leftPriority) {
+    // Capture the lead-in immediately before the stronger matching probe.
     start = gap[1] - length;
   } else {
     start = gap[0] + (gapLength - length) / 2;
@@ -106,7 +118,9 @@ function makeGapCandidate(duration, gap, left, right, summaries) {
   const center = (start + end) / 2;
   return {
     window: [start, end],
-    score: leftWords + rightWords,
+    score: leftPriority + rightPriority,
+    pointGain: leftEvidence.pointGain + rightEvidence.pointGain,
+    words: leftEvidence.words + rightEvidence.words,
     quarter: Math.min(3, Math.max(0, Math.floor(4 * center / duration))),
   };
 }
@@ -152,9 +166,10 @@ function makeRescueWindows(duration, primaryWindows, primarySummaries = []) {
     if (candidate) candidates.push(candidate);
   }
 
-  // Prefer actual speech evidence, but keep one candidate per timeline quarter
-  // before filling spare slots. This prevents a dialogue-heavy scene in one
-  // part of the movie from consuming the entire rescue budget.
+  // Prefer actual matching evidence (candidate point gain first, recognized
+  // speech second), but keep one candidate per timeline quarter before filling
+  // spare slots. This prevents one locally easy scene from consuming the entire
+  // rescue budget.
   const selected = [];
   const used = new Set();
   for (let quarter = 0; quarter < 4 && selected.length < RESCUE_WINDOWS; quarter++) {
@@ -214,6 +229,8 @@ module.exports = {
   MIN_RESCUE_WINDOW_SECONDS,
   farthestFirstOrder,
   centeredWindow,
+  summaryEvidence,
+  evidencePriority,
   makePrimaryWindows,
   makeRescueWindows,
   makeRomanianTimeWindows,
