@@ -111,3 +111,5 @@ jobs:
             tests/generated/large-file-stress/fixture.json
           if-no-files-found: warn
           retention-days: 7
+
+# exact-head trigger: be937ad4cc0f139cea0973e46c638ca75e852b93
