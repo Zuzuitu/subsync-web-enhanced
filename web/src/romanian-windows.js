@@ -2,11 +2,13 @@
 
 const WINDOW_SECONDS = 15;
 const PRIMARY_WINDOWS = 16;
-const RESCUE_WINDOWS = 8;
+const RESCUE_WINDOW_SECONDS = 30;
+const RESCUE_WINDOWS = 4;
 const MAX_WINDOWS = PRIMARY_WINDOWS + RESCUE_WINDOWS;
 const FULL_SCAN_SECONDS = WINDOW_SECONDS * PRIMARY_WINDOWS;
-const MAX_SPARSE_AUDIO_SECONDS = WINDOW_SECONDS * MAX_WINDOWS;
-const MIN_RESCUE_WINDOW_SECONDS = 3;
+const MAX_SPARSE_AUDIO_SECONDS =
+  FULL_SCAN_SECONDS + RESCUE_WINDOW_SECONDS * RESCUE_WINDOWS;
+const MIN_RESCUE_WINDOW_SECONDS = 20;
 
 function farthestFirstOrder(count) {
   if (count <= 0) return [];
@@ -54,6 +56,10 @@ function centeredWindow(start, end, maxLength = WINDOW_SECONDS) {
 }
 
 function makePrimaryWindows(duration) {
+  if (!Number.isFinite(duration) || duration <= 0 || duration <= FULL_SCAN_SECONDS) {
+    return null;
+  }
+
   const bucket = duration / PRIMARY_WINDOWS;
   const chronological = [];
   for (let i = 0; i < PRIMARY_WINDOWS; i++) {
@@ -67,52 +73,147 @@ function makePrimaryWindows(duration) {
   return farthestFirstOrder(PRIMARY_WINDOWS).map(index => chronological[index]);
 }
 
-function makeRescueWindows(duration, primaryWindows) {
-  const chronological = primaryWindows.slice().sort((a, b) => a[0] - b[0]);
-  const gaps = [];
-
-  let cursor = 0;
-  for (const [start, end] of chronological) {
-    if (start > cursor) {
-      gaps.push([cursor, start]);
-    }
-    cursor = Math.max(cursor, end);
-  }
-  if (cursor < duration) {
-    gaps.push([cursor, duration]);
-  }
-
-  const candidates = gaps
-    .map(([start, end]) => centeredWindow(start, end))
-    .filter(Boolean);
-
-  const order = farthestFirstOrder(candidates.length);
-  return order.slice(0, RESCUE_WINDOWS).map(index => candidates[index]);
+function summaryWords(window, summaries) {
+  const match = (summaries || []).find(summary =>
+    Math.abs((Number(summary.start) || 0) - window[0]) < 0.05
+    && Math.abs((Number(summary.end) || 0) - window[1]) < 0.05
+  );
+  return match ? Number(match.wordCount) || 0 : 0;
 }
 
-function makeRomanianTimeWindows(duration) {
-  if (!Number.isFinite(duration) || duration <= 0 || duration <= FULL_SCAN_SECONDS) {
+function makeGapCandidate(duration, gap, left, right, summaries) {
+  const gapLength = gap[1] - gap[0];
+  if (gapLength < MIN_RESCUE_WINDOW_SECONDS) {
     return null;
   }
 
-  const primary = makePrimaryWindows(duration);
-  const rescue = makeRescueWindows(duration, primary);
+  const length = Math.min(RESCUE_WINDOW_SECONDS, gapLength);
+  const leftWords = left ? summaryWords(left, summaries) : 0;
+  const rightWords = right ? summaryWords(right, summaries) : 0;
 
-  // Stage 1 is deliberately identical in spirit to the previous fast path:
-  // 16 progressive probes. Rescue probes are appended only so they are reached
-  // when the canonical correlator has not converged during the primary stage.
-  return primary.concat(rescue);
+  let start;
+  if (leftWords > rightWords) {
+    // Continue immediately after the speech-richer primary probe.
+    start = gap[0];
+  } else if (rightWords > leftWords) {
+    // Capture the lead-in immediately before the speech-richer primary probe.
+    start = gap[1] - length;
+  } else {
+    start = gap[0] + (gapLength - length) / 2;
+  }
+
+  const end = start + length;
+  const center = (start + end) / 2;
+  return {
+    window: [start, end],
+    score: leftWords + rightWords,
+    quarter: Math.min(3, Math.max(0, Math.floor(4 * center / duration))),
+  };
+}
+
+function makeRescueWindows(duration, primaryWindows, primarySummaries = []) {
+  if (
+    !Number.isFinite(duration)
+    || duration <= FULL_SCAN_SECONDS
+    || !primaryWindows
+    || !primaryWindows.length
+  ) {
+    return [];
+  }
+
+  const chronological = primaryWindows.slice().sort((a, b) => a[0] - b[0]);
+  const candidates = [];
+
+  let cursor = 0;
+  let left = null;
+  for (const right of chronological) {
+    if (right[0] > cursor) {
+      const candidate = makeGapCandidate(
+        duration,
+        [cursor, right[0]],
+        left,
+        right,
+        primarySummaries
+      );
+      if (candidate) candidates.push(candidate);
+    }
+    cursor = Math.max(cursor, right[1]);
+    left = right;
+  }
+
+  if (cursor < duration) {
+    const candidate = makeGapCandidate(
+      duration,
+      [cursor, duration],
+      left,
+      null,
+      primarySummaries
+    );
+    if (candidate) candidates.push(candidate);
+  }
+
+  // Prefer actual speech evidence, but keep one candidate per timeline quarter
+  // before filling spare slots. This prevents a dialogue-heavy scene in one
+  // part of the movie from consuming the entire rescue budget.
+  const selected = [];
+  const used = new Set();
+  for (let quarter = 0; quarter < 4 && selected.length < RESCUE_WINDOWS; quarter++) {
+    let bestIndex = -1;
+    for (let i = 0; i < candidates.length; i++) {
+      if (used.has(i) || candidates[i].quarter !== quarter) continue;
+      if (
+        bestIndex < 0
+        || candidates[i].score > candidates[bestIndex].score
+      ) {
+        bestIndex = i;
+      }
+    }
+    if (bestIndex >= 0) {
+      used.add(bestIndex);
+      selected.push(candidates[bestIndex]);
+    }
+  }
+
+  const remaining = candidates
+    .map((candidate, index) => ({ candidate, index }))
+    .filter(item => !used.has(item.index))
+    .sort((a, b) =>
+      b.candidate.score - a.candidate.score
+      || a.candidate.window[0] - b.candidate.window[0]
+    );
+
+  for (const item of remaining) {
+    if (selected.length >= RESCUE_WINDOWS) break;
+    selected.push(item.candidate);
+  }
+
+  const chronologicalSelected = selected
+    .slice()
+    .sort((a, b) => a.window[0] - b.window[0]);
+
+  // Probe broad temporal coverage first; each selected location was already
+  // chosen using observed primary speech density.
+  return farthestFirstOrder(chronologicalSelected.length)
+    .map(index => chronologicalSelected[index].window);
+}
+
+function makeRomanianTimeWindows(duration, primarySummaries = []) {
+  const primary = makePrimaryWindows(duration);
+  if (!primary) return null;
+  return primary.concat(makeRescueWindows(duration, primary, primarySummaries));
 }
 
 module.exports = {
   WINDOW_SECONDS,
   PRIMARY_WINDOWS,
+  RESCUE_WINDOW_SECONDS,
   RESCUE_WINDOWS,
   MAX_WINDOWS,
   FULL_SCAN_SECONDS,
   MAX_SPARSE_AUDIO_SECONDS,
   MIN_RESCUE_WINDOW_SECONDS,
   farthestFirstOrder,
+  centeredWindow,
   makePrimaryWindows,
   makeRescueWindows,
   makeRomanianTimeWindows,
