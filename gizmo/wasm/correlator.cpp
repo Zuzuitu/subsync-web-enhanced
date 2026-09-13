@@ -46,19 +46,24 @@ static em::val getStats(shared_ptr<Synchronizer> s)
 	const CorrelationStats stats = s->correlate();
 	em::val res = convertCorrelationStats(stats);
 
-	if (stats.correlated)
+	// The best provisional line is useful diagnostics even before the canonical
+	// minPointsNo gate is reached. Expose its span separately, but never mark it
+	// as canonical evidence unless the existing sc0ty correlation guard passes.
+	const Points used = s->getUsedPoints();
+	if (!used.empty())
 	{
-		const Points used = s->getUsedPoints();
-		if (!used.empty())
+		const Point &first = *used.begin();
+		float minRef = first.y;
+		float maxRef = first.y;
+		for (const Point &pt : used)
 		{
-			const Point &first = *used.begin();
-			float minRef = first.y;
-			float maxRef = first.y;
-			for (const Point &pt : used)
-			{
-				minRef = std::min(minRef, pt.y);
-				maxRef = std::max(maxRef, pt.y);
-			}
+			minRef = std::min(minRef, pt.y);
+			maxRef = std::max(maxRef, pt.y);
+		}
+		res.set("candidateEvidenceStart", minRef);
+		res.set("candidateEvidenceEnd", maxRef);
+		if (stats.correlated)
+		{
 			res.set("evidenceStart", minRef);
 			res.set("evidenceEnd", maxRef);
 		}
