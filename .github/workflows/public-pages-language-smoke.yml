@@ -70,6 +70,7 @@ jobs:
       - name: Validate Romanian audio end to end on public Pages
         env:
           SUBSYNC2_PREVIEW_URL: https://zuzuitu.github.io/subsync-web-enhanced/
+          SUBSYNC2_REQUIRE_CONTEXT_ANCHORS: ${{ github.event_name == 'push' && '1' || '0' }}
         run: python3 tests/web/run-public-pages-romanian-audio-smoke.py
 
       - name: Upload public Pages diagnostics

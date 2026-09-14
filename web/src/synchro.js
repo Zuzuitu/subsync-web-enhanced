@@ -11,6 +11,7 @@ const {
   makeRescueWindows,
 } = require('./romanian-windows.js');
 const { RomanianConvergenceTracker } = require('./romanian-convergence.js');
+const { RomanianContextAnchorStream } = require('./romanian-context-anchors.js');
 const { selectCanonicalStatus } = require('./correlation-status.js');
 const logger = Logger.logger.get('[Synchronizer]');
 
@@ -50,6 +51,7 @@ export default class Synchronizer {
     this.gotAllSubs = false;
     this.romanianConvergence = null;
     this.romanianScan = null;
+    this.romanianContextAnchors = null;
     this.diagnostics = {
       currentStage: null,
       stages: {},
@@ -57,6 +59,8 @@ export default class Synchronizer {
       subWords: 0,
       refWords: 0,
       subtitles: 0,
+      romanianSubContextAnchors: 0,
+      romanianRefContextAnchors: 0,
     };
 
     try {
@@ -93,9 +97,17 @@ export default class Synchronizer {
 
       try {
         this.recordStage(listener, 'pipeline-open', 'running');
+        const romanianSameLanguage =
+          ref.type === 'audio' && ref.lang === 'rum' && sub.lang === 'rum';
         const romanianPrimaryWindows = ref.type === 'audio' && ref.lang === 'rum'
           ? makePrimaryWindows(ref.duration)
           : null;
+        if (romanianSameLanguage) {
+          this.romanianContextAnchors = {
+            sub: new RomanianContextAnchorStream(),
+            ref: new RomanianContextAnchorStream(),
+          };
+        }
         if (romanianPrimaryWindows) {
           this.romanianScan = {
             duration: ref.duration,
@@ -111,7 +123,7 @@ export default class Synchronizer {
           this.diagnostics.romanianConvergence = this.romanianConvergence.getStatus();
           logger.log(
             `Romanian ASR adaptive scan: ${romanianPrimaryWindows.length} primary probes; `
-            + `up to ${RESCUE_WINDOWS} content-aware 30 s rescue probes if needed`
+            + `up to ${RESCUE_WINDOWS} content-aware rescue checks within the same 120 s rescue budget`
           );
         }
         await Promise.all([
@@ -280,7 +292,7 @@ export default class Synchronizer {
                 / this.romanianConvergence.totalWindows;
               logger.log(
                 `Romanian ASR primary stage remained noncanonical at ${convergence.lastPoints} points; `
-                + `continuing with ${rescueWindows.length} content-aware 30 s rescue probes`
+                + `continuing with ${rescueWindows.length} content-aware rescue checks within the 120 s reserve`
               );
             }
           } else {
@@ -323,11 +335,29 @@ export default class Synchronizer {
   async addSubWord(word) {
     const status = await this.correlator.addSubWord(word);
     this.status = selectCanonicalStatus(this.status, status);
+
+    if (this.romanianContextAnchors) {
+      const anchor = this.romanianContextAnchors.sub.push(word);
+      if (anchor) {
+        this.diagnostics.romanianSubContextAnchors += 1;
+        const anchorStatus = await this.correlator.addSubWord(anchor);
+        this.status = selectCanonicalStatus(this.status, anchorStatus);
+      }
+    }
   }
 
   async addRefWord(word) {
     const status = await this.correlator.addRefWord(word);
     this.status = selectCanonicalStatus(this.status, status);
+
+    if (this.romanianContextAnchors) {
+      const anchor = this.romanianContextAnchors.ref.push(word);
+      if (anchor) {
+        this.diagnostics.romanianRefContextAnchors += 1;
+        const anchorStatus = await this.correlator.addRefWord(anchor);
+        this.status = selectCanonicalStatus(this.status, anchorStatus);
+      }
+    }
   }
 
   recordStage(listener, stage, state, details) {
@@ -376,6 +406,8 @@ export default class Synchronizer {
         subWords: this.diagnostics.subWords,
         refWords: this.diagnostics.refWords,
         subtitles: this.diagnostics.subtitles,
+        romanianSubContextAnchors: this.diagnostics.romanianSubContextAnchors,
+        romanianRefContextAnchors: this.diagnostics.romanianRefContextAnchors,
         romanianConvergence: this.diagnostics.romanianConvergence
           ? { ...this.diagnostics.romanianConvergence }
           : null,

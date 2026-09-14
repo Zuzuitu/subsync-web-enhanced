@@ -3,11 +3,17 @@
 const WINDOW_SECONDS = 15;
 const PRIMARY_WINDOWS = 16;
 const RESCUE_WINDOW_SECONDS = 30;
-const RESCUE_WINDOWS = 4;
+const RESCUE_CONFIRMATION_WINDOW_SECONDS = 15;
+const RESCUE_LOCATIONS = 4;
+const RESCUE_DISCOVERY_WINDOWS = 3;
+const RESCUE_CONFIRMATION_WINDOWS = 2;
+const RESCUE_WINDOWS = RESCUE_DISCOVERY_WINDOWS + RESCUE_CONFIRMATION_WINDOWS;
 const MAX_WINDOWS = PRIMARY_WINDOWS + RESCUE_WINDOWS;
 const FULL_SCAN_SECONDS = WINDOW_SECONDS * PRIMARY_WINDOWS;
 const MAX_SPARSE_AUDIO_SECONDS =
-  FULL_SCAN_SECONDS + RESCUE_WINDOW_SECONDS * RESCUE_WINDOWS;
+  FULL_SCAN_SECONDS
+  + RESCUE_DISCOVERY_WINDOWS * RESCUE_WINDOW_SECONDS
+  + RESCUE_CONFIRMATION_WINDOWS * RESCUE_CONFIRMATION_WINDOW_SECONDS;
 const MIN_RESCUE_WINDOW_SECONDS = 15;
 
 function farthestFirstOrder(count) {
@@ -104,11 +110,8 @@ function makeGapCandidate(duration, gap, left, right, summaries) {
 
   let start;
   if (leftPriority > rightPriority) {
-    // Continue immediately after the primary probe that contributed stronger
-    // matching evidence (point gain first, speech volume second).
     start = gap[0];
   } else if (rightPriority > leftPriority) {
-    // Capture the lead-in immediately before the stronger matching probe.
     start = gap[1] - length;
   } else {
     start = gap[0] + (gapLength - length) / 2;
@@ -125,16 +128,7 @@ function makeGapCandidate(duration, gap, left, right, summaries) {
   };
 }
 
-function makeRescueWindows(duration, primaryWindows, primarySummaries = []) {
-  if (
-    !Number.isFinite(duration)
-    || duration <= FULL_SCAN_SECONDS
-    || !primaryWindows
-    || !primaryWindows.length
-  ) {
-    return [];
-  }
-
+function selectRescueLocations(duration, primaryWindows, primarySummaries = []) {
   const chronological = primaryWindows.slice().sort((a, b) => a[0] - b[0]);
   const candidates = [];
 
@@ -166,20 +160,15 @@ function makeRescueWindows(duration, primaryWindows, primarySummaries = []) {
     if (candidate) candidates.push(candidate);
   }
 
-  // Prefer actual matching evidence (candidate point gain first, recognized
-  // speech second), but keep one candidate per timeline quarter before filling
-  // spare slots. This prevents one locally easy scene from consuming the entire
-  // rescue budget.
   const selected = [];
   const used = new Set();
-  for (let quarter = 0; quarter < 4 && selected.length < RESCUE_WINDOWS; quarter++) {
+
+  // Preserve broad title coverage first.
+  for (let quarter = 0; quarter < 4 && selected.length < RESCUE_LOCATIONS; quarter++) {
     let bestIndex = -1;
     for (let i = 0; i < candidates.length; i++) {
       if (used.has(i) || candidates[i].quarter !== quarter) continue;
-      if (
-        bestIndex < 0
-        || candidates[i].score > candidates[bestIndex].score
-      ) {
+      if (bestIndex < 0 || candidates[i].score > candidates[bestIndex].score) {
         bestIndex = i;
       }
     }
@@ -198,18 +187,66 @@ function makeRescueWindows(duration, primaryWindows, primarySummaries = []) {
     );
 
   for (const item of remaining) {
-    if (selected.length >= RESCUE_WINDOWS) break;
+    if (selected.length >= RESCUE_LOCATIONS) break;
     selected.push(item.candidate);
   }
 
-  const chronologicalSelected = selected
-    .slice()
-    .sort((a, b) => a.window[0] - b.window[0]);
+  return selected;
+}
 
-  // Probe broad temporal coverage first; each selected location was already
-  // chosen using observed primary speech density.
-  return farthestFirstOrder(chronologicalSelected.length)
-    .map(index => chronologicalSelected[index].window);
+function splitConfirmationWindow(window) {
+  if (!window || window.length < 2) return [];
+  const [start, end] = window;
+  const length = end - start;
+  if (length < 2 * RESCUE_CONFIRMATION_WINDOW_SECONDS) {
+    return [window];
+  }
+  const mid = start + RESCUE_CONFIRMATION_WINDOW_SECONDS;
+  return [
+    [start, mid],
+    [mid, start + 2 * RESCUE_CONFIRMATION_WINDOW_SECONDS],
+  ];
+}
+
+function makeRescueWindows(duration, primaryWindows, primarySummaries = []) {
+  if (
+    !Number.isFinite(duration)
+    || duration <= FULL_SCAN_SECONDS
+    || !primaryWindows
+    || !primaryWindows.length
+  ) {
+    return [];
+  }
+
+  const selected = selectRescueLocations(
+    duration,
+    primaryWindows,
+    primarySummaries
+  );
+  if (!selected.length) return [];
+
+  // Keep the strongest location as a full 30 s discovery probe. Reserve the
+  // second-strongest location for two 15 s confirmation boundaries. This keeps
+  // the exact 120 s rescue-audio budget while giving the 3-check verifier one
+  // extra opportunity when canonical correlation appears late in rescue.
+  const ranked = selected.slice().sort((a, b) =>
+    b.score - a.score || a.window[0] - b.window[0]
+  );
+
+  const confirmation = ranked.length >= 2 ? ranked[1] : null;
+  const discovery = selected
+    .filter(candidate => candidate !== confirmation)
+    .sort((a, b) =>
+      b.score - a.score || a.window[0] - b.window[0]
+    )
+    .slice(0, RESCUE_DISCOVERY_WINDOWS)
+    .map(candidate => candidate.window);
+
+  if (!confirmation) {
+    return discovery;
+  }
+
+  return discovery.concat(splitConfirmationWindow(confirmation.window));
 }
 
 function makeRomanianTimeWindows(duration, primarySummaries = []) {
@@ -222,6 +259,10 @@ module.exports = {
   WINDOW_SECONDS,
   PRIMARY_WINDOWS,
   RESCUE_WINDOW_SECONDS,
+  RESCUE_CONFIRMATION_WINDOW_SECONDS,
+  RESCUE_LOCATIONS,
+  RESCUE_DISCOVERY_WINDOWS,
+  RESCUE_CONFIRMATION_WINDOWS,
   RESCUE_WINDOWS,
   MAX_WINDOWS,
   FULL_SCAN_SECONDS,
@@ -232,6 +273,8 @@ module.exports = {
   summaryEvidence,
   evidencePriority,
   makePrimaryWindows,
+  selectRescueLocations,
+  splitConfirmationWindow,
   makeRescueWindows,
   makeRomanianTimeWindows,
 };

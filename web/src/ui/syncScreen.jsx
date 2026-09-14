@@ -301,6 +301,9 @@ export default class SyncScreen {
           ? ` · rescue: ready 0/${convergence.rescueWindowsTotal}`
           : ''
       : '';
+    const anchorText = convergence
+      ? ` · context anchors: ${diagnostics.refWords ? diagnostics.romanianRefContextAnchors || 0 : 0}`
+      : '';
     const convergenceText = convergence
       ? ` · Romanian probes: ${convergence.completedWindows}/${convergence.totalWindows}`
         + rescueText
@@ -314,6 +317,7 @@ export default class SyncScreen {
       : '';
     this.diagnosticEvidence.textContent =
       `Decoded subtitles: ${subCount} · subtitle words: ${subWords} · reference words: ${refWords}`
+      + anchorText
       + convergenceText;
   }
 

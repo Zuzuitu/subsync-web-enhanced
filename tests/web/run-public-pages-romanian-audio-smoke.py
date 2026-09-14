@@ -20,6 +20,7 @@ PREVIEW_URL = os.environ.get(
 MIN_CORRELATION_BUCKETS = 20
 MIN_SPARSE_CUES = 64
 MIN_SPARSE_CUES_PER_MINUTE = 8.0
+REQUIRE_CONTEXT_ANCHORS = os.environ.get("SUBSYNC2_REQUIRE_CONTEXT_ANCHORS", "0") == "1"
 
 
 def parse_srt_start(text):
@@ -208,6 +209,13 @@ with sync_playwright() as p:
     if reference_words < 20:
         raise SystemExit(f"Public Romanian ASR produced too few usable reference words: {reference_words}")
 
+    anchor_match = re.search(r"context anchors:\s*(\d+)", app_text)
+    context_anchors = int(anchor_match.group(1)) if anchor_match else 0
+    if REQUIRE_CONTEXT_ANCHORS and context_anchors <= 0:
+        raise SystemExit(
+            "Post-deploy Romanian audio workflow produced no lexical context anchors"
+        )
+
     probe_match = re.search(
         r"Romanian probes:\s*(\d+)\s*/\s*(\d+).*adaptive lock:\s*verified",
         app_text,
@@ -267,6 +275,7 @@ with sync_playwright() as p:
         "url": PREVIEW_URL,
         "detectedReferenceLanguage": detected,
         "referenceWords": reference_words,
+        "romanianContextAnchors": context_anchors,
         "romanianAdaptiveProbesCompleted": completed_probes,
         "romanianAdaptiveProbesTotal": total_probes,
         "assetTransitions": transitions,
