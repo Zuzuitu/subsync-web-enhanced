@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-14 22:55 Europe/Rome
+LAST_UPDATED: 2026-09-14 23:05 Europe/Rome
 
 ## Canonical status
 
@@ -851,15 +851,65 @@ Canonical decisions:
 
 ## Next sequence
 
-1. Treat PR #38 runtime `ff81b54509d5ec766200f5d724c9ca8f505fbbe3`
-   as the current physically validated Romanian single-file baseline.
-2. Do not add a constant +/− millisecond compensation based on Frozen II.
-3. If pursuing additional accuracy, first add matched-point/formula-confidence
-   diagnostics or a bounded evidence-polish strategy that can justify using the
-   remaining probe when formula uncertainty is still material.
-4. Preserve all canonical sc0ty thresholds and the 360 s sampled-audio cap.
-5. Keep batch/multi-upload deferred until the user decides the single-file
-   accuracy/runtime trade-off is good enough for product expansion.
+### Product decision after PR #38 physical validation
+
+The PR #38 runtime
+`ff81b54509d5ec766200f5d724c9ca8f505fbbe3`
+is the physically validated Romanian single-file baseline.
+
+Do **not** chase the remaining Frozen II residual with a constant millisecond
+offset. The exact comparison already shows the sign changes across the title,
+so a fixed compensation would overfit one reproduction and can regress other
+titles.
+
+The agreed engineering sequence is:
+
+1. **Formula Confidence + Precision Diagnostics**
+   - expose confidence/robustness of the accepted linear formula without
+     changing canonical acceptance;
+   - report point distribution across beginning/middle/end;
+   - report sensitivity of `a` / `b` and mapped title timing to evidence
+     removal / perturbation where technically safe;
+   - distinguish canonical acceptance from precision confidence;
+   - keep the current formula as the saved output during this sprint.
+
+2. **Real-title validation set**
+   - validate the stable runtime / diagnostics on approximately 3–5 real titles
+     rather than optimizing against Frozen II alone;
+   - include different error classes when possible: near-synchronized,
+     constant-offset, small-drift, and edition/cut differences;
+   - use those results to decide whether a common systematic bias actually
+     exists.
+
+3. **Precision Polish only if evidence justifies it**
+   - if multiple real titles show a repeatable residual, introduce an optional
+     post-lock robust refinement of slope/intercept;
+   - this refinement may improve precision but must not decide whether a
+     synchronization is canonical;
+   - do not simply uncomment historical score multiplication inside the
+     correlator and do not weaken sc0ty thresholds.
+
+4. **Product expansion after precision confidence**
+   - local sequential Batch / Queue to avoid iPhone memory spikes;
+   - checkpoint/resume across Safari suspension or interrupted runs;
+   - smarter audio/subtitle language-track selection;
+   - final user-facing quality score such as Excellent / Good / Uncertain based
+     on evidence, not only displayed correlation;
+   - before/after timing preview at beginning / middle / end;
+   - language/dictionary compatibility matrix and integrity/coverage audit;
+   - optional piecewise mode later for true cut/edition differences, never as
+     the default replacement for the canonical linear sc0ty path.
+
+Guardrails for all of the above:
+- canonical thresholds remain unchanged;
+- maximum Romanian sampled-audio budget remains 360 s unless separately
+  justified by new evidence;
+- browser-local processing remains mandatory;
+- no paid API/service without explicit user approval;
+- no title/device-specific timing constants;
+- repository truth and branch -> PR -> CI green -> merge remain mandatory.
+
+Immediate sprint: **Formula Confidence + Precision Diagnostics**.
 
 
 ## Session closeout — 13 September 2026
