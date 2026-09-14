@@ -258,8 +258,13 @@ with sync_playwright() as p:
     original = SRT_IN.read_text(encoding="utf-8")
     output = SAVED.read_text(encoding="utf-8")
     shift = parse_srt_start(output) - parse_srt_start(original)
-    if not (-9.5 <= shift <= -6.0):
-        raise SystemExit(f"Public Romanian audio saved timing correction out of range: {shift:.3f}s")
+    expected_shift = -8.0
+    max_fine_timing_error = 0.60
+    if abs(shift - expected_shift) > max_fine_timing_error:
+        raise SystemExit(
+            f"Public Romanian audio fine timing error too large: {shift:.3f}s "
+            f"(expected {expected_shift:.3f}s ± {max_fine_timing_error:.2f}s)"
+        )
 
     required_diacritics = [
         "așteaptă", "dimineață", "împreună", "poliția",
