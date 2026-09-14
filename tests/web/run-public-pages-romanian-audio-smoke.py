@@ -244,6 +244,29 @@ with sync_playwright() as p:
     formula = details_strong.nth(3).inner_text()
     max_change = details_strong.nth(4).inner_text()
 
+    precision_evidence_row = page.locator('[data-diagnostic="precision-evidence"]')
+    precision_robustness_row = page.locator('[data-diagnostic="precision-robustness"]')
+    if precision_evidence_row.is_hidden() or precision_robustness_row.is_hidden():
+        raise SystemExit("Public Romanian audio workflow did not expose precision diagnostics")
+    precision_evidence = precision_evidence_row.inner_text()
+    precision_robustness = precision_robustness_row.inner_text()
+    thirds = re.search(r"thirds\s+(\d+)/(\d+)/(\d+)", precision_evidence)
+    buckets_match = re.search(r"(\d+)\s+cue buckets", precision_evidence)
+    if not thirds or not buckets_match:
+        raise SystemExit("Public Romanian precision evidence is malformed: " + precision_evidence)
+    precision_buckets = int(buckets_match.group(1))
+    precision_thirds = tuple(map(int, thirds.groups()))
+    if precision_buckets < MIN_CORRELATION_BUCKETS:
+        raise SystemExit(
+            f"Public Romanian precision diagnostics exposed only {precision_buckets} canonical cue buckets"
+        )
+    if any(value <= 0 for value in precision_thirds):
+        raise SystemExit(
+            f"Public Romanian precision evidence did not cover all title thirds: {precision_thirds}"
+        )
+    if not re.search(r"leave-one-cue max\s+\d+\s+ms", precision_robustness):
+        raise SystemExit("Public Romanian formula sensitivity is malformed: " + precision_robustness)
+
     save_button = page.get_by_role("button", name="Save subtitles", exact=True)
     if save_button.is_disabled():
         raise SystemExit("Public Romanian audio workflow did not enable subtitle save")
@@ -308,6 +331,10 @@ with sync_playwright() as p:
         "correlationText": correlation,
         "formulaText": formula,
         "maxChangeText": max_change,
+        "precisionEvidenceText": precision_evidence,
+        "precisionRobustnessText": precision_robustness,
+        "precisionBuckets": precision_buckets,
+        "precisionThirdBuckets": precision_thirds,
         "savedTimingShiftSeconds": shift,
         "timingQuality": timing_quality,
         "strictFineTimingRequired": REQUIRE_FINE_TIMING,
