@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-14 00:20 Europe/Rome
+LAST_UPDATED: 2026-09-14 09:31 Europe/Rome
 
 ## Canonical status
 
@@ -24,107 +24,84 @@ Pinned upstream baseline: `c888da7257d57bf039523c9f7015feacb4b95dc3`
 Public preview: `https://zuzuitu.github.io/subsync-web-enhanced/`
 
 Current product/runtime state:
-- PR #34 `Use content-aware Romanian rescue after physical iPhone failure`: **MERGED**;
-- PR #34 merge / deployed product-runtime commit:
-  `d2d78f7497ec42ebb1f1c4c149e4a3b9bbdb5556`;
-- main-push CI `34783010599`: **PASS**;
-- Romanian primary fast path remains 16 × 15 s;
-- if primary remains noncanonical, rescue is generated dynamically from observed
-  primary evidence and uses up to 4 × 30 s windows;
-- rescue ranking prioritizes actual candidate synchronization-point gain, with
-  recognized speech volume only as a secondary signal;
-- rescue stays distributed across the title and preserves the same 360 s /
-  6-minute maximum sampled-audio budget;
+- PR #36 `Disambiguate Romanian correlation and reserve confirmation checks`:
+  **MERGED**;
+- PR #36 merge / deployed product-runtime commit:
+  `0d7a7b4177518e4fd324b200c1773be6eb8f1c0d`;
+- main-push CI `34816651422`: **PASS**;
 - canonical sc0ty synchronization thresholds remain unchanged;
+- Romanian primary fast path remains 16 × 15 s;
+- Romanian same-language matching now augments single-word evidence with hashed
+  adjacent-word lexical context anchors;
+- rescue keeps the 360 s / 6-minute sampled-audio cap while reserving extra
+  verifier boundaries: three 30 s discovery probes plus two 15 s confirmation
+  probes from four content-aware locations;
+- maximum adaptive probe boundaries are now 21;
 - Romanian adaptive Save remains fail-closed until verified adaptive convergence.
 
-PR #34 validation:
-- CI `34780660040`: **PASS**;
-- Mobile WebKit Compatibility `34780660115`: **PASS**;
-- Large-file Browser Stress `34780660006`: **PASS**;
-- Legacy WebAssembly Build `34780660103`, attempt 2: **PASS**;
-- the first Legacy WebAssembly attempt failed only in the Romanian WebKit
-  execution with `Out of bounds call_indirect` at 0/20 probes; rerun attempt 2
-  passed the same fresh-WASM Romanian Chromium and WebKit path, so that isolated
-  CI event is not treated as a confirmed product regression.
+PR #36 validation:
+- CI `34787178683`: **PASS**;
+- Mobile WebKit Compatibility `34787178727`: **PASS**;
+- Large-file Browser Stress `34787178687`: **PASS**;
+- Public Pages Language Smoke PR gate `34787178802`: **PASS**;
+- Legacy WebAssembly Build `34787178704`: **PASS**.
 
 Latest deliberate product preview deployment:
-- Deploy PWA Preview `34783030385`: **PASS**;
+- Deploy PWA Preview `34816680938`: **PASS**;
 - deployed product commit:
-  `d2d78f7497ec42ebb1f1c4c149e4a3b9bbdb5556`;
-- authoritative fresh legacy extractor/correlator build: **PASS**;
+  `0d7a7b4177518e4fd324b200c1773be6eb8f1c0d`;
+- fresh legacy extractor/correlator build: **PASS**;
 - isolated Romanian Whisper SIMD build/runtime: **PASS**;
 - Romanian Chromium E2E: **PASS**;
 - Romanian iPhone-like WebKit E2E: **PASS**;
 - GitHub Pages artifact/deployment: **PASS**.
 
 Post-deploy public Pages validation:
-- Public Pages Language Smoke `34783620010`: **PASS**;
+- Public Pages Language Smoke `34817766344`: **PASS**;
 - live `whisper.js` and `whisper.wasm` were served with exact version hash
-  `d2d78f7497ec42ebb1f1c4c149e4a3b9bbdb5556`;
-- representative original-language delivery and signed catalog checks passed;
-- live Romanian E2E: **148** usable reference words, adaptive lock after
-  **9/20** probes, **26** synchronization points, displayed **100.00%**
-  correlation, formula `1.0002x-8.884`, and saved timing correction
-  **-8.880 s** for the known +8 s fixture;
-- Romanian model lifecycle and saved-diacritic checks passed;
+  `0d7a7b4177518e4fd324b200c1773be6eb8f1c0d`;
+- representative original-language delivery and catalog checks passed;
+- live Romanian E2E: **156** usable reference words, **141** Romanian context
+  anchors, adaptive lock after **10/21** probes, **27** synchronization points,
+  displayed **100.00%** correlation, formula `1.0003x-8.824`, and saved
+  timing correction **-8.818 s** for the known +8 s fixture;
 - zero console errors, page errors or HTTP failures.
 
-The public fixture converged during the unchanged primary fast path, so it
-confirms no primary regression and confirms the exact PR #34 runtime is live.
-The content-aware rescue path remains release-candidate behavior pending the
-same real physical-iPhone Frozen II reproduction.
+The public fixture converged during the primary phase, so it validates the exact
+PR #36 runtime, anchor path and unchanged fast path, but does not substitute for
+the real physical Frozen II reproduction that motivated PR #36.
 
 ## Immediate milestone
 
-The first physical iPhone/Safari retest of deployed PR #34 is a confirmed
-**FAIL / INCONCLUSIVE** result on the same Frozen II reproduction.
+PR #36 is merged, deliberately deployed and independently verified on the
+public Pages URL. The next authoritative gate is now a physical iPhone/Safari
+retest on the same Frozen II reproduction that failed PR #34.
 
-Observed physical evidence:
-- real iPhone/Safari;
+Latest physical reproduction, from PR #34:
 - same >2 GB dual-audio Frozen II MKV + Romanian SRT;
 - elapsed **12:52**;
-- **20/20** total probes completed;
-- **4/4** rescue probes completed;
+- 20/20 probes, rescue 4/4;
 - 243 usable reference words;
-- 26 synchronization points;
-- displayed correlation **100.00%**;
-- candidate point gain on the final probe **+4**;
-- candidate span **81%**;
-- canonical span **81%**;
-- stable checks **2/3**;
-- adaptive lock remained pending;
-- provisional formula `1.0002x-0.950`;
-- max change `0:00:941`;
-- terminal diagnosis: correlation evidence was not strong enough to accept a
-  timing correction.
+- 26 points;
+- candidate gain +4;
+- candidate and canonical span 81%;
+- stable checks 2/3;
+- adaptive lock pending;
+- displayed correlation 100.00%;
+- provisional formula `1.0002x-0.950`.
 
-This result is materially different from the earlier 18/20 failure:
-- canonical point count and evidence span now exceed the required guards;
-- the verifier still correctly rejected the result because only two stable
-  confirmations were available;
-- the provisional ~-0.95 s formula is also inconsistent with the intentionally
-  large timing displacement used by this physical reproduction, so simply
-  forcing a third confirmation would risk accepting the wrong line.
+PR #36 addresses the two observed weaknesses without changing sc0ty acceptance
+thresholds:
+1. adjacent Romanian word pairs create lexical context anchors that augment the
+   original correlator and reduce ambiguity from repeated/common single words;
+2. the same 120 s rescue reserve is scheduled as three 30 s discovery probes
+   plus two 15 s confirmation probes, preserving the total six-minute sampled
+   audio budget while giving the 3-check verifier another boundary.
 
-The active fix therefore addresses both observed failure modes without changing
-canonical sc0ty thresholds:
-1. add **Romanian lexical context anchors** built from adjacent recognized /
-   subtitle word pairs; these are fed only as extra matching evidence into the
-   original correlator, so repeated/common single-word matches have less chance
-   to dominate line selection;
-2. keep the same **360 s / 6-minute sampled-audio cap**, but reserve part of the
-   120 s rescue budget for extra verifier boundaries: three 30 s discovery
-   probes plus two 15 s confirmation probes from four content-aware locations.
-
-Branch under validation:
-`fix/romanian-context-confirmation`.
-Branch push CI `34786777927`: **PASS**. Full PR browser/fresh-WASM gates remain pending.
-
-Do not mark Romanian single-file support release-stable until this branch passes
-fresh-WASM/Chromium/WebKit/large-file gates, is deliberately deployed, and the
-same physical Frozen II test reaches a verified lock with practical alignment
-checked at beginning, middle and end.
+The deployed build may use up to **21 probes**. Save must remain disabled while
+adaptive lock is pending. Do not call Romanian single-file support physically
+release-stable until this exact build reaches verified lock on a real iPhone and
+practical alignment is checked at beginning, middle and end.
 
 ## Product goal
 
@@ -701,7 +678,9 @@ Romanian audio physical status:
    - canonical point/span guards were satisfied, but verification did not reach
      the required third stable confirmation.
 
-5. **Romanian context-anchor + confirmation-reserve fix — IMPLEMENTATION / VALIDATION IN PROGRESS**
+5. **PR #36 context-anchor + confirmation-reserve — DEPLOYED / PHYSICAL RETEST PENDING**
+   - product runtime:
+     `0d7a7b4177518e4fd324b200c1773be6eb8f1c0d`;
    - primary remains 16 × 15 s;
    - canonical thresholds remain unchanged;
    - adjacent Romanian word pairs generate hashed lexical context anchors that
@@ -712,9 +691,11 @@ Romanian audio physical status:
    - same 120 s rescue audio budget is scheduled as three 30 s discovery probes
      plus two 15 s confirmation probes;
    - maximum sampled Romanian audio remains 360 s / 6 minutes;
-   - maximum adaptive probe boundaries become 21 rather than 20;
+   - maximum adaptive probe boundaries are 21;
    - browser diagnostics expose Romanian context-anchor count;
-   - branch: `fix/romanian-context-confirmation`.
+   - PR, fresh-WASM, WebKit, large-file, deliberate deploy and post-deploy live
+     smoke gates are all green;
+   - same physical Frozen II retest is the next authoritative gate.
 
 Model bytes persist through browser IDBFS. Active job persistence/resume across
 Safari background suspension is still not implemented; physical release tests
@@ -755,23 +736,29 @@ Canonical decisions:
 
 ## Next sequence
 
-1. Validate `fix/romanian-context-confirmation` with governance/unit CI.
-2. Require fresh Legacy WebAssembly Romanian Chromium + iPhone-like WebKit E2E,
-   Mobile WebKit Compatibility, Large-file Browser Stress and PWA gates.
-3. Verify browser E2E produces real Romanian lexical context anchors and still
-   saves the known shifted fixture within the accepted timing range.
-4. Merge only when all gates are green.
-5. Deliberately deploy the exact merge commit and run post-deploy Public Pages
-   smoke against that runtime.
-6. Retest the same physical Frozen II title on iPhone/Safari, keeping Safari
-   foregrounded until terminal state.
-7. Record elapsed time, probes X/N, rescue X/N, reference words, context-anchor
-   count, points, candidate gain/span, canonical span, formula, stable checks,
-   adaptive lock and practical beginning/middle/end alignment.
-8. If the same physical test still prefers an implausible near-zero formula,
-   do not relax thresholds or merely add more audio. Use the new anchor and
-   candidate diagnostics to investigate line ambiguity / lexical mismatch
-   before another product change.
+1. Retest the same physical Frozen II >2 GB dual-audio title on iPhone/Safari
+   against deployed runtime
+   `0d7a7b4177518e4fd324b200c1773be6eb8f1c0d`.
+2. Keep Safari foregrounded until terminal state.
+3. Record:
+   - elapsed time;
+   - Romanian probes X/21;
+   - rescue X/5;
+   - reference words;
+   - Romanian context-anchor count;
+   - synchronization points;
+   - candidate gain/span;
+   - canonical span;
+   - formula;
+   - stable checks;
+   - adaptive lock verified/pending;
+   - Save state;
+   - practical alignment at beginning / middle / end.
+4. If the same physical test still prefers an implausible near-zero formula, do
+   not relax thresholds or merely add more audio. Use anchor/candidate evidence
+   to isolate line ambiguity versus Romanian dub/SRT lexical mismatch.
+5. Only after a physical pass mark Romanian single-file support
+   release-stable. Batch/multi-upload remains deferred until then.
 
 ## Session closeout — 13 September 2026
 
@@ -800,6 +787,19 @@ Confirmed state at closeout:
   web single-file path is physically release-stable.
 
 ## Open blockers
+
+- PR #36 is deployed and all automated/live gates are green, but the same real
+  physical iPhone/Frozen II retest is still required before Romanian
+  single-file support can be called physically release-stable;
+- browser job resume/persistence across Safari suspension/backgrounding is not
+  implemented;
+- the historical real-world direct-MKV failure class remains
+  reproduction-dependent on a representative failing file;
+- not every original sc0ty language/model pair has a dedicated full
+  recognition/correlation E2E, although the complete signed catalog is deployed
+  and representative live loading is validated;
+- batch/multi-upload remains deliberately deferred until optimized single-file
+  reliability is physically confirmed.
 
 - PR #34 contextual rescue physically failed on Frozen II despite 26 points and
   81% span because adaptive verification stopped at 2/3 stable checks; the
