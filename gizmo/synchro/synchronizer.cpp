@@ -3,8 +3,27 @@
 #include "general/logger.h"
 #include <sstream>
 #include <iomanip>
+#include <algorithm>
+#include <map>
+#include <vector>
 
 using namespace std;
+
+
+PrecisionStats::PrecisionStats() :
+	available(false),
+	rawPoints(0),
+	buckets(0),
+	beginningBuckets(0),
+	middleBuckets(0),
+	endBuckets(0),
+	jackknifeSamples(0),
+	maxMappedDelta(0.0),
+	medianMappedDelta(0.0),
+	maxSlopeDeltaPpm(0.0),
+	maxOffsetDelta(0.0)
+{
+}
 
 
 CorrelationStats::CorrelationStats() :
@@ -169,4 +188,119 @@ Points Synchronizer::getUsedPoints() const
 	const CorrelationStats stats = correlate();
 	const Line line(stats.formula.a, stats.formula.b);
 	return line.getPointsInLine(m_lineFinder.getPoints(), m_maxDistanceSqr);
+}
+
+
+PrecisionStats Synchronizer::getPrecisionStats(double duration) const
+{
+	PrecisionStats precision;
+	const CorrelationStats stats = correlate();
+
+	// Precision diagnostics are deliberately downstream of canonical acceptance.
+	// They never participate in correlation, point filtering, Save eligibility,
+	// or the selected timing formula.
+	if (!stats.correlated)
+		return precision;
+
+	const Points used = getUsedPoints();
+	precision.rawPoints = used.size();
+	if (used.size() < 2 || m_buckets.empty())
+		return precision;
+
+	// Group every aligned raw match by the same subtitle-end bucket semantics
+	// already used by countBuckets(). This prevents repeated words / Romanian
+	// context anchors inside one subtitle cue from pretending to be independent
+	// evidence in the robustness calculation.
+	std::map<float, Points> grouped;
+	for (const Point &pt : used)
+	{
+		Buckets::const_iterator bucket = m_buckets.lower_bound(pt.x);
+		if (bucket != m_buckets.end())
+			grouped[*bucket].insert(pt);
+	}
+
+	precision.buckets = grouped.size();
+	if (grouped.empty())
+		return precision;
+
+	const double refDuration = duration > 0.0 ? duration : 0.0;
+	for (const auto &entry : grouped)
+	{
+		double refTime = 0.0;
+		for (const Point &pt : entry.second)
+			refTime += pt.y;
+		refTime /= (double) entry.second.size();
+
+		if (refDuration > 0.0)
+		{
+			const double ratio = std::max(0.0, std::min(1.0, refTime / refDuration));
+			if (ratio < 1.0 / 3.0)
+				precision.beginningBuckets++;
+			else if (ratio < 2.0 / 3.0)
+				precision.middleBuckets++;
+			else
+				precision.endBuckets++;
+		}
+	}
+
+	const double evalEnd = std::max(
+		refDuration,
+		m_buckets.empty() ? 0.0 : (double) *m_buckets.rbegin()
+	);
+	std::vector<double> mappedDeltas;
+
+	for (const auto &entry : grouped)
+	{
+		Points remaining = used;
+		for (const Point &pt : entry.second)
+			remaining.erase(pt);
+
+		if (remaining.size() < 2)
+			continue;
+
+		Line alternative;
+		const double factor = alternative.interpolate(remaining);
+		if (!std::isfinite(factor)
+				|| !std::isfinite(alternative.a)
+				|| !std::isfinite(alternative.b))
+		{
+			continue;
+		}
+
+		const double deltaStart = std::abs(
+			(double) alternative.getY(0.0f) - (double) stats.formula.getY(0.0f)
+		);
+		const double deltaEnd = std::abs(
+			(double) alternative.getY((float) evalEnd)
+			- (double) stats.formula.getY((float) evalEnd)
+		);
+		const double mappedDelta = std::max(deltaStart, deltaEnd);
+		mappedDeltas.push_back(mappedDelta);
+
+		precision.maxMappedDelta = std::max(
+			precision.maxMappedDelta,
+			mappedDelta
+		);
+		precision.maxSlopeDeltaPpm = std::max(
+			precision.maxSlopeDeltaPpm,
+			std::abs((double) alternative.a - (double) stats.formula.a) * 1000000.0
+		);
+		precision.maxOffsetDelta = std::max(
+			precision.maxOffsetDelta,
+			std::abs((double) alternative.b - (double) stats.formula.b)
+		);
+	}
+
+	precision.jackknifeSamples = mappedDeltas.size();
+	if (!mappedDeltas.empty())
+	{
+		std::sort(mappedDeltas.begin(), mappedDeltas.end());
+		const size_t mid = mappedDeltas.size() / 2;
+		precision.medianMappedDelta = mappedDeltas.size() % 2
+			? mappedDeltas[mid]
+			: 0.5 * (mappedDeltas[mid - 1] + mappedDeltas[mid]);
+		precision.available = true;
+	}
+
+	return precision;
 }

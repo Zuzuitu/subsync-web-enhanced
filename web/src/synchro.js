@@ -49,6 +49,7 @@ export default class Synchronizer {
     this.subtitles = new Subtitles();
     this.status = {};
     this.gotAllSubs = false;
+    this.referenceDuration = Number(ref && ref.duration) || 0;
     this.romanianConvergence = null;
     this.romanianScan = null;
     this.romanianContextAnchors = null;
@@ -61,6 +62,7 @@ export default class Synchronizer {
       subtitles: 0,
       romanianSubContextAnchors: 0,
       romanianRefContextAnchors: 0,
+      precision: null,
     };
 
     try {
@@ -141,6 +143,7 @@ export default class Synchronizer {
       this.recordStage(listener, 'processing', 'running');
       listener.onSyncStarted();
       await Promise.all(this.extractors.map( (ex, i) => this.runExtractor(ex, i, listener)) );
+
       this.recordStage(listener, 'processing', 'ready');
       this.recordStage(listener, 'correlation', 'ready', {
         points: this.status.points || 0,
@@ -229,7 +232,7 @@ export default class Synchronizer {
 
         let rawStats;
         try {
-          rawStats = await this.correlator.getStats();
+          rawStats = await this.correlator.getStats(this.referenceDuration);
         } catch (e) {
           const err = this.recordError(listener, annotateErrorStage(e, 'correlation'));
           onError(err);
@@ -237,6 +240,9 @@ export default class Synchronizer {
         }
 
         this.status = selectCanonicalStatus(this.status, rawStats);
+        if (this.status && this.status.precision) {
+          this.diagnostics.precision = { ...this.status.precision };
+        }
         let convergence = this.romanianConvergence.observe(
           s.windowCompleted,
           s.windowCompleted.wordCount || 0,
@@ -410,6 +416,9 @@ export default class Synchronizer {
         romanianRefContextAnchors: this.diagnostics.romanianRefContextAnchors,
         romanianConvergence: this.diagnostics.romanianConvergence
           ? { ...this.diagnostics.romanianConvergence }
+          : null,
+        precision: this.diagnostics.precision
+          ? { ...this.diagnostics.precision }
           : null,
       } : null,
     };
