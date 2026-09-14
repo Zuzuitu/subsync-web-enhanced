@@ -13,31 +13,87 @@ Repository truth overrides chat memory. Before material changes, read in this or
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
 
-## Active observability follow-up — PR #42
+## Latest verified state — PR #42 observability closeout
 
-Repository inspection confirms PR #41 merged at
-`d0af1c8e5d04510f18d56885be87b448b239d05d`. It adds read-only formula
-precision diagnostics; PR #38 remains the physical Frozen II timing baseline.
+This section supersedes older deployment/current-status sections below.
 
-PR #42 completes strict public-smoke result persistence:
-- completed-run timing/precision evidence is written with `status` and
-  `failureReasons` before a strict failure exits nonzero;
-- first-cue ±0.60 s, full-title p95 ≤0.60 s and affine drift ±0.35 s remain;
-- browser/runtime failures also mark the completed result as failed;
-- artifact upload retains `if: always()`;
-- manual public smoke, like the dedicated test-branch push, enforces strict
-  timing/context/precision; PR smoke remains compatible with the live runtime;
-- five deterministic helper regressions pass locally and are included in CI.
+- PR #41 product runtime remains `d0af1c8e5d04510f18d56885be87b448b239d05d`.
+- PR #42 merged at `15a9003c132301e0b6fb2706db78f98ce99b27fd`.
+- PR #42 changes completed-run diagnostic persistence only; no product deploy,
+  algorithm, fixture-generation, threshold, Save-policy or sampling change.
+- PR gates all PASS: CI `34905814099`, Public Pages `34905814127`,
+  Legacy WebAssembly Build `34905814169` (including Chromium and iPhone-like
+  WebKit Romanian E2E). Main CI `34906730291`: PASS.
+- Strict post-merge public smoke `34906737236`: PASS on exact PR41 runtime.
+- Artifact `10373021441` was downloaded and inspected: complete JSON with
+  `status=pass`, `failureReasons=[]`, strict timing/precision enabled, all
+  timing/precision/probe evidence and zero console/page/HTTP errors.
+- Strict result: 147 reference words, 132 anchors, 9/21 probes, 28 points,
+  94% canonical span, stable 3/3, verified lock, formula `1.0003x-8.545`,
+  saved shift -8.540 s; p95 0.53405 s and drift 0.131355 s.
+- Precision: 28 buckets, thirds 9/9/10, 89 raw matches; leave-one-cue max
+  239 ms, median 59 ms, slope max 691 ppm. These are sensitivity diagnostics,
+  not calibrated confidence intervals or measured subtitle accuracy.
+- Physical Frozen II PR38 remains PASS: mean absolute 94.4 ms, median 78 ms,
+  p95 226.6 ms, maximum 283 ms. The CI fixture is a separate input.
 
-The interrupted branch also contained a Piper synthesis change at `cf957da`.
-That change is deliberately removed from this PR's final diff to capture the
-existing fixture's evidence before changing its generation. The old commit
-remains available for subsequent investigation. No product runtime is changed.
+Completed-run failures now preserve JSON before nonzero exit, including all
+failure reasons. Five deterministic regressions cover PASS, both drift signs,
+multiple reasons, browser failures and missing timing. Artifact upload keeps
+`if: always()`. Limits remain first-cue ±0.60 s, p95 ≤0.60 s and drift ±0.35 s.
+Manual smoke and dedicated test-branch push enforce strict checks; PR smoke
+remains compatible with the live runtime. Pre-completion failures outside the
+existing timeout handler remain outside this narrow completed-result fix.
 
-Remaining gate: PR CI, merge, then strict public smoke and artifact comparison.
-Do not infer a timing root cause from a successful synchronization or a single
-passing rerun. Pre-completion failures outside the existing timeout handler are
-not covered by this narrowly scoped completed-result fix.
+### Evidence comparison and next decision
+
+| Run | Runtime | p95 start error (s) | Affine drift (s) | Precision buckets / thirds | Leave-one-cue max / median |
+| --- | --- | ---: | ---: | --- | --- |
+| PR38 strict `34842464186` | PR38 | 0.54610 | 0.168665 | Not exposed | Not exposed |
+| PR41 strict FAIL `34901669357` | PR41 | 0.55830 | 0.449828 | JSON lost before fix | JSON lost before fix |
+| PR42 PR gate `34905814127` | PR41 | 0.32105 | 0.055522 | 27 / 10,8,9 | 167 / 53 ms |
+| PR42 strict `34906737236` | PR41 | 0.53405 | 0.131355 | 28 / 9,9,10 | 239 / 59 ms |
+
+The failed PR41 metrics were recovered from its saved SRT and the exact
+`fixture.json` cue times, rounded to SRT milliseconds; no missing precision
+values were invented. Its start-error thirds were -512.5/-363/-208.5 ms.
+
+Confirmed input variability:
+- PR38 versus failed PR41: identical phrase text, but 78/80 phrase durations
+  changed; maximum duration delta 220.5625 ms and cue-start delta 448.75 ms.
+- The new PR gate versus strict run, both on PR41 runtime: 77/80 durations
+  changed; maximum cue-start delta 815.875 ms. Formula changes therefore cannot
+  be interpreted as repeatability failures on identical audio.
+- Earlier PR42 commit `cf957da` changed local Piper noise defaults. That change
+  was removed from PR42's final diff to keep this observability fix isolated.
+  Two artifacts (`10372417132`, `10372622509`) from its prior run have identical
+  phrase timing metadata but 157 versus 161 reference words and different
+  formulas. PCM hashes are absent, so neither bit-identical audio nor ASR
+  stochasticity is established. The old commit is a candidate, not a proven
+  complete stabilization fix.
+
+Next sprint: **fixture reproducibility and an additional diagnostic layer**,
+not a product formula adjustment yet:
+1. Record synthesis configuration and SHA256 of normalized PCM and target SRT;
+   retain/reuse identical synthetic input for repeated same-runtime tests.
+2. Validate proposed deterministic Piper generation with repeated PCM hashes.
+3. If identical input still varies, capture reference-word timestamps and actual
+   fit points/buckets per probe, with single-word versus anchor provenance.
+4. Distinguish the actual final `correlate()` hit set from `getUsedPoints()`,
+   which reselects all points within the accepted line's distance band. Current
+   jackknife diagnostics use the latter, so they may not represent removal from
+   precisely the original fitted set. This is a diagnostic caveat, not a proven
+   synchronization root cause.
+5. Fix the diagnostic key collision in `srt_timing.py`: `endMedianErrorSeconds`
+   represents both cue-end median and final-third start median; the latter
+   overwrites the former. Existing p95/drift thresholds are unaffected.
+
+A passing rerun does not close the variability investigation. Weak-bucket,
+anchor-weighting, LineFinder sensitivity and ASR timing causes are not yet
+isolated. Do not add a constant offset or alter fitting based on this dataset.
+After controlled-input diagnosis, proceed with 3–5 physical real-title tests
+and the previously agreed product roadmap. No new physical iPhone test was
+required for this test-infrastructure-only change.
 
 ## Current status
 
