@@ -19,7 +19,6 @@ EVIDENCE.mkdir(parents=True, exist_ok=True)
 model_path = OUT / f'{VOICE["voice"]}.onnx'
 config_path = OUT / f'{VOICE["voice"]}.onnx.json'
 
-
 def download(url, destination):
     partial = destination.with_name(destination.name + ".part")
     errors = []
@@ -42,10 +41,8 @@ def download(url, destination):
         f"Unable to download pinned fixture asset {url}: " + " | ".join(errors)
     )
 
-
 def sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
-
 
 download(VOICE["modelUrl"], model_path)
 download(VOICE["configUrl"], config_path)
@@ -56,7 +53,6 @@ if model_sha != VOICE["modelSha256"]:
         f"SHA-256 mismatch for {model_path.name}: {model_sha} != {VOICE['modelSha256']}"
     )
 
-source_config_sha = sha256(config_path)
 voice_config = json.loads(config_path.read_text(encoding="utf-8"))
 if voice_config.get("piper_version") != "1.0.0":
     raise SystemExit("Unexpected Romanian Piper voice config version")
@@ -67,33 +63,13 @@ if voice_config.get("dataset") != "mihai":
 if voice_config.get("audio", {}).get("sample_rate") != 22050:
     raise SystemExit("Unexpected Romanian Piper fixture sample rate")
 
-# Piper's default noise controls intentionally vary both generated audio and
-# phoneme widths. That is useful for speech generation, but it makes a timing
-# regression fixture change between CI runs. Keep the downloaded model/config
-# pinned and verified first, then make only the local CI copy deterministic.
-inference = voice_config.setdefault("inference", {})
-inference["length_scale"] = 1.0
-inference["noise_scale"] = 0.0
-inference["noise_w"] = 0.0
-config_path.write_text(
-    json.dumps(voice_config, indent=2, ensure_ascii=False) + "\n",
-    encoding="utf-8",
-)
-
-deterministic_config_sha = sha256(config_path)
 evidence = {
     "provider": VOICE["provider"],
     "voice": VOICE["voice"],
     "revision": VOICE["revision"],
     "datasetLicense": VOICE["datasetLicense"],
     "modelSha256": model_sha,
-    "sourceConfigSha256": source_config_sha,
-    "deterministicConfigSha256": deterministic_config_sha,
-    "deterministicSynthesis": {
-        "lengthScale": 1.0,
-        "noiseScale": 0.0,
-        "noiseWScale": 0.0,
-    },
+    "configSha256": sha256(config_path),
 }
 (EVIDENCE / "piper-fixture.json").write_text(
     json.dumps(evidence, indent=2, ensure_ascii=False) + "\n",

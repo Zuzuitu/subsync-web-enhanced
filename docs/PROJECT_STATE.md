@@ -13,6 +13,32 @@ Repository truth overrides chat memory. Before material changes, read in this or
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
 
+## Active observability follow-up — PR #42
+
+Repository inspection confirms PR #41 merged at
+`d0af1c8e5d04510f18d56885be87b448b239d05d`. It adds read-only formula
+precision diagnostics; PR #38 remains the physical Frozen II timing baseline.
+
+PR #42 completes strict public-smoke result persistence:
+- completed-run timing/precision evidence is written with `status` and
+  `failureReasons` before a strict failure exits nonzero;
+- first-cue ±0.60 s, full-title p95 ≤0.60 s and affine drift ±0.35 s remain;
+- browser/runtime failures also mark the completed result as failed;
+- artifact upload retains `if: always()`;
+- manual public smoke, like the dedicated test-branch push, enforces strict
+  timing/context/precision; PR smoke remains compatible with the live runtime;
+- five deterministic helper regressions pass locally and are included in CI.
+
+The interrupted branch also contained a Piper synthesis change at `cf957da`.
+That change is deliberately removed from this PR's final diff to capture the
+existing fixture's evidence before changing its generation. The old commit
+remains available for subsequent investigation. No product runtime is changed.
+
+Remaining gate: PR CI, merge, then strict public smoke and artifact comparison.
+Do not infer a timing root cause from a successful synchronization or a single
+passing rerun. Pre-completion failures outside the existing timeout handler are
+not covered by this narrowly scoped completed-result fix.
+
 ## Current status
 
 Repository: `Zuzuitu/subsync-web-enhanced`

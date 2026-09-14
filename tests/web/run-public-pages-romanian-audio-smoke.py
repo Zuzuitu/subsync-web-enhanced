@@ -8,6 +8,7 @@ from pathlib import Path
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError, sync_playwright
 
 from srt_timing import measure_srt_timing
+from public_smoke_result import write_public_smoke_result
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_DIR = ROOT / "tests" / "generated" / "romanian-audio-e2e"
@@ -295,38 +296,23 @@ with sync_playwright() as p:
     output = SAVED.read_text(encoding="utf-8")
     shift = parse_srt_start(output) - parse_srt_start(original)
     expected_shift = -8.0
-    max_fine_timing_error = 0.60
     timing_quality = measure_srt_timing(original, output, expected_shift)
-    if REQUIRE_FINE_TIMING:
-        if abs(shift - expected_shift) > max_fine_timing_error:
-            raise SystemExit(
-                f"Public Romanian audio fine timing error too large: {shift:.3f}s "
-                f"(expected {expected_shift:.3f}s ± {max_fine_timing_error:.2f}s)"
-            )
-        if timing_quality["startP95AbsErrorSeconds"] > max_fine_timing_error:
-            raise SystemExit(
-                "Public Romanian audio full-title timing error too large: "
-                f"p95={timing_quality['startP95AbsErrorSeconds']:.3f}s "
-                f"(limit {max_fine_timing_error:.2f}s)"
-            )
-        if abs(timing_quality["affineErrorDriftAcrossTitleSeconds"]) > 0.35:
-            raise SystemExit(
-                "Public Romanian audio timing drift too large across title: "
-                f"{timing_quality['affineErrorDriftAcrossTitleSeconds']:.3f}s "
-                "(limit ±0.35s)"
-            )
 
     required_diacritics = [
         "așteaptă", "dimineață", "împreună", "poliția",
         "mulțumesc", "părintele", "înțelegem", "niciodată",
     ]
     missing = [token for token in required_diacritics if token not in output.lower()]
+    failures = []
     if missing:
-        raise SystemExit("Public saved Romanian subtitles lost text/diacritics: " + ", ".join(missing))
+        failures.append("Public saved Romanian subtitles lost text/diacritics: " + ", ".join(missing))
 
     details = {
         "status": "pass",
         "browser": "chromium",
+        "appText": app_text,
+        "consoleMessages": console_messages,
+        "responses": responses,
         "url": PREVIEW_URL,
         "detectedReferenceLanguage": detected,
         "referenceWords": reference_words,
@@ -354,11 +340,10 @@ with sync_playwright() as p:
         "pageErrors": page_errors,
         "httpFailures": http_failures,
     }
-    RESULT.write_text(json.dumps(details, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(json.dumps(details, indent=2, ensure_ascii=False))
-
-    context.close()
-    browser.close()
-
-    if console_errors or page_errors or http_failures:
-        raise SystemExit("Public Romanian audio workflow emitted browser/runtime errors")
+    try:
+        write_public_smoke_result(
+            RESULT, details, require_fine_timing=REQUIRE_FINE_TIMING, failures=failures,
+        )
+    finally:
+        context.close()
+        browser.close()

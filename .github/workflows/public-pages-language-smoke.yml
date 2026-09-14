@@ -7,7 +7,8 @@ on:
     paths:
       - "tests/web/run-public-pages-language-smoke.py"
       - "tests/web/run-public-pages-romanian-audio-smoke.py"
-      - "tests/web/assert-public-romanian-fine-timing.py"
+      - "tests/web/public_smoke_result.py"
+      - "tests/web/test_public_smoke_result.py"
       - ".github/workflows/public-pages-language-smoke.yml"
   pull_request:
     branches:
@@ -15,7 +16,8 @@ on:
     paths:
       - "tests/web/run-public-pages-language-smoke.py"
       - "tests/web/run-public-pages-romanian-audio-smoke.py"
-      - "tests/web/assert-public-romanian-fine-timing.py"
+      - "tests/web/public_smoke_result.py"
+      - "tests/web/test_public_smoke_result.py"
       - ".github/workflows/public-pages-language-smoke.yml"
   workflow_dispatch:
 
@@ -69,18 +71,13 @@ jobs:
       - name: Generate Romanian audio fixture
         run: python3 tests/fixtures/generate-romanian-audio-e2e.py
 
-      - name: Measure Romanian audio end to end on public Pages
+      - name: Validate Romanian audio end to end on public Pages
         env:
           SUBSYNC2_PREVIEW_URL: https://zuzuitu.github.io/subsync-web-enhanced/
-          SUBSYNC2_REQUIRE_CONTEXT_ANCHORS: ${{ github.event_name == 'push' && '1' || '0' }}
-          # Capture the exact completed-run diagnostics before applying the strict timing gate.
-          SUBSYNC2_REQUIRE_FINE_TIMING: 0
-          SUBSYNC2_REQUIRE_PRECISION_DIAGNOSTICS: ${{ github.event_name == 'push' && '1' || '0' }}
+          SUBSYNC2_REQUIRE_CONTEXT_ANCHORS: ${{ github.event_name != 'pull_request' && '1' || '0' }}
+          SUBSYNC2_REQUIRE_FINE_TIMING: ${{ github.event_name != 'pull_request' && '1' || '0' }}
+          SUBSYNC2_REQUIRE_PRECISION_DIAGNOSTICS: ${{ github.event_name != 'pull_request' && '1' || '0' }}
         run: python3 tests/web/run-public-pages-romanian-audio-smoke.py
-
-      - name: Enforce strict Romanian fine timing from captured diagnostics
-        if: github.event_name == 'push'
-        run: python3 tests/web/assert-public-romanian-fine-timing.py
 
       - name: Upload public Pages diagnostics
         if: always()

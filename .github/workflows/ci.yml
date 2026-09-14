@@ -22,6 +22,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate canonical project state and invariants
         run: python3 scripts/verify-project-invariants.py
+      - name: Validate public smoke diagnostic persistence
+        run: python3 -m unittest discover -s tests/web -p "test_public_smoke_result.py"
       - name: Validate Romanian language aliases
         run: node tests/js/language-codes.js
       - name: Validate Romanian sparse-window planner
