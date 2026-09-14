@@ -144,24 +144,6 @@ export default class Synchronizer {
       listener.onSyncStarted();
       await Promise.all(this.extractors.map( (ex, i) => this.runExtractor(ex, i, listener)) );
 
-      // Read a final native diagnostic snapshot without changing the formula
-      // already selected by the existing synchronization flow. Precision
-      // metadata is attached only when it describes that exact same formula.
-      const finalStats = await this.correlator.getStats(this.referenceDuration);
-      if (
-        this.status.correlated
-        && finalStats
-        && finalStats.correlated
-        && sameFormula(this.status.formula, finalStats.formula)
-        && finalStats.precision
-      ) {
-        this.status = {
-          ...this.status,
-          precision: { ...finalStats.precision },
-        };
-        this.diagnostics.precision = { ...finalStats.precision };
-      }
-
       this.recordStage(listener, 'processing', 'ready');
       this.recordStage(listener, 'correlation', 'ready', {
         points: this.status.points || 0,
@@ -461,19 +443,6 @@ export default class Synchronizer {
 }
 
 Synchronizer.instance = new Synchronizer();
-
-function sameFormula(left, right, epsilon=1e-6) {
-  return Boolean(
-    left
-    && right
-    && Number.isFinite(left.a)
-    && Number.isFinite(left.b)
-    && Number.isFinite(right.a)
-    && Number.isFinite(right.b)
-    && Math.abs(left.a - right.a) <= epsilon
-    && Math.abs(left.b - right.b) <= epsilon
-  );
-}
 
 function calcRefJobsNo(stream) {
   if (stream.type === 'audio' && stream.lang === 'rum') {
