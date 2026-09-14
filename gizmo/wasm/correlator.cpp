@@ -41,7 +41,7 @@ static em::val addRefWord(shared_ptr<Synchronizer> s, float time, float duration
 		return em::val::undefined();
 }
 
-static em::val getStats(shared_ptr<Synchronizer> s)
+static em::val getStats(shared_ptr<Synchronizer> s, double duration)
 {
 	const CorrelationStats stats = s->correlate();
 	em::val res = convertCorrelationStats(stats);
@@ -68,6 +68,22 @@ static em::val getStats(shared_ptr<Synchronizer> s)
 			res.set("evidenceEnd", maxRef);
 		}
 	}
+
+	const PrecisionStats precision = s->getPrecisionStats(duration);
+	em::val precisionValue = em::val::object();
+	precisionValue.set("available", precision.available);
+	precisionValue.set("rawPoints", precision.rawPoints);
+	precisionValue.set("buckets", precision.buckets);
+	precisionValue.set("beginningBuckets", precision.beginningBuckets);
+	precisionValue.set("middleBuckets", precision.middleBuckets);
+	precisionValue.set("endBuckets", precision.endBuckets);
+	precisionValue.set("jackknifeSamples", precision.jackknifeSamples);
+	precisionValue.set("maxMappedDelta", precision.maxMappedDelta);
+	precisionValue.set("medianMappedDelta", precision.medianMappedDelta);
+	precisionValue.set("maxSlopeDeltaPpm", precision.maxSlopeDeltaPpm);
+	precisionValue.set("maxOffsetDelta", precision.maxOffsetDelta);
+	res.set("precision", precisionValue);
+
 	return res;
 }
 
