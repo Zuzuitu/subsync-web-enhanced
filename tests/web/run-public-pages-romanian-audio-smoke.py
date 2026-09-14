@@ -307,7 +307,7 @@ with sync_playwright() as p:
         "formulaText": formula,
         "maxChangeText": max_change,
         "savedTimingShiftSeconds": shift,
-            "timingQuality": timing_quality,
+        "timingQuality": timing_quality,
         "romanianDiacriticsVerifiedInSavedSubtitle": required_diacritics,
         "consoleErrors": console_errors,
         "pageErrors": page_errors,
