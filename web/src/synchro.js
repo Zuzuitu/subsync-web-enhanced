@@ -144,12 +144,21 @@ export default class Synchronizer {
       listener.onSyncStarted();
       await Promise.all(this.extractors.map( (ex, i) => this.runExtractor(ex, i, listener)) );
 
-      // Refresh the final native snapshot after both subtitle and reference
-      // extractors are done. Precision diagnostics are read-only metadata on
-      // the already selected canonical formula and never affect Save policy.
+      // Read a final native diagnostic snapshot without changing the formula
+      // already selected by the existing synchronization flow. Precision
+      // metadata is attached only when it describes that exact same formula.
       const finalStats = await this.correlator.getStats(this.referenceDuration);
-      this.status = selectCanonicalStatus(this.status, finalStats);
-      if (finalStats && finalStats.precision) {
+      if (
+        this.status.correlated
+        && finalStats
+        && finalStats.correlated
+        && sameFormula(this.status.formula, finalStats.formula)
+        && finalStats.precision
+      ) {
+        this.status = {
+          ...this.status,
+          precision: { ...finalStats.precision },
+        };
         this.diagnostics.precision = { ...finalStats.precision };
       }
 
@@ -249,8 +258,8 @@ export default class Synchronizer {
         }
 
         this.status = selectCanonicalStatus(this.status, rawStats);
-        if (rawStats && rawStats.precision) {
-          this.diagnostics.precision = { ...rawStats.precision };
+        if (this.status && this.status.precision) {
+          this.diagnostics.precision = { ...this.status.precision };
         }
         let convergence = this.romanianConvergence.observe(
           s.windowCompleted,
@@ -452,6 +461,19 @@ export default class Synchronizer {
 }
 
 Synchronizer.instance = new Synchronizer();
+
+function sameFormula(left, right, epsilon=1e-6) {
+  return Boolean(
+    left
+    && right
+    && Number.isFinite(left.a)
+    && Number.isFinite(left.b)
+    && Number.isFinite(right.a)
+    && Number.isFinite(right.b)
+    && Math.abs(left.a - right.a) <= epsilon
+    && Math.abs(left.b - right.b) <= epsilon
+  );
+}
 
 function calcRefJobsNo(stream) {
   if (stream.type === 'audio' && stream.lang === 'rum') {
