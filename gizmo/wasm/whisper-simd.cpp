@@ -242,12 +242,19 @@ private:
         }
         if (!m_hasWordsCallback) return;
 
+        const double duration = end > begin ? end - begin : 0.0;
+        const double correlationTime = duration > 0.0
+            ? begin + duration / 2.0
+            : begin;
+
         em::val value = em::val::object();
         value.set("text", word);
-        value.set("time", static_cast<float>(begin));
-        value.set(
-            "duration",
-            end > begin ? static_cast<float>(end - begin) : 0.0f);
+        // Match the original sc0ty/PocketSphinx timing contract: reference
+        // Word.time is the center of the recognized segment, not its leading
+        // edge. The original correlator was tuned against this convention.
+        value.set("time", static_cast<float>(correlationTime));
+        value.set("duration", static_cast<float>(duration));
+        value.set("timeAnchor", "center");
         value.set("score", probability);
         m_wordsCallback(value);
     }

@@ -12,6 +12,8 @@ from pathlib import Path
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError, sync_playwright
 
+from srt_timing import measure_srt_timing
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--browser", choices=("chromium", "webkit"), default="chromium")
 args = parser.parse_args()
@@ -275,8 +277,26 @@ try:
         original = SRT_IN.read_text(encoding="utf-8")
         output = SAVED.read_text(encoding="utf-8")
         shift = parse_srt_start(output) - parse_srt_start(original)
-        if not (-9.5 <= shift <= -6.0):
-            raise SystemExit(f"Romanian audio saved timing correction out of range: {shift:.3f}s")
+        expected_shift = -8.0
+        max_fine_timing_error = 0.60
+        if abs(shift - expected_shift) > max_fine_timing_error:
+            raise SystemExit(
+                f"Romanian audio fine timing error too large: {shift:.3f}s "
+                f"(expected {expected_shift:.3f}s ± {max_fine_timing_error:.2f}s)"
+            )
+        timing_quality = measure_srt_timing(original, output, expected_shift)
+        if timing_quality["startP95AbsErrorSeconds"] > max_fine_timing_error:
+            raise SystemExit(
+                "Romanian audio full-title timing error too large: "
+                f"p95={timing_quality['startP95AbsErrorSeconds']:.3f}s "
+                f"(limit {max_fine_timing_error:.2f}s)"
+            )
+        if abs(timing_quality["affineErrorDriftAcrossTitleSeconds"]) > 0.35:
+            raise SystemExit(
+                "Romanian audio timing drift too large across title: "
+                f"{timing_quality['affineErrorDriftAcrossTitleSeconds']:.3f}s "
+                "(limit ±0.35s)"
+            )
 
         required_diacritics = [
             "așteaptă", "dimineață", "împreună", "poliția",
@@ -302,6 +322,7 @@ try:
             "formulaText": formula,
             "maxChangeText": max_change,
             "savedTimingShiftSeconds": shift,
+            "timingQuality": timing_quality,
             "romanianDiacriticsVerifiedInSavedSubtitle": required_diacritics,
             "consoleErrors": console_errors,
             "pageErrors": page_errors,

@@ -28,25 +28,46 @@ function anchorToken(left, right) {
   return `r2${h1}${h2}`;
 }
 
+function wordBounds(word) {
+  const time = Number(word && word.time);
+  const duration = Math.max(0, Number(word && word.duration) || 0);
+  if (!Number.isFinite(time)) return null;
+
+  if (word && word.timeAnchor === 'center' && duration > 0) {
+    return {
+      start: time - duration / 2,
+      end: time + duration / 2,
+    };
+  }
+
+  return {
+    start: time,
+    end: time + duration,
+  };
+}
+
 function makeContextAnchor(previous, current) {
   if (!previous || !current) return null;
 
   const previousTime = Number(previous.time);
   const currentTime = Number(current.time);
-  const previousDuration = Math.max(0, Number(previous.duration) || 0);
-  const currentDuration = Math.max(0, Number(current.duration) || 0);
+  const previousBounds = wordBounds(previous);
+  const currentBounds = wordBounds(current);
 
-  if (!Number.isFinite(previousTime) || !Number.isFinite(currentTime)) {
+  if (
+    !Number.isFinite(previousTime)
+    || !Number.isFinite(currentTime)
+    || !previousBounds
+    || !currentBounds
+  ) {
     return null;
   }
   if (currentTime < previousTime) {
     return null;
   }
 
-  const previousEnd = previousTime + previousDuration;
-  const currentEnd = currentTime + currentDuration;
-  const gap = currentTime - previousEnd;
-  const span = currentEnd - previousTime;
+  const gap = currentBounds.start - previousBounds.end;
+  const span = currentBounds.end - previousBounds.start;
 
   if (gap > MAX_CONTEXT_GAP_SECONDS || span > MAX_CONTEXT_SPAN_SECONDS) {
     return null;
@@ -58,8 +79,9 @@ function makeContextAnchor(previous, current) {
 
   return {
     text: anchorToken(left, right),
+    // Anchor the pair in the same timing coordinate used by correlation.
     time: (previousTime + currentTime) / 2,
-    duration: Math.max(0, currentEnd - previousTime),
+    duration: Math.max(0, span),
     score: Math.min(
       previous.score == null ? 1 : Number(previous.score) || 0,
       current.score == null ? 1 : Number(current.score) || 0
@@ -87,6 +109,7 @@ module.exports = {
   MAX_CONTEXT_GAP_SECONDS,
   MAX_CONTEXT_SPAN_SECONDS,
   normalizeContextWord,
+  wordBounds,
   anchorToken,
   makeContextAnchor,
   RomanianContextAnchorStream,

@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-14 09:31 Europe/Rome
+LAST_UPDATED: 2026-09-14 11:30 Europe/Rome
 
 ## Canonical status
 
@@ -73,35 +73,66 @@ the real physical Frozen II reproduction that motivated PR #36.
 
 ## Immediate milestone
 
-PR #36 is merged, deliberately deployed and independently verified on the
-public Pages URL. The next authoritative gate is now a physical iPhone/Safari
-retest on the same Frozen II reproduction that failed PR #34.
-
-Latest physical reproduction, from PR #34:
+PR #36 has now passed the authoritative physical iPhone/Safari Frozen II test:
 - same >2 GB dual-audio Frozen II MKV + Romanian SRT;
-- elapsed **12:52**;
-- 20/20 probes, rescue 4/4;
-- 243 usable reference words;
-- 26 points;
-- candidate gain +4;
-- candidate and canonical span 81%;
-- stable checks 2/3;
-- adaptive lock pending;
-- displayed correlation 100.00%;
-- provisional formula `1.0002x-0.950`.
+- Cached Romanian Whisper model;
+- elapsed **12:42**;
+- **21/21** probes, rescue **5/5**;
+- **248** usable reference words;
+- **185** Romanian lexical context anchors;
+- **25** synchronization points;
+- candidate gain **+1** on the final probe;
+- candidate span **81%**;
+- canonical span **81%**;
+- stable checks **3/3**;
+- adaptive lock **verified**;
+- displayed correlation **100.00%**;
+- formula `1.0002x-0.943`;
+- max change `0:00:933`.
 
-PR #36 addresses the two observed weaknesses without changing sc0ty acceptance
-thresholds:
-1. adjacent Romanian word pairs create lexical context anchors that augment the
-   original correlator and reduce ambiguity from repeated/common single words;
-2. the same 120 s rescue reserve is scheduled as three 30 s discovery probes
-   plus two 15 s confirmation probes, preserving the total six-minute sampled
-   audio budget while giving the 3-check verifier another boundary.
+The user then supplied the preferred original SRT and the SubSync2 output from
+this physical run for exact offline timing comparison. Across **1,133 text-matched
+cues**:
+- mean start residual (original - SubSync2): **+166.8 ms**;
+- median start residual: **+168.0 ms**;
+- time-third medians: **+293 ms** at the beginning, **+134 ms** in the middle,
+  and approximately **+4 ms** in the final third;
+- the residual is almost perfectly affine rather than random:
+  `originalTime ≈ 0.9999242315 × subSync2Time + 0.363043 s`;
+- the affine residual explains the matched-cue timing difference with
+  **R² ≈ 0.999988** and leaves < **1 ms** maximum fitting error;
+- residual drift is approximately **-75.8 ppm**, i.e. about **-273 ms/hour**;
+- the correction crosses zero at roughly **79.9 min** into the title.
 
-The deployed build may use up to **21 probes**. Save must remain disabled while
-adaptive lock is pending. Do not call Romanian single-file support physically
-release-stable until this exact build reaches verified lock on a real iPhone and
-practical alignment is checked at beginning, middle and end.
+Therefore the user's visual “200–300 ms early” observation is real, but the
+problem is not a constant offset: it is a small intercept + slope error in the
+final linear timing formula. Two non-timing content differences exist between
+the supplied SRTs (one title-text replacement and one missing credit cue), but
+they do not affect the 1,133 matched-cue timing analysis.
+
+Code inspection exposed a concrete timing-contract mismatch:
+- original sc0ty/PocketSphinx emits reference `Word.time` at the midpoint of
+  each recognized segment;
+- Romanian Whisper currently emits `Word.time` at the leading edge while also
+  exposing the segment duration.
+
+Because the original correlator was tuned against PocketSphinx midpoint
+semantics, the active fix moves Romanian Whisper correlation timestamps to the
+recognized-word midpoint rather than applying an arbitrary hard-coded delay.
+Context-anchor acoustic bounds are preserved explicitly so this timestamp
+change does not inflate or shift lexical-pair spans.
+
+Branch under validation:
+`fix/romanian-whisper-midpoint-timing`.
+
+The deterministic Romanian browser fixture is also tightened from a broad
+historical accepted shift range to a **±0.60 s fine-timing error** around the
+known -8.0 s correction. In addition, the browser regression now measures
+**all cue timestamps across the full title**, reports affine residual slope /
+drift and beginning-middle-end timing, requires p95 absolute start error ≤
+0.60 s, and caps synthetic full-title affine drift at **±0.35 s**. This closes
+the previous test gap where only the first saved cue was checked. No canonical
+sc0ty thresholds are changed.
 
 ## Product goal
 
@@ -678,24 +709,36 @@ Romanian audio physical status:
    - canonical point/span guards were satisfied, but verification did not reach
      the required third stable confirmation.
 
-5. **PR #36 context-anchor + confirmation-reserve — DEPLOYED / PHYSICAL RETEST PENDING**
+5. **PR #36 context-anchor + confirmation-reserve — PHYSICAL PASS / FINE TIMING FOLLOW-UP**
    - product runtime:
      `0d7a7b4177518e4fd324b200c1773be6eb8f1c0d`;
-   - primary remains 16 × 15 s;
-   - canonical thresholds remain unchanged;
-   - adjacent Romanian word pairs generate hashed lexical context anchors that
-     augment, but do not replace, the original sc0ty correlator;
-   - anchors are Romanian same-language only and are not counted as user-visible
-     ASR reference words;
-   - rescue keeps four content-aware timeline locations;
-   - same 120 s rescue audio budget is scheduled as three 30 s discovery probes
-     plus two 15 s confirmation probes;
-   - maximum sampled Romanian audio remains 360 s / 6 minutes;
-   - maximum adaptive probe boundaries are 21;
-   - browser diagnostics expose Romanian context-anchor count;
-   - PR, fresh-WASM, WebKit, large-file, deliberate deploy and post-deploy live
-     smoke gates are all green;
-   - same physical Frozen II retest is the next authoritative gate.
+   - real iPhone/Safari, same Frozen II title;
+   - 12:42 elapsed;
+   - 21/21 probes, rescue 5/5;
+   - 248 reference words;
+   - 185 Romanian context anchors;
+   - 25 points;
+   - candidate gain +1;
+   - candidate and canonical span 81%;
+   - stable checks 3/3;
+   - adaptive lock verified;
+   - displayed correlation 100.00%;
+   - formula `1.0002x-0.943`;
+   - max change `0:00:933`;
+   - practical synchronization succeeded, with a reported residual timing bias
+     of approximately 200–300 ms early versus the preferred original timing.
+
+6. **Romanian Whisper midpoint timing alignment — IMPLEMENTATION / VALIDATION IN PROGRESS**
+   - original PocketSphinx reference words use segment midpoint timing;
+   - Romanian Whisper reference words previously used segment-start timing;
+   - active fix aligns Romanian Whisper `Word.time` with the original sc0ty
+     midpoint convention;
+   - word duration remains available for true acoustic bounds;
+   - context anchors distinguish centered reference timing from start-anchored
+     subtitle timing;
+   - no arbitrary +200/+300 ms product offset is introduced;
+   - deterministic browser E2E now requires the known -8.0 s fixture correction
+     to land within ±0.60 s rather than the previous broad -9.5…-6.0 s range.
 
 Model bytes persist through browser IDBFS. Active job persistence/resume across
 Safari background suspension is still not implemented; physical release tests
@@ -736,29 +779,22 @@ Canonical decisions:
 
 ## Next sequence
 
-1. Retest the same physical Frozen II >2 GB dual-audio title on iPhone/Safari
-   against deployed runtime
-   `0d7a7b4177518e4fd324b200c1773be6eb8f1c0d`.
-2. Keep Safari foregrounded until terminal state.
-3. Record:
-   - elapsed time;
-   - Romanian probes X/21;
-   - rescue X/5;
-   - reference words;
-   - Romanian context-anchor count;
-   - synchronization points;
-   - candidate gain/span;
-   - canonical span;
-   - formula;
-   - stable checks;
-   - adaptive lock verified/pending;
-   - Save state;
-   - practical alignment at beginning / middle / end.
-4. If the same physical test still prefers an implausible near-zero formula, do
-   not relax thresholds or merely add more audio. Use anchor/candidate evidence
-   to isolate line ambiguity versus Romanian dub/SRT lexical mismatch.
-5. Only after a physical pass mark Romanian single-file support
-   release-stable. Batch/multi-upload remains deferred until then.
+1. Validate `fix/romanian-whisper-midpoint-timing` with governance/unit CI.
+2. Require fresh Legacy WebAssembly Romanian Chromium + iPhone-like WebKit E2E,
+   Mobile WebKit Compatibility, Large-file Browser Stress and PWA gates.
+3. Verify the deterministic +8.0 s Romanian fixture now lands within the tighter
+   ±0.60 s fine-timing error bound and does not regress adaptive lock/context
+   anchors.
+4. Merge only when all gates are green.
+5. Deliberately deploy the exact merge commit and run post-deploy Public Pages
+   smoke.
+6. Retest the same physical Frozen II title and compare practical timing at
+   beginning / middle / end against the PR #36 residual 200–300 ms early bias.
+7. If midpoint alignment removes or materially reduces the residual, record the
+   physical result and consider Romanian single-file support release-stable.
+8. If a measurable residual remains, use matched-point timing diagnostics before
+   considering any further calibration; do not add a hard-coded device/title
+   offset and do not weaken canonical thresholds.
 
 ## Session closeout — 13 September 2026
 
@@ -787,6 +823,21 @@ Confirmed state at closeout:
   web single-file path is physically release-stable.
 
 ## Open blockers
+
+- PR #36 physically converges and produces practically synchronized Romanian
+  subtitles, but a repeatable ~200–300 ms early residual remains to be checked
+  against the original sc0ty midpoint timestamp convention;
+- the midpoint-timing fix is under fresh-WASM/browser validation and is not yet
+  deployed;
+- browser job resume/persistence across Safari suspension/backgrounding is not
+  implemented;
+- the historical real-world direct-MKV failure class remains
+  reproduction-dependent on a representative failing file;
+- not every original sc0ty language/model pair has a dedicated full
+  recognition/correlation E2E, although the complete signed catalog is deployed
+  and representative live loading is validated;
+- batch/multi-upload remains deliberately deferred until optimized single-file
+  reliability is physically confirmed.
 
 - PR #36 is deployed and all automated/live gates are green, but the same real
   physical iPhone/Frozen II retest is still required before Romanian
