@@ -44,8 +44,8 @@ class Correlator {
     }
   }
 
-  getStats() {
-    return this.synchro.getStats();
+  getStats(duration=0) {
+    return this.synchro.getStats(Number(duration) || 0);
   }
 }
 
