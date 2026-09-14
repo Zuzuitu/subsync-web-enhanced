@@ -7,6 +7,8 @@ from pathlib import Path
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError, sync_playwright
 
+from srt_timing import measure_srt_timing
+
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_DIR = ROOT / "tests" / "generated" / "romanian-audio-e2e"
 SRT_IN = FIXTURE_DIR / "target.rum.srt"
@@ -265,6 +267,19 @@ with sync_playwright() as p:
             f"Public Romanian audio fine timing error too large: {shift:.3f}s "
             f"(expected {expected_shift:.3f}s ± {max_fine_timing_error:.2f}s)"
         )
+    timing_quality = measure_srt_timing(original, output, expected_shift)
+    if timing_quality["startP95AbsErrorSeconds"] > max_fine_timing_error:
+        raise SystemExit(
+            "Public Romanian audio full-title timing error too large: "
+            f"p95={timing_quality['startP95AbsErrorSeconds']:.3f}s "
+            f"(limit {max_fine_timing_error:.2f}s)"
+        )
+    if abs(timing_quality["affineErrorDriftAcrossTitleSeconds"]) > 0.35:
+        raise SystemExit(
+            "Public Romanian audio timing drift too large across title: "
+            f"{timing_quality['affineErrorDriftAcrossTitleSeconds']:.3f}s "
+            "(limit ±0.35s)"
+        )
 
     required_diacritics = [
         "așteaptă", "dimineață", "împreună", "poliția",
@@ -292,6 +307,7 @@ with sync_playwright() as p:
         "formulaText": formula,
         "maxChangeText": max_change,
         "savedTimingShiftSeconds": shift,
+            "timingQuality": timing_quality,
         "romanianDiacriticsVerifiedInSavedSubtitle": required_diacritics,
         "consoleErrors": console_errors,
         "pageErrors": page_errors,
