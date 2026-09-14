@@ -72,6 +72,7 @@ jobs:
           SUBSYNC2_PREVIEW_URL: https://zuzuitu.github.io/subsync-web-enhanced/
           SUBSYNC2_REQUIRE_CONTEXT_ANCHORS: ${{ github.event_name == 'push' && '1' || '0' }}
           SUBSYNC2_REQUIRE_FINE_TIMING: ${{ github.event_name == 'push' && '1' || '0' }}
+          SUBSYNC2_REQUIRE_PRECISION_DIAGNOSTICS: ${{ github.event_name == 'push' && '1' || '0' }}
         run: python3 tests/web/run-public-pages-romanian-audio-smoke.py
 
       - name: Upload public Pages diagnostics
