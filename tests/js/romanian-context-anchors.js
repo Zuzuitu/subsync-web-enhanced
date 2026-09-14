@@ -5,6 +5,7 @@ const {
   MAX_CONTEXT_GAP_SECONDS,
   MAX_CONTEXT_SPAN_SECONDS,
   normalizeContextWord,
+  wordBounds,
   anchorToken,
   makeContextAnchor,
   RomanianContextAnchorStream,
@@ -13,6 +14,17 @@ const {
 assert.strictEqual(MAX_CONTEXT_GAP_SECONDS, 1.25);
 assert.strictEqual(MAX_CONTEXT_SPAN_SECONDS, 4.0);
 assert.strictEqual(normalizeContextWord('ÎNTREBARE'), 'întrebare');
+
+assert.deepStrictEqual(
+  wordBounds({ time: 10.5, duration: 1.0, timeAnchor: 'center' }),
+  { start: 10.0, end: 11.0 },
+  'center-anchored Whisper words must retain their true acoustic bounds'
+);
+assert.deepStrictEqual(
+  wordBounds({ time: 10.0, duration: 1.0 }),
+  { start: 10.0, end: 11.0 },
+  'legacy/start-anchored subtitle words must retain start-time semantics'
+);
 
 const a = anchorToken('întrebare', 'importantă');
 const b = anchorToken('întrebare', 'importantă');
@@ -30,6 +42,17 @@ assert.strictEqual(anchor.text, a);
 assert(Math.abs(anchor.time - 10.3) < 1e-9);
 assert(Math.abs(anchor.duration - 1.1) < 1e-9);
 assert.strictEqual(anchor.score, 0.8);
+
+const centeredAnchor = makeContextAnchor(
+  { text: 'întrebare', time: 10.2, duration: 0.4, timeAnchor: 'center', score: 0.9 },
+  { text: 'importantă', time: 10.85, duration: 0.5, timeAnchor: 'center', score: 0.8 }
+);
+assert(centeredAnchor);
+assert(Math.abs(centeredAnchor.time - 10.525) < 1e-9);
+assert(
+  Math.abs(centeredAnchor.duration - 1.1) < 1e-9,
+  'centered correlation timestamps must not inflate the acoustic pair span'
+);
 
 assert.strictEqual(
   makeContextAnchor(
