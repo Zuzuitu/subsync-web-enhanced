@@ -90,10 +90,25 @@ PR #36 has now passed the authoritative physical iPhone/Safari Frozen II test:
 - formula `1.0002x-0.943`;
 - max change `0:00:933`.
 
-The user reports the saved subtitle is practically synchronized across the film,
-but remains consistently about **200–300 ms early** relative to the preferred
-original timing. This is now a fine-timing calibration issue, not a convergence
-failure.
+The user then supplied the preferred original SRT and the SubSync2 output from
+this physical run for exact offline timing comparison. Across **1,133 text-matched
+cues**:
+- mean start residual (original - SubSync2): **+166.8 ms**;
+- median start residual: **+168.0 ms**;
+- time-third medians: **+293 ms** at the beginning, **+134 ms** in the middle,
+  and approximately **+4 ms** in the final third;
+- the residual is almost perfectly affine rather than random:
+  `originalTime ≈ 0.9999242315 × subSync2Time + 0.363043 s`;
+- the affine residual explains the matched-cue timing difference with
+  **R² ≈ 0.999988** and leaves < **1 ms** maximum fitting error;
+- residual drift is approximately **-75.8 ppm**, i.e. about **-273 ms/hour**;
+- the correction crosses zero at roughly **79.9 min** into the title.
+
+Therefore the user's visual “200–300 ms early” observation is real, but the
+problem is not a constant offset: it is a small intercept + slope error in the
+final linear timing formula. Two non-timing content differences exist between
+the supplied SRTs (one title-text replacement and one missing credit cue), but
+they do not affect the 1,133 matched-cue timing analysis.
 
 Code inspection exposed a concrete timing-contract mismatch:
 - original sc0ty/PocketSphinx emits reference `Word.time` at the midpoint of
@@ -112,7 +127,12 @@ Branch under validation:
 
 The deterministic Romanian browser fixture is also tightened from a broad
 historical accepted shift range to a **±0.60 s fine-timing error** around the
-known -8.0 s correction. No canonical sc0ty thresholds are changed.
+known -8.0 s correction. In addition, the browser regression now measures
+**all cue timestamps across the full title**, reports affine residual slope /
+drift and beginning-middle-end timing, requires p95 absolute start error ≤
+0.60 s, and caps synthetic full-title affine drift at **±0.35 s**. This closes
+the previous test gap where only the first saved cue was checked. No canonical
+sc0ty thresholds are changed.
 
 ## Product goal
 
