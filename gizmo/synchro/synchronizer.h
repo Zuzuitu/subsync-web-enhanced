@@ -9,6 +9,24 @@
 #include <climits>
 
 
+struct PrecisionStats
+{
+	bool     available;
+	unsigned rawPoints;
+	unsigned buckets;
+	unsigned beginningBuckets;
+	unsigned middleBuckets;
+	unsigned endBuckets;
+	unsigned jackknifeSamples;
+	double   maxMappedDelta;
+	double   medianMappedDelta;
+	double   maxSlopeDeltaPpm;
+	double   maxOffsetDelta;
+
+	PrecisionStats();
+};
+
+
 struct CorrelationStats
 {
 	bool     correlated;
@@ -49,6 +67,7 @@ class Synchronizer
 
 		const Points &getAllPoints() const;
 		Points getUsedPoints() const;
+		PrecisionStats getPrecisionStats(double duration) const;
 
 	private:
 		unsigned countBuckets(const Points &pts, unsigned limit=UINT_MAX) const;
