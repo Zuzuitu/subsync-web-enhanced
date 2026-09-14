@@ -69,6 +69,15 @@ export default class SyncScreen {
             <li>{i18n`correlation`}: <strong this='correlation'>-</strong></li>
             <li>{i18n`formula`}: <strong this='formula'>-</strong></li>
             <li>{i18n`max change`}: <strong this='maxChange'>-</strong></li>
+            <li this='canonicalAcceptanceRow' hidden>
+              canonical acceptance: <strong this='canonicalAcceptance'>-</strong>
+            </li>
+            <li this='precisionEvidenceRow' data-diagnostic='precision-evidence' hidden>
+              precision evidence: <strong this='precisionEvidence'>-</strong>
+            </li>
+            <li this='precisionRobustnessRow' data-diagnostic='precision-robustness' hidden>
+              formula sensitivity: <strong this='precisionRobustness'>-</strong>
+            </li>
           </ul>
           <a this='hideDetailsBtn' onclick={this.showDetails.bind(this, false)}>{i18n`hide`}</a>
         </dd>
@@ -227,6 +236,7 @@ export default class SyncScreen {
       this.correlation.textContent = (status.factor * 100).toFixed(2) + ' %';
       this.formula.textContent = lineFormulaFmt(status.formula);
       this.maxChange.textContent = timeStampFractionFmt(status.maxChange);
+      this.renderPrecisionDetails(status);
 
       if (isSaveReady(status) && !this.subReady) {
         this.subReady = true;
@@ -319,6 +329,40 @@ export default class SyncScreen {
       `Decoded subtitles: ${subCount} · subtitle words: ${subWords} · reference words: ${refWords}`
       + anchorText
       + convergenceText;
+  }
+
+  renderPrecisionDetails(status) {
+    const precision = status && (
+      status.precision
+      || (status.diagnostics && status.diagnostics.precision)
+    );
+
+    const canonical = Boolean(status && status.correlated);
+    this.canonicalAcceptanceRow.hidden = !canonical;
+    if (canonical) {
+      this.canonicalAcceptance.textContent = 'accepted';
+    }
+
+    if (!canonical || !precision || !precision.available) {
+      this.precisionEvidenceRow.hidden = true;
+      this.precisionRobustnessRow.hidden = true;
+      return;
+    }
+
+    const beginning = Number(precision.beginningBuckets) || 0;
+    const middle = Number(precision.middleBuckets) || 0;
+    const end = Number(precision.endBuckets) || 0;
+    const buckets = Number(precision.buckets) || 0;
+    const rawPoints = Number(precision.rawPoints) || 0;
+    const samples = Number(precision.jackknifeSamples) || 0;
+
+    this.precisionEvidence.textContent =
+      `${buckets} cue buckets · thirds ${beginning}/${middle}/${end} · raw matches ${rawPoints}`;
+    this.precisionRobustness.textContent =
+      `leave-one-cue max ${formatPrecisionSeconds(precision.maxMappedDelta)} · median ${formatPrecisionSeconds(precision.medianMappedDelta)} · slope max ${formatPrecisionPpm(precision.maxSlopeDeltaPpm)} · ${samples} checks`;
+
+    this.precisionEvidenceRow.hidden = false;
+    this.precisionRobustnessRow.hidden = false;
   }
 
   renderFailureDiagnosis(status) {
@@ -485,6 +529,17 @@ function assetStateText(event) {
   }
   return event.state || 'Preparing';
 }
+
+function formatPrecisionSeconds(seconds) {
+  const value = Number(seconds);
+  return Number.isFinite(value) ? `${Math.round(1000 * value)} ms` : '-';
+}
+
+function formatPrecisionPpm(ppm) {
+  const value = Number(ppm);
+  return Number.isFinite(value) ? `${Math.round(value)} ppm` : '-';
+}
+
 
 function formatBytes(bytes) {
   const value = Number(bytes) || 0;
