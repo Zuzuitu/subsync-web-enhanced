@@ -46,6 +46,11 @@ if sha256(DIST / "assets/data/dict-eng-rum.zip") != CFG["dictionaryEnglishRomani
 
 build_manifest = json.loads((DIST / "build-manifest.json").read_text(encoding="utf-8"))
 build_hash = build_manifest["buildHash"]
+bootstrap_page = build_manifest.get("bootstrapPage")
+if bootstrap_page != f"build-{build_hash}.html":
+    raise SystemExit(f"Unexpected PWA bootstrap page: {bootstrap_page}")
+if not (DIST / bootstrap_page).is_file():
+    raise SystemExit(f"Missing staged PWA bootstrap page: {bootstrap_page}")
 index_text = (DIST / "index.html").read_text(encoding="utf-8")
 sw_text = (DIST / "sw.js").read_text(encoding="utf-8")
 
@@ -209,7 +214,7 @@ self.addEventListener('fetch', event => {
         (RECOVERY_SITE / "sw.js").write_text(current_sw, encoding="utf-8")
         (RECOVERY_SITE / "build-manifest.json").write_text(current_manifest, encoding="utf-8")
 
-        recovery.goto(recovery_url + "?build=" + build_hash, wait_until="load")
+        recovery.goto(recovery_url + bootstrap_page, wait_until="load")
         recovery.wait_for_selector("#subsync_app", timeout=30_000)
         recovered_hash = recovery.evaluate("() => window.subsync2_build_hash")
         recovered_bundle = recovery.locator('script[src*="scripts/subsync.js"]').get_attribute("src")
@@ -241,6 +246,7 @@ self.addEventListener('fetch', event => {
             "serviceWorkerScript": service_worker,
             "serviceWorkerReady": True,
             "staleShellRecovery": {
+                "bootstrapPage": bootstrap_page,
                 "bootstrapBuildHash": recovered_hash,
                 "bootstrapBundleSrc": recovered_bundle,
                 "normalNavigationBuildHash": normal_hash,
