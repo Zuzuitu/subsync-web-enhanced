@@ -14,7 +14,7 @@
     var appPath = pagePath.endsWith("/")
       ? pagePath.slice(0, -1)
       : pagePath.slice(0, pagePath.lastIndexOf("/"));
-    var baseurl = appPath.replace(/^\\/+|\\/+$/g, "");
+    var baseurl = appPath.split("/").filter(Boolean).join("/");
     var user_language = "en";
     var subsync2_build_hash = "__BUILD_HASH__";
 
