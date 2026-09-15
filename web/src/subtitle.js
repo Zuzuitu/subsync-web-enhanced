@@ -1,3 +1,5 @@
+const { timingReview } = require('./timing-review.js');
+
 export default class Subtitles {
 
   constructor() {
@@ -61,6 +63,10 @@ export default class Subtitles {
       const last = this.events[this.events.length - 1].end;
       return Math.max(getChange(first), getChange(last));
     }
+  }
+
+  getTimingReview(formula) {
+    return timingReview(this.events, formula);
   }
 }
 

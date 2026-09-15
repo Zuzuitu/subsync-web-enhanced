@@ -1,0 +1,88 @@
+'use strict';
+
+const { isSaveReady } = require('./save-policy.js');
+
+// Read-only projection: use the same endpoint mapping/clamp as subtitle export.
+function timingReview(events, formula) {
+  let backwardStarts = 0;
+  let previous = null;
+  const cues = [];
+  events.forEach((event, index) => {
+    if (!Number.isFinite(event.start) || !Number.isFinite(event.end)
+        || event.end < event.start) return;
+    if (previous !== null && event.start < previous) backwardStarts++;
+    previous = event.start;
+    cues.push({ cue: index + 1, start: event.start, end: event.end });
+  });
+  cues.sort((a, b) => a.start - b.start || a.cue - b.cue);
+  const result = {
+    cueCount: events.length,
+    invalidCues: events.length - cues.length,
+    backwardStarts,
+    available: false,
+    samples: [],
+  };
+  if (!cues.length || !formula || !Number.isFinite(formula.a)
+      || formula.a <= 0 || !Number.isFinite(formula.b)) return result;
+  const midpoint = (cues[0].start + cues[cues.length - 1].start) / 2;
+  const middle = cues.reduce((best, cue) =>
+    Math.abs(cue.start - midpoint) < Math.abs(best.start - midpoint) ? cue : best);
+  const positions = [['Beginning', cues[0]], ['Middle', middle], ['End', cues[cues.length - 1]]];
+  const seen = new Set();
+  for (const [position, cue] of positions) {
+    if (seen.has(cue.cue)) continue;
+    seen.add(cue.cue);
+    const afterStart = Math.max(formula.a * cue.start + formula.b, 0);
+    const afterEnd = Math.max(formula.a * cue.end + formula.b, 0);
+    if (!Number.isFinite(afterStart) || !Number.isFinite(afterEnd)) return result;
+    result.samples.push({ position, cue: cue.cue, beforeStart: cue.start,
+      beforeEnd: cue.end, afterStart, afterEnd,
+      shiftSeconds: afterStart - cue.start });
+  }
+  result.available = true;
+  return result;
+}
+
+// Allowlisted quantitative evidence only: never serialize arbitrary diagnostics,
+// errors/stacks, filenames, subtitle text, media bytes or recognized speech.
+function numbers(source, keys) {
+  const result = {};
+  for (const key of keys) {
+    const value = source && source[key];
+    if (typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value))) {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+function diagnosticReport(status, review, environment) {
+  const diagnostics = status.diagnostics || {};
+  return {
+    schemaVersion: 1,
+    application: 'SubSync2',
+    runtime: environment.runtime,
+    browser: environment.browser,
+    elapsedSeconds: environment.elapsedSeconds,
+    outcome: environment.outcome,
+    privacy: 'No filenames, subtitle text, recognized words or media included.',
+    interpretation: 'Timing changes are not measured accuracy. No cut detection or piecewise correction is applied.',
+    saveEligible: isSaveReady(status),
+    correlation: numbers(status, ['correlated', 'subReady', 'points', 'factor', 'maxDistance', 'maxChange']),
+    formula: numbers(status.formula, ['a', 'b']),
+    evidence: numbers(diagnostics, ['subtitles', 'subWords', 'refWords',
+      'romanianSubContextAnchors', 'romanianRefContextAnchors']),
+    convergence: numbers(diagnostics.romanianConvergence, [
+      'verified', 'completedWindows', 'totalWindows', 'primaryWindows',
+      'rescueWindowsTotal', 'rescueWindowsCompleted', 'stableCorrelatedWindows',
+      'lastWindowWords', 'lastPoints', 'candidatePointGain', 'candidateProbeCoverageRatio',
+      'probeCoverageRatio', 'lastFormulaDeltaSeconds']),
+    precision: numbers(status.precision || diagnostics.precision, [
+      'available', 'rawPoints', 'buckets', 'beginningBuckets', 'middleBuckets', 'endBuckets',
+      'jackknifeSamples', 'maxMappedDelta', 'medianMappedDelta', 'maxSlopeDeltaPpm', 'maxOffsetDelta']),
+    errorCount: Array.isArray(diagnostics.errors) ? diagnostics.errors.length : 0,
+    timingReview: review,
+  };
+}
+
+module.exports = { timingReview, diagnosticReport };

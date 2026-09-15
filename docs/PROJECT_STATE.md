@@ -13,6 +13,37 @@ Repository truth overrides chat memory. Before material changes, read in this or
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
 
+## Active product sprint — timing review and diagnostic export
+
+Branch `feat/timing-review` adds a read-only beginning/middle/end timing preview
+after a run and a local JSON diagnostic download, including runtime/browser,
+elapsed time, formula, counts, convergence, precision and preview endpoints.
+The report excludes filenames, cue text, ASR text, media and raw error messages;
+it retains error count only. No upload occurs. Reports are available even for
+inconclusive/stopped runs; provisional previews never enable subtitle Save.
+Input backward-start jumps and invalid cue timing are reported as observations,
+not claimed cut/edition detection. Existing output mapping and Save policy are
+unchanged. Unit regressions cover privacy, preview/export parity, malformed and
+short inputs, and pending/verified adaptive state. Browser regressions exercise
+preview and report download in the actual Romanian Chromium/WebKit workflow.
+CI/release validation is pending; this section is not a deployment claim.
+
+The remembered piecewise fork is `Sefzz15/subsync`. Current reviewed commit is
+`a8b4e9ec6858d86030d726856a6a2232079c3097`; see `docs/PIECEWISE_REVIEW.md` for
+actual source inspection and a reproducible method-level test. A direct import
+is rejected: the isolated method can perturb perfect affine timing and cannot
+infer cut offsets without supporting points. No optional piecewise export is
+implemented or advertised as available. Further point-provenance/segment work
+requires independent evidence and preserves default linear behavior, canonical
+thresholds and the 360-second sampled-audio cap.
+
+User validation: keep a correct SRT unchanged; shift a copy by a known constant
+(e.g. +10 seconds), synchronize against Romanian audio in a different title,
+keep Safari foregrounded until terminal verified status, then retain original,
+shifted input and output SRT, diagnostic report (once deployed), elapsed time,
+device/browser/title/duration and practical beginning/middle/end observations.
+Start with one other title, then expand to 3-5. No media upload is required.
+
 ## Controlled-input repeatability — PR #44 evidence
 
 PR #44 merged at `9fc1476817d169816a8757eec02db15873427dd9` after all five

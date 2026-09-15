@@ -440,6 +440,10 @@ export default class Synchronizer {
       return this.subtitles.getSynchronizedSubtitles(formula, format);
     }
   }
+
+  getTimingReview() {
+    return this.subtitles.getTimingReview(this.status.formula);
+  }
 }
 
 Synchronizer.instance = new Synchronizer();
