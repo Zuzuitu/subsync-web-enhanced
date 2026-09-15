@@ -6,18 +6,38 @@
   <meta name="theme-color" content="#101828">
   <meta name="description" content="SubSync2 synchronizes subtitle timing locally in your browser.">
   <title>SubSync2 — Subtitle Synchronizer</title>
-  <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./app.css">
+  <link rel="manifest" href="./manifest.webmanifest?__BUILD_HASH__">
+  <link rel="icon" href="./icon.svg?__BUILD_HASH__" type="image/svg+xml">
+  <link rel="stylesheet" href="./app.css?__BUILD_HASH__">
   <script>
     var pagePath = window.location.pathname;
     var appPath = pagePath.endsWith("/")
       ? pagePath.slice(0, -1)
       : pagePath.slice(0, pagePath.lastIndexOf("/"));
-    var baseurl = appPath.replace(/^\/+|\/+$/g, "");
+    var baseurl = appPath.replace(/^\\/+|\\/+$/g, "");
     var user_language = "en";
+    var subsync2_build_hash = "__BUILD_HASH__";
+
+    async function checkForSubSync2Update() {
+      try {
+        var response = await fetch("./build-manifest.json?check=" + Date.now(), {
+          cache: "no-store"
+        });
+        if (!response.ok) return;
+        var manifest = await response.json();
+        if (manifest.buildHash && manifest.buildHash !== subsync2_build_hash) {
+          var target = new URL("./", window.location.href);
+          target.searchParams.set("build", manifest.buildHash);
+          window.location.replace(target.href);
+        }
+      } catch (error) {
+        // Offline is a supported PWA state; keep the installed build available.
+      }
+    }
+
+    window.addEventListener("pageshow", checkForSubSync2Update);
   </script>
-  <script src="./scripts/subsync.js" defer></script>
+  <script src="./scripts/subsync.js?__BUILD_HASH__" defer></script>
 </head>
 <body>
   <div class="page">
@@ -48,10 +68,15 @@
 
   <noscript>SubSync2 requires JavaScript and WebAssembly.</noscript>
   <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function () {
-        navigator.serviceWorker.register('./sw.js').catch(function (error) {
-          console.warn('Service worker registration failed:', error);
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register(
+          "./sw.js?" + subsync2_build_hash,
+          { updateViaCache: "none" }
+        ).then(function (registration) {
+          return registration.update();
+        }).catch(function (error) {
+          console.warn("Service worker registration failed:", error);
         });
       });
     }
