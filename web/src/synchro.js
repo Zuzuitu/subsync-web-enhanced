@@ -12,7 +12,6 @@ const {
 } = require('./romanian-windows.js');
 const {
   RomanianConvergenceTracker,
-  REQUIRED_STABLE_CORRELATED_WINDOWS,
   MIN_PROBE_COVERAGE_RATIO,
 } = require('./romanian-convergence.js');
 const { RomanianContextAnchorStream } = require('./romanian-context-anchors.js');
@@ -283,25 +282,41 @@ export default class Synchronizer {
           && !this.romanianScan.rescueAdded
           && convergence.completedWindows === this.romanianScan.primaryWindows.length
         ) {
-          const coverageRecovery = (
-            convergence.stableCorrelatedWindows >= REQUIRED_STABLE_CORRELATED_WINDOWS
+          const canonicalCoverageDeficit = (
+            convergence.probeCoverageRatio > 0
             && convergence.probeCoverageRatio < MIN_PROBE_COVERAGE_RATIO
             && Number.isFinite(convergence.evidenceStart)
             && Number.isFinite(convergence.evidenceEnd)
           );
+          const candidateCoverageDeficit = (
+            !canonicalCoverageDeficit
+            && convergence.candidateProbeCoverageRatio > 0
+            && convergence.candidateProbeCoverageRatio < MIN_PROBE_COVERAGE_RATIO
+            && Number.isFinite(convergence.candidateEvidenceStart)
+            && Number.isFinite(convergence.candidateEvidenceEnd)
+          );
+          const coverageRecovery = canonicalCoverageDeficit || candidateCoverageDeficit;
+          const coverageEvidenceStart = canonicalCoverageDeficit
+            ? convergence.evidenceStart
+            : convergence.candidateEvidenceStart;
+          const coverageEvidenceEnd = canonicalCoverageDeficit
+            ? convergence.evidenceEnd
+            : convergence.candidateEvidenceEnd;
           const rescueWindows = makeRescueWindows(
             this.romanianScan.duration,
             this.romanianScan.primaryWindows,
             this.romanianScan.primarySummaries,
             {
               prioritizeCoverage: coverageRecovery,
-              evidenceStart: convergence.evidenceStart,
-              evidenceEnd: convergence.evidenceEnd,
+              evidenceStart: coverageEvidenceStart,
+              evidenceEnd: coverageEvidenceEnd,
             }
           );
-          this.romanianScan.rescueStrategy = coverageRecovery
+          this.romanianScan.rescueStrategy = canonicalCoverageDeficit
             ? 'canonical-coverage'
-            : 'content-aware';
+            : candidateCoverageDeficit
+              ? 'candidate-coverage'
+              : 'content-aware';
           this.romanianScan.rescueAdded = true;
           convergence = this.romanianConvergence.setTotalWindows(
             this.romanianScan.primaryWindows.length + rescueWindows.length
