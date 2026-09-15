@@ -104,6 +104,8 @@ index = index_path.read_text(encoding="utf-8").replace("__BUILD_HASH__", args.ha
 if "__BUILD_HASH__" in index:
     raise SystemExit("Unresolved build hash placeholder in staged index.html")
 index_path.write_text(index, encoding="utf-8")
+bootstrap_name = f"build-{args.hash}.html"
+(DIST / bootstrap_name).write_text(index, encoding="utf-8")
 
 sw = (PUBLIC / "sw.js.in").read_text(encoding="utf-8").replace("__BUILD_HASH__", args.hash)
 if "__BUILD_HASH__" in sw:
@@ -113,6 +115,7 @@ if "__BUILD_HASH__" in sw:
 
 manifest = {
     "buildHash": args.hash,
+    "bootstrapPage": bootstrap_name,
     "assets": materialized,
     "files": sorted(
         str(path.relative_to(DIST)).replace("\\", "/")
