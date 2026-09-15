@@ -127,6 +127,74 @@ assert.strictEqual(
   'rescue must preserve four-quarter title coverage'
 );
 
+// Real-title regression shape: a stable canonical formula can still cover only
+// about 63% of a long title. In that state the fixed rescue budget must target
+// the missing canonical span instead of spending all four physical locations
+// on generic quarter coverage. Numeric-only synthetic data keeps user media and
+// subtitle text out of the repository.
+const coverageDuration = 5800;
+const coveragePrimary = makePrimaryWindows(coverageDuration);
+const evidenceStart = 780;
+const evidenceEnd = evidenceStart + coverageDuration * 0.629;
+const coverageSummaries = coveragePrimary.map(([start, end], index) => ({
+  start,
+  end,
+  wordCount: 6 + (index % 5),
+  candidatePointGain: index === 2 || index === 13 ? 2 : index % 4 === 0 ? 1 : 0,
+}));
+const coverageRescue = makeRescueWindows(
+  coverageDuration,
+  coveragePrimary,
+  coverageSummaries,
+  {
+    prioritizeCoverage: true,
+    evidenceStart,
+    evidenceEnd,
+  }
+);
+assert.strictEqual(coverageRescue.length, RESCUE_WINDOWS);
+assert.strictEqual(
+  coverageRescue.reduce((sum, [start, end]) => sum + end - start, 0),
+  RESCUE_DISCOVERY_WINDOWS * RESCUE_WINDOW_SECONDS
+    + RESCUE_CONFIRMATION_WINDOWS * RESCUE_CONFIRMATION_WINDOW_SECONDS,
+  'coverage recovery must stay inside the existing 120-second rescue budget'
+);
+
+const coveragePhysicalLocations = [];
+for (const [start, end] of coverageRescue) {
+  const center = (start + end) / 2;
+  const existing = coveragePhysicalLocations.find(item =>
+    Math.abs(item.end - start) < 1e-9 || Math.abs(end - item.start) < 1e-9
+  );
+  if (existing) {
+    existing.start = Math.min(existing.start, start);
+    existing.end = Math.max(existing.end, end);
+  } else {
+    coveragePhysicalLocations.push({ start, end });
+  }
+}
+assert.strictEqual(
+  coveragePhysicalLocations.length,
+  RESCUE_LOCATIONS,
+  'coverage recovery must keep four independent physical search locations'
+);
+const locationCenters = coveragePhysicalLocations.map(
+  item => (item.start + item.end) / 2
+);
+assert(
+  locationCenters.every(center => center < evidenceStart || center > evidenceEnd),
+  'coverage recovery must spend its physical locations outside the known canonical span'
+);
+assert(
+  locationCenters.some(center => center < evidenceStart)
+    && locationCenters.some(center => center > evidenceEnd),
+  'when both sides are missing, coverage recovery must search both title ends'
+);
+const leftLocations = locationCenters.filter(center => center < evidenceStart).length;
+const rightLocations = locationCenters.filter(center => center > evidenceEnd).length;
+assert.strictEqual(leftLocations, 1);
+assert.strictEqual(rightLocations, 3);
+
 const mediumDuration = 300;
 const mediumPrimary = makePrimaryWindows(mediumDuration);
 const mediumRescue = makeRescueWindows(
