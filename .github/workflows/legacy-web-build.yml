@@ -416,8 +416,10 @@ jobs:
             tests/generated/web-primary-workflow-output.srt
             tests/generated/romanian-audio-e2e/chromium-romanian-audio.json
             tests/generated/romanian-audio-e2e/chromium-output.rum.srt
+            tests/generated/romanian-audio-e2e/chromium-output.rum-diagnostics.json
             tests/generated/romanian-audio-e2e/webkit-romanian-audio.json
             tests/generated/romanian-audio-e2e/webkit-output.rum.srt
+            tests/generated/romanian-audio-e2e/webkit-output.rum-diagnostics.json
             tests/generated/romanian-audio-e2e/fixture.json
             tests/generated/romanian-audio-e2e/piper-fixture.json
             tests/generated/romanian-audio-e2e/piper-info.json
