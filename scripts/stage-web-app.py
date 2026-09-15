@@ -105,7 +105,55 @@ if "__BUILD_HASH__" in index:
     raise SystemExit("Unresolved build hash placeholder in staged index.html")
 index_path.write_text(index, encoding="utf-8")
 bootstrap_name = f"build-{args.hash}.html"
-(DIST / bootstrap_name).write_text(index, encoding="utf-8")
+bootstrap = """<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Updating SubSync2</title>
+</head>
+<body>
+  <p>Updating SubSync2...</p>
+  <script>
+    (async function () {
+      var expectedHash = "__BUILD_HASH__";
+      try {
+        var probe = await fetch(
+          "./build-manifest.json?bootstrap=" + expectedHash + "&check=" + Date.now(),
+          { cache: "no-store" }
+        );
+        if (!probe.ok) throw new Error("build manifest unavailable");
+        var manifest = await probe.json();
+        if (manifest.buildHash !== expectedHash) {
+          throw new Error("build manifest changed during update");
+        }
+
+        if ("serviceWorker" in navigator) {
+          var registration = await navigator.serviceWorker.getRegistration("./");
+          if (registration) await registration.unregister();
+        }
+
+        if ("caches" in window) {
+          var keys = await caches.keys();
+          await Promise.all(
+            keys
+              .filter(function (key) { return key.startsWith("subsync2-shell-"); })
+              .map(function (key) { return caches.delete(key); })
+          );
+        }
+
+        var target = new URL("./", window.location.href);
+        target.searchParams.set("build", expectedHash);
+        window.location.replace(target.href);
+      } catch (error) {
+        document.body.textContent = "SubSync2 update could not complete. Check the connection and reload.";
+      }
+    })();
+  </script>
+</body>
+</html>
+""".replace("__BUILD_HASH__", args.hash)
+(DIST / bootstrap_name).write_text(bootstrap, encoding="utf-8")
 
 sw = (PUBLIC / "sw.js.in").read_text(encoding="utf-8").replace("__BUILD_HASH__", args.hash)
 if "__BUILD_HASH__" in sw:
