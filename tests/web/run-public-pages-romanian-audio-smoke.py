@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 import json
+import hashlib
 import os
 import re
 import shutil
+import sys
 from pathlib import Path
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError, sync_playwright
@@ -11,11 +13,17 @@ from srt_timing import measure_srt_timing
 from public_smoke_result import write_public_smoke_result
 
 ROOT = Path(__file__).resolve().parents[2]
-FIXTURE_DIR = ROOT / "tests" / "generated" / "romanian-audio-e2e"
+sys.path.insert(0, str(ROOT / "tests" / "fixtures"))
+from fixture_identity import fixture_identity, sha256_file
+
+FIXTURE_DIR = Path(os.environ.get("SUBSYNC_ROMANIAN_FIXTURE_DIR", ROOT / "tests" / "generated" / "romanian-audio-e2e"))
+RESULT_DIR = Path(os.environ.get("SUBSYNC_ROMANIAN_RESULT_DIR", FIXTURE_DIR))
+RESULT_DIR.mkdir(parents=True, exist_ok=True)
 SRT_IN = FIXTURE_DIR / "target.rum.srt"
 MKV_IN = FIXTURE_DIR / "reference-romanian.mkv"
-RESULT = FIXTURE_DIR / "public-pages-romanian-audio.json"
-SAVED = FIXTURE_DIR / "public-pages-output.rum.srt"
+RESULT = RESULT_DIR / "public-pages-romanian-audio.json"
+SAVED = RESULT_DIR / "public-pages-output.rum.srt"
+CAPTURE_RPC = os.environ.get("SUBSYNC_ROMANIAN_CAPTURE_RPC", "0") == "1"
 PREVIEW_URL = os.environ.get(
     "SUBSYNC2_PREVIEW_URL",
     "https://zuzuitu.github.io/subsync-web-enhanced/",
@@ -44,6 +52,9 @@ browser_path = (
 )
 
 fixture = json.loads((FIXTURE_DIR / "fixture.json").read_text(encoding="utf-8"))
+input_identity = fixture_identity(FIXTURE_DIR)
+if fixture.get("identity") != input_identity:
+    raise SystemExit("Romanian fixture bytes differ from their generation manifest")
 cue_count = len(fixture.get("phrases", []))
 if fixture.get("sparseRegression"):
     if fixture.get("speechLayout") != "distributed":
@@ -78,6 +89,8 @@ with sync_playwright() as p:
         launch["executable_path"] = browser_path
     browser = p.chromium.launch(**launch)
     context = browser.new_context(accept_downloads=True)
+    if CAPTURE_RPC:
+        context.add_init_script(path=str(ROOT / "tests/web/capture-correlation-rpc.js"))
     page = context.new_page()
 
     console_messages = []
@@ -85,6 +98,20 @@ with sync_playwright() as p:
     page_errors = []
     http_failures = []
     responses = []
+    runtime_assets = {}
+
+    def record_runtime(request):
+        url = request.url
+        if "/scripts/" not in url or not url.split("?", 1)[0].endswith((".js", ".wasm")):
+            return
+        response = request.response()
+        try:
+            if response and response.status == 200:
+                runtime_assets[url] = hashlib.sha256(response.body()).hexdigest()
+        except Exception as exc:
+            http_failures.append({"url": url, "hashError": str(exc)})
+
+    page.on("requestfinished", record_runtime)
 
     def record_console(msg):
         entry = {"type": msg.type, "text": msg.text}
@@ -169,6 +196,9 @@ with sync_playwright() as p:
             "consoleErrors": console_errors,
             "pageErrors": page_errors,
             "httpFailures": http_failures,
+            "inputIdentity": input_identity,
+            "runtimeAssets": runtime_assets,
+            "correlationTrace": page.evaluate("window.__correlationTrace || null"),
         }
         RESULT.write_text(json.dumps(details, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         print(json.dumps(details, indent=2, ensure_ascii=False))
@@ -304,12 +334,23 @@ with sync_playwright() as p:
     ]
     missing = [token for token in required_diacritics if token not in output.lower()]
     failures = []
+    trace = page.evaluate("window.__correlationTrace || null")
+    if CAPTURE_RPC and (not trace or trace["dropped"] or not any(
+        event.get("method") == "addRefWord" for event in trace["events"]
+    )):
+        failures.append("Synthetic correlation RPC evidence is absent or truncated")
     if missing:
         failures.append("Public saved Romanian subtitles lost text/diacritics: " + ", ".join(missing))
 
     details = {
         "status": "pass",
         "browser": "chromium",
+        "browserVersion": browser.version,
+        "inputIdentity": input_identity,
+        "fixtureManifestSha256": sha256_file(FIXTURE_DIR / "fixture.json"),
+        "outputSubtitleSha256": sha256_file(SAVED),
+        "runtimeAssets": runtime_assets,
+        "correlationTrace": trace,
         "appText": app_text,
         "consoleMessages": console_messages,
         "responses": responses,

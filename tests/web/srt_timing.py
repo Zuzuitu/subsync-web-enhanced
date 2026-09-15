@@ -78,15 +78,18 @@ def measure_srt_timing(input_text, output_text, expected_shift):
     duration = max(source_times) - min(source_times) if source_times else 0.0
 
     third_size = max(1, len(start_errors) // 3)
+    def optional_median(values):
+        return median(values) if values else None
+
     thirds = {
-        "beginningMedianErrorSeconds": median(start_errors[:third_size]),
-        "middleMedianErrorSeconds": median(
-            start_errors[third_size:2 * third_size]
-        ),
-        "endMedianErrorSeconds": median(start_errors[2 * third_size:]),
+        "beginningMedianErrorSeconds": optional_median(start_errors[:third_size]),
+        "middleMedianErrorSeconds": optional_median(start_errors[third_size:2 * third_size]),
+        "finalThirdMedianErrorSeconds": optional_median(start_errors[2 * third_size:]),
     }
 
     return {
+        "schemaVersion": 2,
+        "thirdPartition": "cue-count",
         "cueCount": len(source),
         "startMeanErrorSeconds": mean(start_errors),
         "startMedianErrorSeconds": median(start_errors),
