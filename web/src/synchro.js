@@ -10,7 +10,10 @@ const {
   makePrimaryWindows,
   makeRescueWindows,
 } = require('./romanian-windows.js');
-const { RomanianConvergenceTracker } = require('./romanian-convergence.js');
+const {
+  RomanianConvergenceTracker,
+  MIN_PROBE_COVERAGE_RATIO,
+} = require('./romanian-convergence.js');
 const { RomanianContextAnchorStream } = require('./romanian-context-anchors.js');
 const { selectCanonicalStatus } = require('./correlation-status.js');
 const logger = Logger.logger.get('[Synchronizer]');
@@ -279,11 +282,41 @@ export default class Synchronizer {
           && !this.romanianScan.rescueAdded
           && convergence.completedWindows === this.romanianScan.primaryWindows.length
         ) {
+          const canonicalCoverageDeficit = (
+            convergence.probeCoverageRatio > 0
+            && convergence.probeCoverageRatio < MIN_PROBE_COVERAGE_RATIO
+            && Number.isFinite(convergence.evidenceStart)
+            && Number.isFinite(convergence.evidenceEnd)
+          );
+          const candidateCoverageDeficit = (
+            !canonicalCoverageDeficit
+            && convergence.candidateProbeCoverageRatio > 0
+            && convergence.candidateProbeCoverageRatio < MIN_PROBE_COVERAGE_RATIO
+            && Number.isFinite(convergence.candidateEvidenceStart)
+            && Number.isFinite(convergence.candidateEvidenceEnd)
+          );
+          const coverageRecovery = canonicalCoverageDeficit || candidateCoverageDeficit;
+          const coverageEvidenceStart = canonicalCoverageDeficit
+            ? convergence.evidenceStart
+            : convergence.candidateEvidenceStart;
+          const coverageEvidenceEnd = canonicalCoverageDeficit
+            ? convergence.evidenceEnd
+            : convergence.candidateEvidenceEnd;
           const rescueWindows = makeRescueWindows(
             this.romanianScan.duration,
             this.romanianScan.primaryWindows,
-            this.romanianScan.primarySummaries
+            this.romanianScan.primarySummaries,
+            {
+              prioritizeCoverage: coverageRecovery,
+              evidenceStart: coverageEvidenceStart,
+              evidenceEnd: coverageEvidenceEnd,
+            }
           );
+          this.romanianScan.rescueStrategy = canonicalCoverageDeficit
+            ? 'canonical-coverage'
+            : candidateCoverageDeficit
+              ? 'candidate-coverage'
+              : 'content-aware';
           this.romanianScan.rescueAdded = true;
           convergence = this.romanianConvergence.setTotalWindows(
             this.romanianScan.primaryWindows.length + rescueWindows.length
@@ -298,7 +331,8 @@ export default class Synchronizer {
                 / this.romanianConvergence.totalWindows;
               logger.log(
                 `Romanian ASR primary stage remained noncanonical at ${convergence.lastPoints} points; `
-                + `continuing with ${rescueWindows.length} content-aware rescue checks within the 120 s reserve`
+                + `continuing with ${rescueWindows.length} ${this.romanianScan.rescueStrategy} rescue checks `
+                + 'within the 120 s reserve'
               );
             }
           } else {

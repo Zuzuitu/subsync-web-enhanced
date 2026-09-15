@@ -128,7 +128,95 @@ function makeGapCandidate(duration, gap, left, right, summaries) {
   };
 }
 
-function selectRescueLocations(duration, primaryWindows, primarySummaries = []) {
+function candidateCenter(candidate) {
+  return (candidate.window[0] + candidate.window[1]) / 2;
+}
+
+function selectCoverageDeficitLocations(duration, candidates, context) {
+  if (!context || !context.prioritizeCoverage) return [];
+
+  const evidenceStart = Number(context.evidenceStart);
+  const evidenceEnd = Number(context.evidenceEnd);
+  if (
+    !Number.isFinite(duration)
+    || duration <= 0
+    || !Number.isFinite(evidenceStart)
+    || !Number.isFinite(evidenceEnd)
+    || evidenceStart < 0
+    || evidenceEnd > duration
+    || evidenceEnd <= evidenceStart
+  ) {
+    return [];
+  }
+
+  const leftNeed = Math.max(0, evidenceStart);
+  const rightNeed = Math.max(0, duration - evidenceEnd);
+  const totalNeed = leftNeed + rightNeed;
+  if (totalNeed <= 0) return [];
+
+  const rank = (items, side) => items.slice().sort((a, b) => {
+    const aGain = side === 'left'
+      ? evidenceStart - candidateCenter(a)
+      : candidateCenter(a) - evidenceEnd;
+    const bGain = side === 'left'
+      ? evidenceStart - candidateCenter(b)
+      : candidateCenter(b) - evidenceEnd;
+    return b.pointGain - a.pointGain
+      || bGain - aGain
+      || b.words - a.words
+      || a.window[0] - b.window[0];
+  });
+
+  const left = rank(
+    candidates.filter(candidate => candidateCenter(candidate) < evidenceStart),
+    'left'
+  );
+  const right = rank(
+    candidates.filter(candidate => candidateCenter(candidate) > evidenceEnd),
+    'right'
+  );
+  if (!left.length && !right.length) return [];
+
+  let leftSlots = Math.round(RESCUE_LOCATIONS * leftNeed / totalNeed);
+  if (left.length && right.length) {
+    leftSlots = Math.max(1, Math.min(RESCUE_LOCATIONS - 1, leftSlots));
+  }
+  leftSlots = Math.min(leftSlots, left.length);
+  let rightSlots = Math.min(RESCUE_LOCATIONS - leftSlots, right.length);
+
+  let remaining = RESCUE_LOCATIONS - leftSlots - rightSlots;
+  if (remaining > 0) {
+    const addLeft = Math.min(remaining, left.length - leftSlots);
+    leftSlots += addLeft;
+    remaining -= addLeft;
+  }
+  if (remaining > 0) {
+    const addRight = Math.min(remaining, right.length - rightSlots);
+    rightSlots += addRight;
+    remaining -= addRight;
+  }
+
+  const selected = left.slice(0, leftSlots).concat(right.slice(0, rightSlots));
+  if (selected.length >= RESCUE_LOCATIONS) {
+    return selected.slice(0, RESCUE_LOCATIONS);
+  }
+
+  const used = new Set(selected);
+  const fallback = candidates
+    .filter(candidate => !used.has(candidate))
+    .sort((a, b) =>
+      b.score - a.score
+      || a.window[0] - b.window[0]
+    );
+  return selected.concat(fallback.slice(0, RESCUE_LOCATIONS - selected.length));
+}
+
+function selectRescueLocations(
+  duration,
+  primaryWindows,
+  primarySummaries = [],
+  context = null
+) {
   const chronological = primaryWindows.slice().sort((a, b) => a[0] - b[0]);
   const candidates = [];
 
@@ -158,6 +246,15 @@ function selectRescueLocations(duration, primaryWindows, primarySummaries = []) 
       primarySummaries
     );
     if (candidate) candidates.push(candidate);
+  }
+
+  const coverageSelected = selectCoverageDeficitLocations(
+    duration,
+    candidates,
+    context
+  );
+  if (coverageSelected.length) {
+    return coverageSelected;
   }
 
   const selected = [];
@@ -208,7 +305,12 @@ function splitConfirmationWindow(window) {
   ];
 }
 
-function makeRescueWindows(duration, primaryWindows, primarySummaries = []) {
+function makeRescueWindows(
+  duration,
+  primaryWindows,
+  primarySummaries = [],
+  context = null
+) {
   if (
     !Number.isFinite(duration)
     || duration <= FULL_SCAN_SECONDS
@@ -221,7 +323,8 @@ function makeRescueWindows(duration, primaryWindows, primarySummaries = []) {
   const selected = selectRescueLocations(
     duration,
     primaryWindows,
-    primarySummaries
+    primarySummaries,
+    context
   );
   if (!selected.length) return [];
 
@@ -249,10 +352,15 @@ function makeRescueWindows(duration, primaryWindows, primarySummaries = []) {
   return discovery.concat(splitConfirmationWindow(confirmation.window));
 }
 
-function makeRomanianTimeWindows(duration, primarySummaries = []) {
+function makeRomanianTimeWindows(duration, primarySummaries = [], context = null) {
   const primary = makePrimaryWindows(duration);
   if (!primary) return null;
-  return primary.concat(makeRescueWindows(duration, primary, primarySummaries));
+  return primary.concat(makeRescueWindows(
+    duration,
+    primary,
+    primarySummaries,
+    context
+  ));
 }
 
 module.exports = {
@@ -273,6 +381,8 @@ module.exports = {
   summaryEvidence,
   evidencePriority,
   makePrimaryWindows,
+  candidateCenter,
+  selectCoverageDeficitLocations,
   selectRescueLocations,
   splitConfirmationWindow,
   makeRescueWindows,
