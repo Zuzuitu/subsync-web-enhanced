@@ -13,7 +13,26 @@ Repository truth overrides chat memory. Before material changes, read in this or
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
 
-## Active product sprint — timing review and diagnostic export
+## Product timing review and diagnostic export — PR #46
+
+Current deliberately deployed product runtime:
+`27a84444e5b0f956d66bc380d41a0658cfd22a36`.
+Deploy PWA Preview `34951221626`: PASS, including fresh Romanian Chromium and
+iPhone-like WebKit E2E. Deployment artifact `10389288761` was inspected: both
+browsers report the exact deployed hash, three preview samples, zero recorded
+processing errors, p95 0.43100 s and drift 0.045304 s. Main CI `34951180855`
+passed. Production auto-deploy remains OFF; the preview branch was advanced
+deliberately only after PR #46 was green and merged.
+
+Strict post-deploy Public Pages smoke `34952104123`: PASS. Retrieved artifact
+`10390320339` contains complete JSON (`status=pass`, no failure reasons), exact
+PR #46 runtime query hashes, and both new control labels in the live app text.
+It reports 160 words, 143 anchors, 10/21 probes, 26 points/buckets, thirds 10/8/8,
+81 raw matches, formula `1.0002x-8.451`; leave-one-cue max 154 ms / median 49 ms,
+slope sensitivity max 450 ppm. Full-title p95 is 0.44110 s, drift 0.112027 s;
+strict checks are enabled and console/page/HTTP error lists are empty.
+The native extractor/correlator/Whisper WASM byte hashes remain unchanged from
+the PR #41 runtime observed during PR #44; the UI bundle has changed.
 
 Branch `feat/timing-review` adds a read-only beginning/middle/end timing preview
 after a run and a local JSON diagnostic download, including runtime/browser,
@@ -26,7 +45,42 @@ not claimed cut/edition detection. Existing output mapping and Save policy are
 unchanged. Unit regressions cover privacy, preview/export parity, malformed and
 short inputs, and pending/verified adaptive state. Browser regressions exercise
 preview and report download in the actual Romanian Chromium/WebKit workflow.
-CI/release validation is pending; this section is not a deployment claim.
+PR #46 merged at `27a84444e5b0f956d66bc380d41a0658cfd22a36` with all triggered
+head workflows green: CI `34949200961` / `34949197503`, Mobile WebKit
+`34949200974`, large-file stress `34949200962`, controlled public-input study
+`34949200975`, and Legacy WebAssembly Build `34949200967` attempt 2. The study
+still exercised the prior PR #41 public runtime; the fresh legacy build tested
+the actual PR #46 candidate including both new controls in Chromium and WebKit.
+
+Artifact `10388443976` was retrieved and both downloaded product JSON reports
+were inspected. Chromium and WebKit produced identical formula/evidence/timing:
+161 reference words, 145 anchors, 10/21 probes, 29 points, 29 cue buckets,
+thirds 11/8/10, 77 raw matches, formula `1.000400424x-8.391125679`;
+leave-one-cue max 137.35 ms / median 58.68 ms, max slope sensitivity 342.13 ppm.
+Strict full-title p95 was 0.37510 s and drift 0.181354 s. Reports contained three
+preview samples and zero recorded processing errors. The always-uploaded browser
+artifact now explicitly retains both product reports, including on failure.
+
+### Red-run evidence remains open
+
+Legacy run `34949200967` attempt 1 failed strict drift at 0.577559 s (p95
+0.51730 s), not preview/report assertions. Artifact `10388502225` preserved the
+new product report and output SRT: 143 words, 129 anchors, 9 probes, 27 points,
+28 buckets, thirds 8/10/10, 80 raw matches, slope `a=1.001275301`, intercept
+`b=-8.569321632`; leave-one-cue max 187.18 ms / median 46.46 ms, slope
+sensitivity 612.85 ppm. No processing errors were recorded.
+Its PCM SHA256 was `31c893476ff2fdd5acac13e94de6fb3b296d996fce605db857ebb6d7459dc4ef`.
+Earlier same-product-code Chromium run `34947841174` passed with p95 0.51605 s
+and drift -0.040491 s on PCM
+`0600d4334df364e6f47b16541fbe1a7c54b4f16ccfaa96ad34470ce970258279`;
+79/80 source cue starts differed. That old workflow was cancelled by the artifact
+retention follow-up while WebKit ran, not counted as a full green gate.
+
+One failed-job rerun was performed without a formula/threshold change; attempt 2
+passed. This does NOT establish a variability fix or complete root cause.
+Synthetic input variability and fitting precision remain open; physical Frozen
+II PR #38 remains the independent physical reference. No default-noise fixture
+was replaced, no timing threshold was widened, and no hardcoded offset added.
 
 The remembered piecewise fork is `Sefzz15/subsync`. Current reviewed commit is
 `a8b4e9ec6858d86030d726856a6a2232079c3097`; see `docs/PIECEWISE_REVIEW.md` for

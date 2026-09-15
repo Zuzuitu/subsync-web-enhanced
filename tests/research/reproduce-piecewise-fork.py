@@ -68,10 +68,17 @@ result = events.synchronizePiecewise(retained_points, Formula(1, 0))
 missing_step_errors = [(e.start / 1000 - (t + (8 if t >= 500 else 0)))
                        for e, t in zip(result, [100, 200, 300, 500, 600, 700])]
 assert missing_step_errors[-1] == -8
+# Positive control: sufficient ideal support on BOTH sides recovers this step.
+dense_points = [(t, t) for t in range(90, 311, 5)] + [(t, t + 8) for t in range(490, 711, 5)]
+supported = events.synchronizePiecewise(dense_points, Formula(1, 0))
+supported_errors = [(e.start / 1000 - (t + (8 if t >= 500 else 0)))
+                    for e, t in zip(supported, [100, 200, 300, 500, 600, 700])]
+assert supported_errors == [0.0] * 6
 print(json.dumps({
     'forkCommit': 'a8b4e9ec6858d86030d726856a6a2232079c3097',
     'cleanAffineStartDeltaSeconds': start_deltas,
     'cleanAffineDurationDeltaSeconds': duration_deltas,
     'cutStepWithoutPostCutEvidenceErrorSeconds': missing_step_errors,
+    'cutStepWithDenseIdealEvidenceErrorSeconds': supported_errors,
     'scope': 'Actual Python method; ideal points; no ASR, native fit or browser integration.'
 }, indent=2))
