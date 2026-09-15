@@ -23,6 +23,7 @@ SRT_IN = FIXTURE_DIR / "target.rum.srt"
 MKV_IN = FIXTURE_DIR / "reference-romanian.mkv"
 RESULT = RESULT_DIR / "public-pages-romanian-audio.json"
 SAVED = RESULT_DIR / "public-pages-output.rum.srt"
+REPORT = RESULT_DIR / "public-pages-output.rum-diagnostics.json"
 CAPTURE_RPC = os.environ.get("SUBSYNC_ROMANIAN_CAPTURE_RPC", "0") == "1"
 PREVIEW_URL = os.environ.get(
     "SUBSYNC2_PREVIEW_URL",
@@ -36,12 +37,40 @@ REQUIRE_FINE_TIMING = os.environ.get("SUBSYNC2_REQUIRE_FINE_TIMING", "0") == "1"
 REQUIRE_PRECISION_DIAGNOSTICS = os.environ.get("SUBSYNC2_REQUIRE_PRECISION_DIAGNOSTICS", "0") == "1"
 
 
+def parse_srt_time(groups):
+    h, m, s, ms = map(int, groups)
+    return h * 3600 + m * 60 + s + ms / 1000
+
+
 def parse_srt_start(text):
     match = re.search(r"(?m)^(\d{2}):(\d{2}):(\d{2}),(\d{3})\s+-->", text)
     if not match:
         raise SystemExit("Could not parse first SRT cue timestamp")
-    h, m, s, ms = map(int, match.groups())
-    return h * 3600 + m * 60 + s + ms / 1000
+    return parse_srt_time(match.groups())
+
+
+def parse_srt_ranges(text):
+    matches = re.findall(
+        r"(?m)^(\d{2}):(\d{2}):(\d{2}),(\d{3})\s+-->\s+"
+        r"(\d{2}):(\d{2}):(\d{2}),(\d{3})",
+        text,
+    )
+    return [(parse_srt_time(match[:4]), parse_srt_time(match[4:])) for match in matches]
+
+
+def reject_private_report_keys(value):
+    forbidden = {
+        "filename", "filepath", "path", "text", "transcript", "media",
+        "errors", "error", "message", "stack",
+    }
+    if isinstance(value, dict):
+        for key, child in value.items():
+            if str(key).lower() in forbidden:
+                raise SystemExit(f"Diagnostic report exposed forbidden private field: {key}")
+            reject_private_report_keys(child)
+    elif isinstance(value, list):
+        for child in value:
+            reject_private_report_keys(child)
 
 
 browser_path = (
@@ -365,7 +394,7 @@ with sync_playwright() as p:
     versioned_hashes = {
         match.group(1)
         for url in runtime_assets
-        if (match := re.search(r"\\?([0-9a-f]{40})$", url))
+        if (match := re.search(r"\?([0-9a-f]{40})$", url))
     }
     if versioned_hashes != {runtime_hash}:
         raise SystemExit(
