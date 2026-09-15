@@ -39,6 +39,8 @@ jobs:
         run: node tests/js/correlation-status.js
       - name: Validate Romanian adaptive save policy
         run: node tests/js/save-policy.js
+      - name: Validate read-only timing review and diagnostic privacy
+        run: node tests/js/timing-review.js
       - name: Validate legacy web package metadata
         run: |
           python3 - <<'PY'

@@ -15,6 +15,8 @@ const {
 } = require('../save-policy.js');
 import { timeStampFmt, timeStampFractionFmt, lineFormulaFmt, streamTypeName } from '../utils.js';
 import Logger from '../logger.js';
+import runtimeVersion from '../../version.json';
+const { diagnosticReport } = require('../timing-review.js');
 const logger = Logger.logger.get('[SyncScreen]');
 
 export default class SyncScreen {
@@ -83,16 +85,27 @@ export default class SyncScreen {
         </dd>
       </dl>
       <p this='message' />
+      <details this='timingReviewPanel' data-review='timing' hidden>
+        <summary>Review timing changes</summary>
+        <p this='timingReviewNote' />
+        <ul this='timingReviewSamples' />
+        <p>These are timing changes, not measured accuracy. Check these scenes in your player.
+          Automatic correction for cut scenes or different editions is not available yet.</p>
+      </details>
+      <p this='timingReviewWarning' role='status' hidden />
       <div class='buttons'>
         <button this='stopBtn' disabled>{i18n`Stop`}</button>
         <button this='backBtn' hidden>{i18n`Back`}</button>
         <button this='saveBtn' class='highlight' disabled>{i18n`Save subtitles`}</button>
+        <button this='reportBtn' disabled>Download diagnostic report</button>
       </div>
+      <p>No media, filenames or subtitle text in the diagnostic report. Nothing is uploaded.</p>
     </div>;
 
     this.stopBtn.onclick = this.stop.bind(this);
     this.backBtn.onclick = Router.update.bind(Router, 'input');
     this.saveBtn.onclick = () => new SaveSubtitlesPopup(this.out).show();
+    this.reportBtn.onclick = this.downloadReport.bind(this);
   }
 
   update({sub, ref}) {
@@ -291,6 +304,52 @@ export default class SyncScreen {
       this.setState(i18n`Synchronization failed`, false, 'sync_fail');
     } else {
       this.setState(i18n`Synchronization terminated`);
+    }
+    this.renderTimingReview(status, finished);
+  }
+
+  renderTimingReview(status, finished) {
+    const review = Synchronizer.instance.getTimingReview();
+    this.reviewReport = diagnosticReport(status, review, {
+      runtime: runtimeVersion,
+      browser: navigator.userAgent,
+      elapsedSeconds: (performance.now() - this.startTime) / 1000,
+      outcome: this.fatalError ? 'failed' : finished ? 'completed' : 'stopped',
+    });
+    this.reportBtn.disabled = false;
+    this.timingReviewPanel.hidden = !review.available;
+    this.timingReviewNote.textContent = isSaveReady(status)
+      ? 'Current accepted linear correction — start and end of each sample cue.'
+      : 'Provisional correction only — this preview does not enable Save.';
+    this.timingReviewSamples.textContent = '';
+    for (const sample of review.samples) {
+      const range = (start, end) => `${timeStampFractionFmt(start)} – ${timeStampFractionFmt(end)}`;
+      const shift = `${sample.shiftSeconds >= 0 ? '+' : ''}${sample.shiftSeconds.toFixed(3)} s`;
+      mount(this.timingReviewSamples, el('li',
+        `${sample.position}, cue ${sample.cue}: ${range(sample.beforeStart, sample.beforeEnd)}`
+        + ` → ${range(sample.afterStart, sample.afterEnd)} (${shift})`));
+    }
+    this.timingReviewWarning.hidden = !review.backwardStarts && !review.invalidCues;
+    this.timingReviewWarning.textContent =
+      `Timeline review: ${review.backwardStarts} backward start-time jumps; ${review.invalidCues} invalid cues. `
+      + 'File order alone does not prove an edition mismatch. The linear correction does not repair timeline resets.';
+  }
+
+  downloadReport() {
+    if (!this.reviewReport) return;
+    let url;
+    let link;
+    try {
+      url = URL.createObjectURL(new Blob([JSON.stringify(this.reviewReport, null, 2) + '\n'],
+        {type: 'application/json'}));
+      link = el('a', {href: url, download: 'subsync2-diagnostics.json', hidden: true});
+      document.body.appendChild(link);
+      link.click();
+    } catch (error) {
+      Overlay.showErrorPopup('Could not download diagnostic report', error);
+    } finally {
+      if (link) link.remove();
+      if (url) setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
   }
 

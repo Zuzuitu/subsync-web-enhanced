@@ -286,6 +286,23 @@ try:
         save_button = page.get_by_role("button", name="Save subtitles", exact=True)
         if save_button.is_disabled():
             raise SystemExit("Romanian audio workflow did not enable subtitle save")
+        review = page.locator('[data-review="timing"]')
+        if review.is_hidden():
+            raise SystemExit("Romanian audio workflow did not expose timing review")
+        review.locator('summary').click()
+        if review.locator('li').count() != 3:
+            raise SystemExit("Timing review did not expose beginning/middle/end samples")
+        with page.expect_download(timeout=30_000) as report_download:
+            page.get_by_role('button', name='Download diagnostic report', exact=True).click()
+        report_path = SAVED.parent / (SAVED.stem + '-diagnostics.json')
+        report_download.value.save_as(str(report_path))
+        report = json.loads(report_path.read_text(encoding='utf-8'))
+        if not report['saveEligible'] or not report['convergence']['verified']:
+            raise SystemExit("Exported diagnostic report lost adaptive lock status")
+        if report['evidence']['refWords'] < 20 or report['precision']['buckets'] < 20:
+            raise SystemExit("Exported diagnostic report lost correlation evidence")
+        if report['timingReview']['cueCount'] < 64:
+            raise SystemExit("Exported diagnostic report lost subtitle timing evidence")
         save_button.click()
         popup = page.locator("#subsync_app .popup").last
         popup.wait_for(state="visible", timeout=10_000)
