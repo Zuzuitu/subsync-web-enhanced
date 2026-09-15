@@ -99,7 +99,15 @@ materialized = [
     materialize(romanian_asr["model"]),
 ]
 
-sw = (PUBLIC / "sw.js.in").read_text(encoding="utf-8").replace("__BUILD_HASH__", args.hash[:16])
+index_path = DIST / "index.html"
+index = index_path.read_text(encoding="utf-8").replace("__BUILD_HASH__", args.hash)
+if "__BUILD_HASH__" in index:
+    raise SystemExit("Unresolved build hash placeholder in staged index.html")
+index_path.write_text(index, encoding="utf-8")
+
+sw = (PUBLIC / "sw.js.in").read_text(encoding="utf-8").replace("__BUILD_HASH__", args.hash)
+if "__BUILD_HASH__" in sw:
+    raise SystemExit("Unresolved build hash placeholder in staged sw.js")
 (DIST / "sw.js").write_text(sw, encoding="utf-8")
 (DIST / ".nojekyll").write_text("", encoding="utf-8")
 
