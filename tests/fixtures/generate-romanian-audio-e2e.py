@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import json
+import hashlib
+import importlib.metadata
 import os
 import subprocess
 import tempfile
@@ -7,8 +9,10 @@ import urllib.request
 import wave
 from pathlib import Path
 
+from fixture_identity import fixture_identity, synthesis_parameters
+
 ROOT = Path(__file__).resolve().parents[2]
-OUT = ROOT / "tests" / "generated" / "romanian-audio-e2e"
+OUT = Path(os.environ.get("SUBSYNC_ROMANIAN_FIXTURE_DIR", ROOT / "tests" / "generated" / "romanian-audio-e2e"))
 OUT.mkdir(parents=True, exist_ok=True)
 
 PHRASES = [
@@ -95,6 +99,7 @@ OFFSET = 8.0
 INITIAL_SILENCE = 1.0
 GAP = 0.65
 PIPER_URL = "http://127.0.0.1:5001/synthesize"
+SYNTHESIS = synthesis_parameters(os.environ.get("SUBSYNC_ROMANIAN_DETERMINISTIC", "0") == "1")
 MIN_CORRELATION_BUCKETS = 20
 MIN_SPARSE_CUES = 64
 MIN_SPARSE_CUES_PER_MINUTE = 8.0
@@ -110,7 +115,7 @@ if len(PHRASES) <= MIN_CORRELATION_BUCKETS:
     )
 
 def synthesize(text, destination):
-    body = json.dumps({"text": text}).encode("utf-8")
+    body = json.dumps({"text": text, **SYNTHESIS}).encode("utf-8")
     request = urllib.request.Request(
         PIPER_URL,
         data=body,
@@ -286,6 +291,15 @@ fixture = {
     "speechSpanRatio": speech_span_ratio,
     "speechLayout": "distributed" if SPARSE_REGRESSION else "sequential",
     "cueDensityPerMinute": cue_density_per_minute,
+    "identity": fixture_identity(OUT),
+    "synthesis": {
+        "requestParameters": SYNTHESIS,
+        "piperVersion": importlib.metadata.version("piper-tts"),
+        "onnxruntimeVersion": importlib.metadata.version("onnxruntime"),
+        "ffmpegVersion": subprocess.check_output(["ffmpeg", "-version"], text=True).splitlines()[0],
+        "voice": json.loads((ROOT / "tests/generated/romanian-audio-e2e/piper-fixture.json").read_text(encoding="utf-8")),
+        "phrasePcmSha256": [hashlib.sha256(item["frames"]).hexdigest() for item in segments],
+    },
 }
 (OUT / "fixture.json").write_text(
     json.dumps(fixture, indent=2, ensure_ascii=False) + "\n",

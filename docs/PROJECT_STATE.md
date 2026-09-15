@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-14 23:05 Europe/Rome
+LAST_UPDATED: 2026-09-15
 
 ## Canonical status
 
@@ -12,6 +12,37 @@ Repository truth overrides chat memory. Before material changes, read in this or
 4. relevant current implementation
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
+
+## Active sprint — controlled-input repeatability
+
+Branch `test/romanian-identical-input` adds test-only controlled-input tooling:
+- SHA256 of normalized PCM (with format/frame count), SRT and exact MKV bytes;
+- generation manifests record synthesis parameters, per-phrase PCM hashes,
+  pinned voice evidence, Piper/ONNX Runtime versions and FFmpeg version;
+- opt-in zero-noise synthesis uses explicit Piper 1.8.0 HTTP request parameters
+  (`length_scale=1`, `noise_scale=0`, `noise_w_scale=0`) without rewriting the
+  pinned voice configuration or changing existing default fixture generation;
+- two independent syntheses are compared, then exactly three fresh-browser
+  runs consume the first fixture unchanged; no retry-until-green behavior;
+- every run enforces the unchanged strict timing gates and retains its own
+  result/log/SRT, exact input identity, runtime JS/WASM hashes and a bounded
+  test-only Comlink observer trace of correlator word inputs and probe stats;
+- study PASS requires all three strict runs and matching input/runtime identity;
+  output equality and synthesis equality are reported separately, not assumed;
+- a retained synthetic fixture can be replayed with `--fixture-dir`;
+- the new workflow is test-only and does not publish or deploy anything.
+
+`srt_timing.py` report schema v2 resolves the duplicate metric key:
+`endMedianErrorSeconds` is the cue-end median; the last cue-count third uses
+`finalThirdMedianErrorSeconds`. Empty partitions are explicit nulls. The p95,
+affine calculation and all thresholds are unchanged.
+
+Local validation: 14 Python tests, RPC-observer JavaScript regression and project
+invariants pass. Full CI and controlled-input browser evidence are pending.
+Do not claim deterministic synthesis or ASR before the study returns evidence.
+No product synchronization, confidence selection, Save policy or sample budget
+is changed. Actual C++ matched-point provenance is a later conditional layer if
+the captured word/probe stream proves insufficient to isolate variation.
 
 ## Latest verified state — PR #42 observability closeout
 
@@ -1035,4 +1066,3 @@ Confirmed state at closeout:
   and representative live loading is validated;
 - batch/multi-upload remains deliberately deferred pending the next product
   decision.
-
