@@ -88,6 +88,7 @@ jobs:
             tests/generated/public-pages-language-smoke.json
             tests/generated/romanian-audio-e2e/public-pages-romanian-audio.json
             tests/generated/romanian-audio-e2e/public-pages-output.rum.srt
+            tests/generated/romanian-audio-e2e/public-pages-output.rum-diagnostics.json
             tests/generated/romanian-audio-e2e/fixture.json
             tests/generated/romanian-audio-e2e/piper-info.json
             tests/generated/romanian-audio-e2e/piper-http.log
