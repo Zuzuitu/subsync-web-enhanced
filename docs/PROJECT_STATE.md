@@ -13,7 +13,13 @@ Repository truth overrides chat memory. Before material changes, read in this or
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
 
-## Active sprint — controlled-input repeatability
+## Controlled-input repeatability — PR #44 evidence
+
+PR #44 merged at `9fc1476817d169816a8757eec02db15873427dd9` after all five
+PR workflows passed: CI `34943972911`, MKV diagnostic `34943972668`, public
+smoke `34943972741`, controlled study `34943972776`, and Legacy WebAssembly
+Build `34943972775` including Chromium and iPhone-like WebKit Romanian E2E.
+No Pages deployment was triggered; product runtime remains PR #41.
 
 Branch `test/romanian-identical-input` adds test-only controlled-input tooling:
 - SHA256 of normalized PCM (with format/frame count), SRT and exact MKV bytes;
@@ -38,11 +44,59 @@ Branch `test/romanian-identical-input` adds test-only controlled-input tooling:
 affine calculation and all thresholds are unchanged.
 
 Local validation: 14 Python tests, RPC-observer JavaScript regression and project
-invariants pass. Full CI and controlled-input browser evidence are pending.
-Do not claim deterministic synthesis or ASR before the study returns evidence.
+invariants pass.
 No product synchronization, confidence selection, Save policy or sample budget
 is changed. Actual C++ matched-point provenance is a later conditional layer if
 the captured word/probe stream proves insufficient to isolate variation.
+
+### Controlled public-runtime observations
+
+Study run `34943972776` passed all three fixed replays. Artifact `10387225190`
+was downloaded and inspected, including both generated inputs and each replay's
+complete JSON, SRT and browser log. Artifact retention is seven days; hashes are
+identifiers, not a substitute for retaining the files when replaying later.
+
+- Two independent explicit zero-noise syntheses produced identical normalized
+  PCM and SRT bytes in this environment. Their independently muxed MKV hashes
+  differed; all browser replays deliberately used the exact first MKV.
+- PCM SHA256: `354b68dca487562572dc1341a99c19bc40b805e90aa0d491af4e7327a303eb56`.
+- SRT SHA256: `938dc5b69022e7a25328bd235dbd8f90922095b3d3a60f9be2e9ec2e0477e6a3`.
+- Replayed MKV SHA256: `d0979184d147f84b489779057295f2945f0b331730b4febedb3ae5763d4820ec`.
+- All three fresh Chromium contexts used browser `152.0.7977.82` and identical
+  hashes for all five observed runtime JS/WASM assets, on deployed PR #41.
+- All three produced identical output bytes, SHA256
+  `61b8c63f42e5e92910704358157d88f2b379b09cd52b7cfc40c16a470d2fb47e`,
+  and identical 1,276-event correlator RPC traces (zero dropped events).
+- Every replay: 161 reference words, 144 anchors, 10 probes, 28 points,
+  formula `1.0002x-8.535`, saved shift -8.533 s.
+- Precision: 28 buckets, thirds 11/8/9, 88 raw matches; leave-one-cue max
+  147 ms, median 50 ms, slope sensitivity max 409 ppm.
+- Full-title synthetic timing: p95 0.52905 s, drift 0.0684548 s, slope
+  151.123 ppm; mean start error -0.4988375 s. This fixture still has a sizable
+  offset despite small drift; PASS is not a claim of physical-title accuracy.
+- All three report no console, page or HTTP errors. Strict timing remains
+  enabled with the unchanged +/-0.350 s drift gate.
+- Independent default-noise public smoke `34943972741` also passed:
+  p95 0.41415 s, drift 0.289409 s, on a different hashed input.
+
+### Interpretation and next decision
+
+Fixed-input reproducibility is demonstrated for this fixture, browser and runner,
+not universally. Historical regenerated fixtures varied; this experiment does
+not recreate the failed historical input or isolate the entire causal chain.
+It does not demonstrate ASR stochasticity on identical input, unstable fitting
+on identical evidence, or disproportionate context-anchor slope influence.
+The existing leave-one-cue sensitivity still describes evidence sensitivity,
+not observed replay randomness or an exact re-fit of the original C++ hit set.
+
+Keep the default-noise smoke and explicit controlled-input study separate;
+do not replace the former merely to obtain greener CI. No formula, thresholds,
+Whisper, anchors, sampling or Save changes are justified by this result alone.
+Next: collect 3-5 real-title validations with correct SRT comparisons and current
+precision diagnostics; preserve Frozen II PR #38 as the physical baseline.
+Only if those expose repeatable precision failures, investigate exact matched
+point/bucket provenance and fitting sensitivity against multiple fixtures.
+Physical iPhone testing must be performed by the user, not inferred from WebKit.
 
 ## Latest verified state — PR #42 observability closeout
 
