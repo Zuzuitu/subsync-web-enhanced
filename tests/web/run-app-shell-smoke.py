@@ -165,7 +165,7 @@ try:
         current_manifest = (RECOVERY_SITE / "build-manifest.json").read_text(encoding="utf-8")
 
         (RECOVERY_SITE / "index.html").write_text(
-            """<!doctype html><html><body><p id="legacy-shell">legacy shell</p>
+            """<!doctype html><html><head><link rel="icon" href="data:,"></head><body><p id="legacy-shell">legacy shell</p>
 <script>
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js');
