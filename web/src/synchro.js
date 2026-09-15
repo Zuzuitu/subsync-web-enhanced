@@ -10,7 +10,11 @@ const {
   makePrimaryWindows,
   makeRescueWindows,
 } = require('./romanian-windows.js');
-const { RomanianConvergenceTracker } = require('./romanian-convergence.js');
+const {
+  RomanianConvergenceTracker,
+  REQUIRED_STABLE_CORRELATED_WINDOWS,
+  MIN_PROBE_COVERAGE_RATIO,
+} = require('./romanian-convergence.js');
 const { RomanianContextAnchorStream } = require('./romanian-context-anchors.js');
 const { selectCanonicalStatus } = require('./correlation-status.js');
 const logger = Logger.logger.get('[Synchronizer]');
@@ -279,11 +283,25 @@ export default class Synchronizer {
           && !this.romanianScan.rescueAdded
           && convergence.completedWindows === this.romanianScan.primaryWindows.length
         ) {
+          const coverageRecovery = (
+            convergence.stableCorrelatedWindows >= REQUIRED_STABLE_CORRELATED_WINDOWS
+            && convergence.probeCoverageRatio < MIN_PROBE_COVERAGE_RATIO
+            && Number.isFinite(convergence.evidenceStart)
+            && Number.isFinite(convergence.evidenceEnd)
+          );
           const rescueWindows = makeRescueWindows(
             this.romanianScan.duration,
             this.romanianScan.primaryWindows,
-            this.romanianScan.primarySummaries
+            this.romanianScan.primarySummaries,
+            {
+              prioritizeCoverage: coverageRecovery,
+              evidenceStart: convergence.evidenceStart,
+              evidenceEnd: convergence.evidenceEnd,
+            }
           );
+          this.romanianScan.rescueStrategy = coverageRecovery
+            ? 'canonical-coverage'
+            : 'content-aware';
           this.romanianScan.rescueAdded = true;
           convergence = this.romanianConvergence.setTotalWindows(
             this.romanianScan.primaryWindows.length + rescueWindows.length
@@ -298,7 +316,8 @@ export default class Synchronizer {
                 / this.romanianConvergence.totalWindows;
               logger.log(
                 `Romanian ASR primary stage remained noncanonical at ${convergence.lastPoints} points; `
-                + `continuing with ${rescueWindows.length} content-aware rescue checks within the 120 s reserve`
+                + `continuing with ${rescueWindows.length} ${this.romanianScan.rescueStrategy} rescue checks `
+                + 'within the 120 s reserve'
               );
             }
           } else {
