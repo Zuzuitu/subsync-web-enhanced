@@ -13,6 +13,62 @@ Repository truth overrides chat memory. Before material changes, read in this or
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
 
+## Live PR #46 release validation hardening — PR #49
+
+Current repository main after the test-only hardening is
+`3aca731cbeae5afff8a1f3a6131c10e753ba5ac1`. The deliberately deployed
+product runtime remains PR #46
+`27a84444e5b0f956d66bc380d41a0658cfd22a36`; PR #49 did not redeploy or
+change product code.
+
+PR #49 adds public-Pages test coverage only. The live Romanian smoke now:
+- opens the beginning/middle/end timing review;
+- downloads the product diagnostic JSON through the real UI;
+- verifies the report runtime hash against the live versioned JS/WASM assets;
+- verifies verified convergence and Save eligibility agree with the UI;
+- checks precision/ref-word evidence parity;
+- rejects filename/path/text/transcript/media/raw-error fields and sampled
+  fixture content in the report;
+- checks the three timing-review mapped endpoints against the actually saved
+  SRT within 1.1 ms rounding tolerance;
+- retains the downloaded product JSON in the workflow artifact.
+
+PR #49 gates all passed without retry: CI `34952986296`, Public Pages Language
+Smoke `34952986308`, Romanian Identical Input Study `34952986345`, and
+Legacy WebAssembly Build `34952986287` including the Romanian Chromium and
+iPhone-like WebKit paths. Main CI `34954289889` also passed.
+
+The strict combined post-merge public run `34954333020` passed on test harness
+SHA `3aca731cbeae5afff8a1f3a6131c10e753ba5ac1` while exercising the exact
+deployed PR #46 runtime. Artifact `10390687916` was downloaded and inspected.
+It contains the saved Romanian SRT, complete strict result JSON, fixture
+manifest, and the product diagnostic JSON. Observed evidence:
+- 169 reference words and 155 Romanian context anchors;
+- verified adaptive convergence after 10/21 probes, with rescue unused;
+- 28 canonical points / 28 cue buckets, thirds 9/9/10, 86 raw matches;
+- displayed formula `0.9998x-8.332`, saved first-cue shift -8.337 s;
+- leave-one-cue sensitivity max 150 ms / median 35 ms;
+- maximum slope sensitivity 315 ppm;
+- full-title p95 absolute start error 0.43405 s;
+- affine slope error -227.16 ppm and total affine drift -0.102883 s;
+- beginning/middle/final-third start-error medians
+  -0.3520 / -0.3865 / -0.4215 s;
+- diagnostic report runtime hash exactly
+  `27a84444e5b0f956d66bc380d41a0658cfd22a36`;
+- `saveEligible=true`, verified convergence, `errorCount=0`;
+- no console, page or HTTP failures;
+- privacy allowlist and timing-review/SRT parity checks passed.
+
+This closes PR #46 release validation. No product formula, canonical thresholds,
+Whisper model, ASR architecture, Save policy, Romanian 360-second sampling cap,
+or deployment behavior was changed by PR #49. No physical-iPhone retest is
+required for this test-only closeout.
+
+Next authoritative engineering step is the 3-5 real-title validation set,
+starting with one non-Frozen-II title using a known-correct Romanian SRT and a
+deliberately constant-shifted copy. Do not tune the formula from a single title.
+Point provenance remains conditional on repeated real-title precision failures.
+
 ## Product timing review and diagnostic export — PR #46
 
 Current deliberately deployed product runtime:
