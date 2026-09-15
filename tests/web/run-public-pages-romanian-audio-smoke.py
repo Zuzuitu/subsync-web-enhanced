@@ -311,6 +311,75 @@ with sync_playwright() as p:
     save_button = page.get_by_role("button", name="Save subtitles", exact=True)
     if save_button.is_disabled():
         raise SystemExit("Public Romanian audio workflow did not enable subtitle save")
+
+    review = page.locator('[data-review="timing"]')
+    if review.is_hidden():
+        raise SystemExit("Public Pages Romanian workflow did not expose timing review")
+    review.locator("summary").click()
+    review_items = review.locator("li")
+    if review_items.count() != 3:
+        raise SystemExit("Public Pages timing review did not expose beginning/middle/end samples")
+    timing_review_text = [review_items.nth(i).inner_text() for i in range(review_items.count())]
+
+    report_button = page.get_by_role("button", name="Download diagnostic report", exact=True)
+    if report_button.is_disabled():
+        raise SystemExit("Public Pages diagnostic report download stayed disabled")
+    with page.expect_download(timeout=30_000) as report_download:
+        report_button.click()
+    report_download.value.save_as(str(REPORT))
+    report_text = REPORT.read_text(encoding="utf-8")
+    report = json.loads(report_text)
+
+    allowed_report_keys = {
+        "schemaVersion", "application", "runtime", "browser", "elapsedSeconds", "outcome",
+        "privacy", "interpretation", "saveEligible", "correlation", "formula", "evidence",
+        "convergence", "precision", "errorCount", "timingReview",
+    }
+    unexpected_report_keys = set(report) - allowed_report_keys
+    if unexpected_report_keys:
+        raise SystemExit(
+            "Diagnostic report exposed unexpected top-level fields: "
+            + ", ".join(sorted(unexpected_report_keys))
+        )
+    reject_private_report_keys(report)
+    if not report.get("saveEligible") or not report.get("convergence", {}).get("verified"):
+        raise SystemExit("Public Pages diagnostic report lost verified Save state")
+    if report.get("evidence", {}).get("refWords") != reference_words:
+        raise SystemExit("Public Pages diagnostic report reference-word evidence mismatched UI")
+    if precision_buckets is not None and report.get("precision", {}).get("buckets") != precision_buckets:
+        raise SystemExit("Public Pages diagnostic report precision evidence mismatched UI")
+
+    report_review = report.get("timingReview", {})
+    if (
+        not report_review.get("available")
+        or report_review.get("cueCount") != cue_count
+        or len(report_review.get("samples", [])) != 3
+    ):
+        raise SystemExit("Public Pages diagnostic report lost timing-review evidence")
+    if report_review.get("invalidCues") or report_review.get("backwardStarts"):
+        raise SystemExit("Canonical public fixture unexpectedly reports invalid/backward cue timing")
+
+    runtime_hash = report.get("runtime", {}).get("hash")
+    if not isinstance(runtime_hash, str) or not re.fullmatch(r"[0-9a-f]{40}", runtime_hash):
+        raise SystemExit("Public Pages diagnostic report did not identify a valid product runtime")
+    versioned_hashes = {
+        match.group(1)
+        for url in runtime_assets
+        if (match := re.search(r"\\?([0-9a-f]{40})$", url))
+    }
+    if versioned_hashes != {runtime_hash}:
+        raise SystemExit(
+            f"Diagnostic runtime {runtime_hash} did not match live versioned assets: "
+            + ", ".join(sorted(versioned_hashes))
+        )
+
+    private_tokens = [SRT_IN.name, MKV_IN.name] + [
+        item.get("phrase", "") for item in fixture.get("phrases", [])[:3]
+    ]
+    leaked = [token for token in private_tokens if token and token in report_text]
+    if leaked:
+        raise SystemExit("Public Pages diagnostic report leaked fixture-private content")
+
     save_button.click()
     popup = page.locator("#subsync_app .popup").last
     popup.wait_for(state="visible", timeout=10_000)
@@ -324,6 +393,21 @@ with sync_playwright() as p:
 
     original = SRT_IN.read_text(encoding="utf-8")
     output = SAVED.read_text(encoding="utf-8")
+    output_ranges = parse_srt_ranges(output)
+    if len(output_ranges) != cue_count:
+        raise SystemExit(
+            f"Saved output exposed {len(output_ranges)} cue ranges; expected {cue_count}"
+        )
+    for sample in report_review["samples"]:
+        cue_index = int(sample["cue"]) - 1
+        if cue_index < 0 or cue_index >= len(output_ranges):
+            raise SystemExit("Diagnostic timing-review cue index is outside saved output")
+        saved_start, saved_end = output_ranges[cue_index]
+        if (
+            abs(saved_start - float(sample["afterStart"])) > 0.0011
+            or abs(saved_end - float(sample["afterEnd"])) > 0.0011
+        ):
+            raise SystemExit("Live timing-review mapping does not match saved SRT timestamps")
     shift = parse_srt_start(output) - parse_srt_start(original)
     expected_shift = -8.0
     timing_quality = measure_srt_timing(original, output, expected_shift)
@@ -376,6 +460,11 @@ with sync_playwright() as p:
         "timingQuality": timing_quality,
         "strictFineTimingRequired": REQUIRE_FINE_TIMING,
         "strictPrecisionDiagnosticsRequired": REQUIRE_PRECISION_DIAGNOSTICS,
+        "diagnosticReportSha256": sha256_file(REPORT),
+        "diagnosticRuntimeHash": runtime_hash,
+        "diagnosticPrivacyVerified": True,
+        "timingReviewSamples": report_review["samples"],
+        "timingReviewUiText": timing_review_text,
         "romanianDiacriticsVerifiedInSavedSubtitle": required_diacritics,
         "consoleErrors": console_errors,
         "pageErrors": page_errors,
