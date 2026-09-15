@@ -39,6 +39,10 @@ Observed results:
 - A +8-second step with no post-cut points supplied remains eight seconds wrong
   after the cut. This establishes a downstream information limitation; it does
   not prove the native matcher will discard those points in every real case.
+- Positive control: supplying dense ideal points on both sides of that same
+  +8-second step yields zero start error for all six sample cues. The concern is
+  evidence selection and safe handling of gaps, not impossibility of piecewise
+  synchronization. This control is also in the reproduction script.
 
 Code explains the first result: local medians use `ref - sub`, not detrended
 residuals `ref - (a*sub+b)`; smoothing includes the baseline offset and averages
