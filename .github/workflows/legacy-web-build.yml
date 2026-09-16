@@ -47,6 +47,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Run native synchronizer regression tests
+        run: make -C gizmo/test clean test
+
       - name: Load pinned build inputs
         shell: bash
         run: |

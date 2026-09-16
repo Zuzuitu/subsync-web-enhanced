@@ -129,8 +129,13 @@ CorrelationStats Synchronizer::correlate() const
 			&& hits.size() > m_minPointsNo
 			&& countBuckets(hits, m_minPointsNo + 1) > m_minPointsNo)
 	{
-		distSqr = line.removeFurthestPoint(hits);
+		// The removed point's distance belongs to the previous fit. Recompute
+		// the residual on the retained set after refitting; otherwise an outlier
+		// removed at the exact minPointsNo boundary can leave stale maxDistance
+		// evidence and incorrectly reject an otherwise canonical correlation.
+		line.removeFurthestPoint(hits);
 		factor = line.interpolate(hits);
+		distSqr = line.findFurthestPoint(hits);
 	}
 
 	CorrelationStats stats;
