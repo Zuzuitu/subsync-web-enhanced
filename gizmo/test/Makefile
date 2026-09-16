@@ -13,6 +13,7 @@ CXXFLAGS += \
 			-fPIC \
 			-std=c++14 \
 			-fvisibility=hidden \
+			-include cstdint \
 			-I.. \
 
 
