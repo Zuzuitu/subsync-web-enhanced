@@ -13,6 +13,51 @@ Repository truth overrides chat memory. Before material changes, read in this or
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
 
+## Real-title Smallfoot coverage rescue + PWA runtime freshness — PR #51 / PR #52
+
+PR #51 `Make Romanian rescue target missing canonical coverage` merged at
+`a430611d2b4b706a38655bdfcee213ce4c8926c0`. It keeps the canonical
+75% coverage gate, three stable confirmations, Save fail-closed behavior and
+the 360-second Romanian sampled-audio cap unchanged. When primary probing has a
+canonical or candidate span below the unchanged coverage gate, rescue planning
+now spends its existing 120-second reserve outside the known evidence span
+instead of relying only on generic quarter/content scoring.
+
+PR #51 gates were green on head `363b90b21831b7fa829e32dcde8868c6a7b6fe63`:
+CI, Mobile WebKit Compatibility, Large-file Browser Stress and Legacy
+WebAssembly Build. Deliberate Pages deployment run `35014347782` was green on
+exact merge SHA `a430611d2b4b706a38655bdfcee213ce4c8926c0`.
+
+The authoritative deployment diagnostic artifact from that run was downloaded
+and inspected. Both Chromium and iPhone-like WebKit reports contain runtime
+`a430611d2b4b706a38655bdfcee213ce4c8926c0`, verified convergence after
+10/21 probes, 27 points, about 93.94% canonical span and `saveEligible=true`.
+
+A subsequent physical iPhone/Chrome Smallfoot retest nevertheless downloaded a
+diagnostic containing the old PR #46 runtime
+`27a84444e5b0f956d66bc380d41a0658cfd22a36` and exactly the previous
+23-point / 62.90% pending-convergence result. This is evidence that the retest
+did not execute PR #51. Repository inspection identified a PWA delivery defect:
+the service worker used cache-first handling for navigations and the main
+`scripts/subsync.js` URL was unversioned, so an installed client could remain
+on an old shell after a successful deploy.
+
+PR #52 addresses runtime freshness, not synchronization semantics:
+- stamp the full build SHA into shell asset URLs;
+- register/update the service worker with the current build SHA and
+  `updateViaCache: none`;
+- fetch navigations network-first with versioned offline fallback;
+- fetch `build-manifest.json` with no-store semantics so installed clients can
+  detect a newer deployment;
+- keep versioned shell resources cache-first within a build;
+- add browser regression coverage that first installs a legacy cache-first
+  worker, publishes the current build, escapes through a build-busted
+  navigation, activates the current worker and confirms a subsequent normal
+  navigation remains current.
+
+No correlation formula, canonical threshold, Whisper model, Save rule,
+Romanian sampling budget or language compatibility rule is changed by PR #52.
+
 ## Live PR #46 release validation hardening — PR #49
 
 Current repository main after the test-only hardening is
