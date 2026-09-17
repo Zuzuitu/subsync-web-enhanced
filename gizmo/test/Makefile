@@ -13,6 +13,7 @@ CXXFLAGS += \
 			-fPIC \
 			-std=c++14 \
 			-fvisibility=hidden \
+			-include cstdint \
 			-I.. \
 
 
@@ -27,24 +28,29 @@ SOURCES = \
 		  ngrams.cpp \
 		  line.cpp \
 		  linefinder.cpp \
+		  synchronizer.cpp \
 		  ../text/words.cpp \
+		  ../text/dictionary.cpp \
 		  ../text/utf8.cpp \
 		  ../text/ssa.cpp \
 		  ../text/ngrams.cpp \
 		  ../math/point.cpp \
 		  ../math/line.cpp \
 		  ../math/linefinder.cpp \
+		  ../synchro/synchronizer.cpp \
 
 HEADERS = \
 		  catch.hpp \
 		  math.h \
 		  ../text/words.h \
+		  ../text/dictionary.h \
 		  ../text/utf8.h \
 		  ../text/ssa.h \
 		  ../text/ngrams.h \
 		  ../math/point.h \
 		  ../math/line.h \
 		  ../math/linefinder.h \
+		  ../synchro/synchronizer.h \
 		  ../general/notifier.h \
 
 OBJDIR = obj/test

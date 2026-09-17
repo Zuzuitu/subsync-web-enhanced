@@ -13,6 +13,25 @@ Repository truth overrides chat memory. Before material changes, read in this or
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
 
+## 2026-09-17 — Smallfoot exact-minimum correlation residual fix
+
+Physical iPhone/Chrome Smallfoot rerun on runtime `f6892a6ebd703ce747da6ba8b5ee4b7ec66783f6`
+completed all 21/21 probes with zero recorded processing errors and reached
+75.8387% candidate span, so the PR #51 coverage rescue is active on the real
+client. Save remained correctly blocked because canonical correlation reported
+20 buckets with factor ~0.99999947 but maxDistance ~2.547 s.
+
+Repository inspection isolated an inherited upstream edge case in
+`Synchronizer::correlate()`: after removing the furthest raw point, the line is
+refit but `distSqr` previously retained the distance of the point that had just
+been removed. At the exact `minPointsNo=20` boundary, pruning then stops and the
+stale residual can incorrectly reject the retained 20-bucket fit. The fix
+recomputes the furthest residual on the retained set immediately after every
+refit. The canonical thresholds remain unchanged: minPointsNo=20,
+minCorrelation=0.9999 and maxPointDist=2 s. A deterministic native regression
+covers 21 buckets with one removable outlier and requires the retained exact-20
+fit to be evaluated using its own residual.
+
 ## Real-title Smallfoot coverage rescue + PWA runtime freshness — PR #51 / PR #52
 
 PR #51 `Make Romanian rescue target missing canonical coverage` merged at
