@@ -233,4 +233,45 @@ assert.strictEqual(state.stableCorrelatedWindows, 3);
 assert.strictEqual(state.verified, true);
 assert.strictEqual(state.phase, 'rescue');
 
+
+// Physical Smallfoot late-lock regression: primary plus five discovery probes
+// may still be noncanonical. The fixed 120-second rescue budget must leave a
+// three-probe confirmation tail, so a canonical lock at 20 buckets can still
+// earn two fresh-bucket confirmations without weakening any acceptance gate.
+const lateLock = new RomanianConvergenceTracker(5800, 24, { primaryWindows: 16 });
+for (let i = 0; i < 21; i++) {
+  state = lateLock.observe(
+    { start: i * 20, end: i * 20 + 15 },
+    7,
+    {
+      correlated: false,
+      points: Math.min(19, i),
+      formula: { a: 1.00028, b: -11.38 },
+      candidateEvidenceStart: 700,
+      candidateEvidenceEnd: 5100,
+    }
+  );
+}
+assert.strictEqual(state.stableCorrelatedWindows, 0);
+assert.strictEqual(state.verified, false);
+
+for (let i = 0; i < 3; i++) {
+  state = lateLock.observe(
+    { start: 5000 + i * 20, end: 5015 + i * 20 },
+    7,
+    {
+      correlated: true,
+      points: 20 + i,
+      formula: { a: 1.00028, b: -11.38 + i * 0.02 },
+      evidenceStart: 650,
+      evidenceEnd: 5100,
+      candidateEvidenceStart: 650,
+      candidateEvidenceEnd: 5100,
+    }
+  );
+}
+assert.strictEqual(state.completedWindows, 24);
+assert.strictEqual(state.stableCorrelatedWindows, 3);
+assert.strictEqual(state.verified, true);
+
 console.log('Romanian adaptive convergence tracker: OK');
