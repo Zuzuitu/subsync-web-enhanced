@@ -3,7 +3,6 @@
 const WINDOW_SECONDS = 15;
 const PRIMARY_WINDOWS = 16;
 const RESCUE_WINDOW_SECONDS = 15;
-const RESCUE_CONFIRMATION_WINDOW_SECONDS = 15;
 const RESCUE_LOCATIONS = 8;
 const RESCUE_DISCOVERY_WINDOWS = 5;
 const RESCUE_CONFIRMATION_WINDOWS = 3;
@@ -289,20 +288,6 @@ function selectRescueLocations(
   return selected;
 }
 
-function splitConfirmationWindow(window) {
-  if (!window || window.length < 2) return [];
-  const [start, end] = window;
-  const length = end - start;
-  if (length < 2 * RESCUE_CONFIRMATION_WINDOW_SECONDS) {
-    return [window];
-  }
-  const mid = start + RESCUE_CONFIRMATION_WINDOW_SECONDS;
-  return [
-    [start, mid],
-    [mid, start + 2 * RESCUE_CONFIRMATION_WINDOW_SECONDS],
-  ];
-}
-
 function makeRescueWindows(
   duration,
   primaryWindows,
@@ -367,7 +352,6 @@ module.exports = {
   WINDOW_SECONDS,
   PRIMARY_WINDOWS,
   RESCUE_WINDOW_SECONDS,
-  RESCUE_CONFIRMATION_WINDOW_SECONDS,
   RESCUE_LOCATIONS,
   RESCUE_DISCOVERY_WINDOWS,
   RESCUE_CONFIRMATION_WINDOWS,
@@ -384,7 +368,6 @@ module.exports = {
   candidateCenter,
   selectCoverageDeficitLocations,
   selectRescueLocations,
-  splitConfirmationWindow,
   makeRescueWindows,
   makeRomanianTimeWindows,
 };
