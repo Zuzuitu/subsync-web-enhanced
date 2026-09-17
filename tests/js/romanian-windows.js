@@ -21,13 +21,13 @@ const {
 
 assert.strictEqual(WINDOW_SECONDS, 15);
 assert.strictEqual(PRIMARY_WINDOWS, 16);
-assert.strictEqual(RESCUE_WINDOW_SECONDS, 30);
+assert.strictEqual(RESCUE_WINDOW_SECONDS, 15);
 assert.strictEqual(RESCUE_CONFIRMATION_WINDOW_SECONDS, 15);
-assert.strictEqual(RESCUE_LOCATIONS, 4);
-assert.strictEqual(RESCUE_DISCOVERY_WINDOWS, 3);
-assert.strictEqual(RESCUE_CONFIRMATION_WINDOWS, 2);
-assert.strictEqual(RESCUE_WINDOWS, 5);
-assert.strictEqual(MAX_WINDOWS, 21);
+assert.strictEqual(RESCUE_LOCATIONS, 8);
+assert.strictEqual(RESCUE_DISCOVERY_WINDOWS, 5);
+assert.strictEqual(RESCUE_CONFIRMATION_WINDOWS, 3);
+assert.strictEqual(RESCUE_WINDOWS, 8);
+assert.strictEqual(MAX_WINDOWS, 24);
 assert.strictEqual(FULL_SCAN_SECONDS, 240);
 assert.strictEqual(MAX_SPARSE_AUDIO_SECONDS, 360);
 assert.strictEqual(makeRomanianTimeWindows(undefined), null);
@@ -68,13 +68,8 @@ for (const [start, end] of primary) {
 const rescueDurations = rescue.map(([start, end]) => end - start);
 assert.strictEqual(
   rescueDurations.filter(x => Math.abs(x - RESCUE_WINDOW_SECONDS) < 1e-9).length,
-  RESCUE_DISCOVERY_WINDOWS,
-  'three full 30-second discovery probes must remain'
-);
-assert.strictEqual(
-  rescueDurations.filter(x => Math.abs(x - RESCUE_CONFIRMATION_WINDOW_SECONDS) < 1e-9).length,
-  RESCUE_CONFIRMATION_WINDOWS,
-  'one 30-second location must become two 15-second confirmation probes'
+  RESCUE_WINDOWS,
+  'all rescue probes must be independent 15-second evidence boundaries'
 );
 
 const chronological = windows.slice().sort((a, b) => a[0] - b[0]);
@@ -113,18 +108,27 @@ assert(
   'rescue planner should continue near a point-gain-rich primary probe'
 );
 
-// Five probe boundaries represent four physical timeline locations because the
-// confirmation location is split into two adjacent halves.
-const locationKeys = [];
-for (const [start, end] of rescue) {
-  const center = (start + end) / 2;
-  const quarter = Math.min(3, Math.floor(4 * center / duration));
-  if (!locationKeys.includes(quarter)) locationKeys.push(quarter);
-}
+// The fixed 120-second reserve now uses eight independent 15-second physical
+// locations. This creates enough fresh-evidence boundaries for a late canonical
+// lock while preserving the same total sampled-audio cap.
 assert.strictEqual(
-  locationKeys.length,
+  rescue.length,
   RESCUE_LOCATIONS,
-  'rescue must preserve four-quarter title coverage'
+  'rescue must use eight independent physical search locations'
+);
+const rescueCenters = rescue.map(([start, end]) => (start + end) / 2);
+assert.strictEqual(
+  new Set(rescueCenters.map(center => center.toFixed(6))).size,
+  RESCUE_LOCATIONS,
+  'rescue locations must be distinct'
+);
+const rescueQuarters = new Set(
+  rescueCenters.map(center => Math.min(3, Math.floor(4 * center / duration)))
+);
+assert.strictEqual(
+  rescueQuarters.size,
+  4,
+  'rescue must still cover all four timeline quarters when not coverage-targeted'
 );
 
 // Real-title regression shape: a stable canonical formula can still cover only
@@ -155,8 +159,7 @@ const coverageRescue = makeRescueWindows(
 assert.strictEqual(coverageRescue.length, RESCUE_WINDOWS);
 assert.strictEqual(
   coverageRescue.reduce((sum, [start, end]) => sum + end - start, 0),
-  RESCUE_DISCOVERY_WINDOWS * RESCUE_WINDOW_SECONDS
-    + RESCUE_CONFIRMATION_WINDOWS * RESCUE_CONFIRMATION_WINDOW_SECONDS,
+  RESCUE_WINDOWS * RESCUE_WINDOW_SECONDS,
   'coverage recovery must stay inside the existing 120-second rescue budget'
 );
 
@@ -176,7 +179,7 @@ for (const [start, end] of coverageRescue) {
 assert.strictEqual(
   coveragePhysicalLocations.length,
   RESCUE_LOCATIONS,
-  'coverage recovery must keep four independent physical search locations'
+  'coverage recovery must keep eight independent physical search locations'
 );
 const locationCenters = coveragePhysicalLocations.map(
   item => (item.start + item.end) / 2
@@ -192,8 +195,8 @@ assert(
 );
 const leftLocations = locationCenters.filter(center => center < evidenceStart).length;
 const rightLocations = locationCenters.filter(center => center > evidenceEnd).length;
-assert.strictEqual(leftLocations, 1);
-assert.strictEqual(rightLocations, 3);
+assert.strictEqual(leftLocations, 3);
+assert.strictEqual(rightLocations, 5);
 
 const mediumDuration = 300;
 const mediumPrimary = makePrimaryWindows(mediumDuration);
