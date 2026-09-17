@@ -5,7 +5,6 @@ const {
   WINDOW_SECONDS,
   PRIMARY_WINDOWS,
   RESCUE_WINDOW_SECONDS,
-  RESCUE_CONFIRMATION_WINDOW_SECONDS,
   RESCUE_LOCATIONS,
   RESCUE_DISCOVERY_WINDOWS,
   RESCUE_CONFIRMATION_WINDOWS,
@@ -15,6 +14,7 @@ const {
   MAX_SPARSE_AUDIO_SECONDS,
   farthestFirstOrder,
   makePrimaryWindows,
+  selectRescueLocations,
   makeRescueWindows,
   makeRomanianTimeWindows,
 } = require('../../web/src/romanian-windows.js');
@@ -22,7 +22,6 @@ const {
 assert.strictEqual(WINDOW_SECONDS, 15);
 assert.strictEqual(PRIMARY_WINDOWS, 16);
 assert.strictEqual(RESCUE_WINDOW_SECONDS, 15);
-assert.strictEqual(RESCUE_CONFIRMATION_WINDOW_SECONDS, 15);
 assert.strictEqual(RESCUE_LOCATIONS, 8);
 assert.strictEqual(RESCUE_DISCOVERY_WINDOWS, 5);
 assert.strictEqual(RESCUE_CONFIRMATION_WINDOWS, 3);
@@ -54,6 +53,23 @@ const summaries = primary.map(([start, end], index) => ({
 
 const rescue = makeRescueWindows(duration, primary, summaries);
 assert.strictEqual(rescue.length, RESCUE_WINDOWS);
+const selectedRescueLocations = selectRescueLocations(duration, primary, summaries);
+const strongestTail = selectedRescueLocations
+  .slice()
+  .sort((a, b) =>
+    b.score - a.score
+    || b.pointGain - a.pointGain
+    || b.words - a.words
+    || a.window[0] - b.window[0]
+  )
+  .slice(0, RESCUE_CONFIRMATION_WINDOWS)
+  .map(candidate => candidate.window);
+const actualTail = rescue.slice(-RESCUE_CONFIRMATION_WINDOWS);
+assert.deepStrictEqual(
+  actualTail,
+  strongestTail,
+  'the final three rescue probes must reserve the strongest fresh-evidence locations'
+);
 
 const windows = primary.concat(rescue);
 assert.strictEqual(windows.length, MAX_WINDOWS);
