@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-15
+LAST_UPDATED: 2026-09-18
 
 ## Canonical status
 
@@ -12,6 +12,40 @@ Repository truth overrides chat memory. Before material changes, read in this or
 4. relevant current implementation
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
+
+## 2026-09-18 — Smallfoot late canonical lock / confirmation reserve
+
+Physical iPhone/Chrome Smallfoot rerun on deployed runtime
+`9053f8c7faa6c7efbbd4440e5f1033667d1f7c9c` confirms PR #53 fixed the
+stale residual bug: canonical correlation is now true at the exact 20-bucket
+minimum, factor ~0.99999947 and maxDistance ~1.724 s (< 2 s). The run completed
+21/21 probes with zero recorded processing errors, 216 reference words,
+155 Romanian reference context anchors and 75.8387% canonical span.
+
+Save correctly remained fail-closed because the valid canonical line first
+arrived too late for the unchanged 3/3 convergence verifier:
+stableCorrelatedWindows=1 after the final available probe. Precision diagnostics
+were available (25 raw matches / 20 buckets; thirds 8/7/5; jackknife max mapped
+delta ~204 ms, median ~95.6 ms; max slope delta ~45.3 ppm; max offset delta
+~154 ms). This is evidence of a late-lock scheduling failure, not a correlation
+threshold failure.
+
+The existing 120 s rescue reserve used only five verifier boundaries
+(3×30 s discovery + 2×15 s confirmation). If the 20-bucket gate is crossed on
+the last boundary, the 3/3 requirement is mathematically impossible even though
+the total 360 s sampled-audio budget has been fully consumed.
+
+Branch `fix/romanian-late-lock-reserve` keeps every canonical threshold and the
+360 s cap unchanged, but schedules the same 120 s rescue reserve as eight
+independent 15 s locations. Five discovery boundaries are followed by a
+three-location confirmation tail selected from the strongest remaining evidence.
+A deterministic convergence regression covers the exact late-lock shape:
+noncanonical through primary + five discovery probes, then canonical 20/21/22
+buckets across the three tail probes, requiring the unchanged 3/3 verifier.
+
+No Save bypass, duplicate-evidence confirmation, threshold reduction, paid
+service, extra sampled audio or title/device-specific timing constant is
+introduced.
 
 ## 2026-09-17 — Smallfoot exact-minimum correlation residual fix
 

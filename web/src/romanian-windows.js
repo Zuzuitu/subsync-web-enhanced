@@ -2,18 +2,15 @@
 
 const WINDOW_SECONDS = 15;
 const PRIMARY_WINDOWS = 16;
-const RESCUE_WINDOW_SECONDS = 30;
-const RESCUE_CONFIRMATION_WINDOW_SECONDS = 15;
-const RESCUE_LOCATIONS = 4;
-const RESCUE_DISCOVERY_WINDOWS = 3;
-const RESCUE_CONFIRMATION_WINDOWS = 2;
+const RESCUE_WINDOW_SECONDS = 15;
+const RESCUE_LOCATIONS = 8;
+const RESCUE_DISCOVERY_WINDOWS = 5;
+const RESCUE_CONFIRMATION_WINDOWS = 3;
 const RESCUE_WINDOWS = RESCUE_DISCOVERY_WINDOWS + RESCUE_CONFIRMATION_WINDOWS;
 const MAX_WINDOWS = PRIMARY_WINDOWS + RESCUE_WINDOWS;
 const FULL_SCAN_SECONDS = WINDOW_SECONDS * PRIMARY_WINDOWS;
 const MAX_SPARSE_AUDIO_SECONDS =
-  FULL_SCAN_SECONDS
-  + RESCUE_DISCOVERY_WINDOWS * RESCUE_WINDOW_SECONDS
-  + RESCUE_CONFIRMATION_WINDOWS * RESCUE_CONFIRMATION_WINDOW_SECONDS;
+  FULL_SCAN_SECONDS + RESCUE_WINDOWS * RESCUE_WINDOW_SECONDS;
 const MIN_RESCUE_WINDOW_SECONDS = 15;
 
 function farthestFirstOrder(count) {
@@ -291,20 +288,6 @@ function selectRescueLocations(
   return selected;
 }
 
-function splitConfirmationWindow(window) {
-  if (!window || window.length < 2) return [];
-  const [start, end] = window;
-  const length = end - start;
-  if (length < 2 * RESCUE_CONFIRMATION_WINDOW_SECONDS) {
-    return [window];
-  }
-  const mid = start + RESCUE_CONFIRMATION_WINDOW_SECONDS;
-  return [
-    [start, mid],
-    [mid, start + 2 * RESCUE_CONFIRMATION_WINDOW_SECONDS],
-  ];
-}
-
 function makeRescueWindows(
   duration,
   primaryWindows,
@@ -328,28 +311,30 @@ function makeRescueWindows(
   );
   if (!selected.length) return [];
 
-  // Keep the strongest location as a full 30 s discovery probe. Reserve the
-  // second-strongest location for two 15 s confirmation boundaries. This keeps
-  // the exact 120 s rescue-audio budget while giving the 3-check verifier one
-  // extra opportunity when canonical correlation appears late in rescue.
+  // The physical Smallfoot reproduction can first cross the canonical
+  // 20-bucket gate on the final rescue boundary. Keep the exact 120 s rescue
+  // audio budget, but expose more independent 15 s evidence boundaries and
+  // reserve the three strongest selected locations for the verifier tail.
+  // If the first tail probe establishes a canonical line, two fresh locations
+  // remain available for the unchanged 3/3 stable-confirmation requirement.
   const ranked = selected.slice().sort((a, b) =>
-    b.score - a.score || a.window[0] - b.window[0]
+    b.score - a.score
+    || b.pointGain - a.pointGain
+    || b.words - a.words
+    || a.window[0] - b.window[0]
   );
+  const confirmation = ranked.slice(0, RESCUE_CONFIRMATION_WINDOWS);
+  const confirmationSet = new Set(confirmation);
 
-  const confirmation = ranked.length >= 2 ? ranked[1] : null;
-  const discovery = selected
-    .filter(candidate => candidate !== confirmation)
-    .sort((a, b) =>
-      b.score - a.score || a.window[0] - b.window[0]
-    )
-    .slice(0, RESCUE_DISCOVERY_WINDOWS)
-    .map(candidate => candidate.window);
+  const discoveryCandidates = selected
+    .filter(candidate => !confirmationSet.has(candidate))
+    .sort((a, b) => a.window[0] - b.window[0]);
+  const discoveryOrder = farthestFirstOrder(discoveryCandidates.length);
+  const discovery = discoveryOrder
+    .map(index => discoveryCandidates[index].window)
+    .slice(0, RESCUE_DISCOVERY_WINDOWS);
 
-  if (!confirmation) {
-    return discovery;
-  }
-
-  return discovery.concat(splitConfirmationWindow(confirmation.window));
+  return discovery.concat(confirmation.map(candidate => candidate.window));
 }
 
 function makeRomanianTimeWindows(duration, primarySummaries = [], context = null) {
@@ -367,7 +352,6 @@ module.exports = {
   WINDOW_SECONDS,
   PRIMARY_WINDOWS,
   RESCUE_WINDOW_SECONDS,
-  RESCUE_CONFIRMATION_WINDOW_SECONDS,
   RESCUE_LOCATIONS,
   RESCUE_DISCOVERY_WINDOWS,
   RESCUE_CONFIRMATION_WINDOWS,
@@ -384,7 +368,6 @@ module.exports = {
   candidateCenter,
   selectCoverageDeficitLocations,
   selectRescueLocations,
-  splitConfirmationWindow,
   makeRescueWindows,
   makeRomanianTimeWindows,
 };
