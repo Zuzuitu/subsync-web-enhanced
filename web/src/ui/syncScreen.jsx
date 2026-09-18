@@ -370,12 +370,16 @@ export default class SyncScreen {
           ? ` · rescue: ready 0/${convergence.rescueWindowsTotal}`
           : ''
       : '';
+    const confirmationText = convergence && convergence.lateConfirmationWindowsTotal
+      ? ` · confirm: ${convergence.lateConfirmationWindowsCompleted}/${convergence.lateConfirmationWindowsTotal}`
+      : '';
     const anchorText = convergence
       ? ` · context anchors: ${diagnostics.refWords ? diagnostics.romanianRefContextAnchors || 0 : 0}`
       : '';
     const convergenceText = convergence
       ? ` · Romanian probes: ${convergence.completedWindows}/${convergence.totalWindows}`
         + rescueText
+        + confirmationText
         + ` · stable checks: ${convergence.stableCorrelatedWindows}`
         + ` · last probe words: ${convergence.lastWindowWords || 0}`
         + ` · points: ${convergence.lastPoints || 0}`

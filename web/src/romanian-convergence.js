@@ -28,6 +28,37 @@ function formulaDeltaSeconds(previous, current, duration) {
   );
 }
 
+function needsLateConfirmation(status, canonicalAvailable) {
+  if (!status || status.verified) return false;
+
+  const remaining = Math.max(
+    0,
+    (Number(status.totalWindows) || 0) - (Number(status.completedWindows) || 0)
+  );
+  const stable = Math.max(0, Number(status.stableCorrelatedWindows) || 0);
+  const confirmationsNeeded = Math.max(
+    0,
+    REQUIRED_STABLE_CORRELATED_WINDOWS - stable
+  );
+  const canonicalSeen = Boolean(
+    canonicalAvailable
+    || stable > 0
+    || (Number(status.probeCoverageRatio) || 0) > 0
+  );
+  if (!canonicalSeen) return false;
+
+  if (remaining < confirmationsNeeded) {
+    return true;
+  }
+
+  const coverage = Number(status.probeCoverageRatio) || 0;
+  return (
+    coverage > 0
+    && coverage < MIN_PROBE_COVERAGE_RATIO
+    && remaining === 0
+  );
+}
+
 function evidenceSpanRatio(stats, duration) {
   const start = Number(stats && stats.evidenceStart);
   const end = Number(stats && stats.evidenceEnd);
@@ -59,6 +90,10 @@ class RomanianConvergenceTracker {
       this.totalWindows,
       Number(options.primaryWindows) || this.totalWindows
     );
+    this.baseRescueWindows = Math.max(
+      0,
+      Number(options.baseRescueWindows) || (this.totalWindows - this.primaryWindows)
+    );
 
     this.completedWindows = 0;
     this.informativeWindows = 0;
@@ -77,6 +112,7 @@ class RomanianConvergenceTracker {
     this.candidateProbeCoverageRatio = 0;
     this.candidateEvidenceStart = null;
     this.candidateEvidenceEnd = null;
+    this.history = [];
   }
 
   observe(window, words, stats) {
@@ -168,9 +204,40 @@ class RomanianConvergenceTracker {
       }
     }
 
+    const windowStart = Number(window && window.start);
+    const windowEnd = Number(window && window.end);
+    const factor = Number(stats && stats.factor);
+    const maxDistance = Number(stats && stats.maxDistance);
+    this.history.push({
+      index: this.completedWindows,
+      start: Number.isFinite(windowStart) ? windowStart : 0,
+      end: Number.isFinite(windowEnd) ? windowEnd : 0,
+      words: this.lastWindowWords,
+      points,
+      correlated,
+      candidatePointGain: this.candidatePointGain,
+      canonicalPointGain: this.lastPointGain,
+      candidateCoverageRatio: this.candidateProbeCoverageRatio,
+      canonicalCoverageRatio: this.probeCoverageRatio,
+      stableCorrelatedWindows: this.stableCorrelatedWindows,
+      formulaDeltaSeconds: Number.isFinite(this.lastFormulaDeltaSeconds)
+        ? this.lastFormulaDeltaSeconds
+        : 0,
+      factor: Number.isFinite(factor) ? factor : 0,
+      maxDistance: Number.isFinite(maxDistance) ? maxDistance : 0,
+    });
+
     // An inconclusive probe is neutral: it neither confirms nor invalidates a
     // previous canonical result. Only a materially different canonical formula
     // can reset the sequence above.
+    return this.getStatus();
+  }
+
+  setBaseRescueWindows(baseRescueWindows) {
+    const parsed = Number(baseRescueWindows);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      this.baseRescueWindows = parsed;
+    }
     return this.getStatus();
   }
 
@@ -189,8 +256,15 @@ class RomanianConvergenceTracker {
       && this.probeCoverageRatio >= this.minProbeCoverageRatio
     );
 
-    const rescueWindowsTotal = Math.max(0, this.totalWindows - this.primaryWindows);
-    const rescueWindowsCompleted = Math.max(0, this.completedWindows - this.primaryWindows);
+    const afterPrimaryTotal = Math.max(0, this.totalWindows - this.primaryWindows);
+    const afterPrimaryCompleted = Math.max(0, this.completedWindows - this.primaryWindows);
+    const rescueWindowsTotal = Math.min(this.baseRescueWindows, afterPrimaryTotal);
+    const rescueWindowsCompleted = Math.min(rescueWindowsTotal, afterPrimaryCompleted);
+    const lateConfirmationWindowsTotal = Math.max(0, afterPrimaryTotal - rescueWindowsTotal);
+    const lateConfirmationWindowsCompleted = Math.max(
+      0,
+      afterPrimaryCompleted - rescueWindowsTotal
+    );
 
     return {
       completedWindows: this.completedWindows,
@@ -198,7 +272,11 @@ class RomanianConvergenceTracker {
       primaryWindows: this.primaryWindows,
       rescueWindowsTotal,
       rescueWindowsCompleted,
-      phase: rescueWindowsCompleted > 0 ? 'rescue' : 'primary',
+      lateConfirmationWindowsTotal,
+      lateConfirmationWindowsCompleted,
+      phase: lateConfirmationWindowsCompleted > 0
+        ? 'confirmation'
+        : rescueWindowsCompleted > 0 ? 'rescue' : 'primary',
       informativeWindows: this.informativeWindows,
       stableCorrelatedWindows: this.stableCorrelatedWindows,
       probeCoverageRatio: this.probeCoverageRatio,
@@ -212,6 +290,7 @@ class RomanianConvergenceTracker {
       candidateProbeCoverageRatio: this.candidateProbeCoverageRatio,
       candidateEvidenceStart: this.candidateEvidenceStart,
       candidateEvidenceEnd: this.candidateEvidenceEnd,
+      history: this.history.map(entry => ({ ...entry })),
       verified,
     };
   }
@@ -225,5 +304,6 @@ module.exports = {
   MAX_FORMULA_DELTA_SECONDS,
   formulaDeltaSeconds,
   evidenceSpanRatio,
+  needsLateConfirmation,
   RomanianConvergenceTracker,
 };

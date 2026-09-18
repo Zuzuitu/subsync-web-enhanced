@@ -145,7 +145,16 @@
         "iPhone-like WebKit"
       ],
       "preserveCanonicalThresholds": true,
-      "physicalIPhoneClaimRequiresPhysicalDeviceEvidence": true
+      "physicalIPhoneClaimRequiresPhysicalDeviceEvidence": true,
+      "sampledAudioBudgetSeconds": {
+        "primary": 240,
+        "rescue": 120,
+        "normalMaximum": 360,
+        "lateCanonicalConfirmationMaximum": 90,
+        "absoluteMaximum": 450,
+        "lateConfirmationOnlyAfterCanonicalCorrelation": true,
+        "earlyStopOnVerifiedConvergence": true
+      }
     }
   },
   "deployment": {

@@ -5,6 +5,7 @@ const {
   WINDOW_SECONDS,
   PRIMARY_WINDOWS,
   RESCUE_WINDOW_SECONDS,
+  RESCUE_CONFIRMATION_WINDOW_SECONDS,
   RESCUE_LOCATIONS,
   RESCUE_DISCOVERY_WINDOWS,
   RESCUE_CONFIRMATION_WINDOWS,
@@ -12,23 +13,32 @@ const {
   MAX_WINDOWS,
   FULL_SCAN_SECONDS,
   MAX_SPARSE_AUDIO_SECONDS,
+  LATE_CONFIRMATION_WINDOW_SECONDS,
+  LATE_CONFIRMATION_WINDOWS,
+  MAX_LATE_CONFIRMATION_SECONDS,
+  MAX_ROMANIAN_SAMPLED_AUDIO_SECONDS,
   farthestFirstOrder,
   makePrimaryWindows,
-  selectRescueLocations,
   makeRescueWindows,
+  makeLateConfirmationWindows,
   makeRomanianTimeWindows,
 } = require('../../web/src/romanian-windows.js');
 
 assert.strictEqual(WINDOW_SECONDS, 15);
 assert.strictEqual(PRIMARY_WINDOWS, 16);
-assert.strictEqual(RESCUE_WINDOW_SECONDS, 15);
-assert.strictEqual(RESCUE_LOCATIONS, 8);
-assert.strictEqual(RESCUE_DISCOVERY_WINDOWS, 5);
-assert.strictEqual(RESCUE_CONFIRMATION_WINDOWS, 3);
-assert.strictEqual(RESCUE_WINDOWS, 8);
-assert.strictEqual(MAX_WINDOWS, 24);
+assert.strictEqual(RESCUE_WINDOW_SECONDS, 30);
+assert.strictEqual(RESCUE_CONFIRMATION_WINDOW_SECONDS, 15);
+assert.strictEqual(RESCUE_LOCATIONS, 4);
+assert.strictEqual(RESCUE_DISCOVERY_WINDOWS, 3);
+assert.strictEqual(RESCUE_CONFIRMATION_WINDOWS, 2);
+assert.strictEqual(RESCUE_WINDOWS, 5);
+assert.strictEqual(MAX_WINDOWS, 21);
 assert.strictEqual(FULL_SCAN_SECONDS, 240);
 assert.strictEqual(MAX_SPARSE_AUDIO_SECONDS, 360);
+assert.strictEqual(LATE_CONFIRMATION_WINDOW_SECONDS, 30);
+assert.strictEqual(LATE_CONFIRMATION_WINDOWS, 3);
+assert.strictEqual(MAX_LATE_CONFIRMATION_SECONDS, 90);
+assert.strictEqual(MAX_ROMANIAN_SAMPLED_AUDIO_SECONDS, 450);
 assert.strictEqual(makeRomanianTimeWindows(undefined), null);
 assert.strictEqual(makeRomanianTimeWindows(240), null);
 
@@ -53,23 +63,6 @@ const summaries = primary.map(([start, end], index) => ({
 
 const rescue = makeRescueWindows(duration, primary, summaries);
 assert.strictEqual(rescue.length, RESCUE_WINDOWS);
-const selectedRescueLocations = selectRescueLocations(duration, primary, summaries);
-const strongestTail = selectedRescueLocations
-  .slice()
-  .sort((a, b) =>
-    b.score - a.score
-    || b.pointGain - a.pointGain
-    || b.words - a.words
-    || a.window[0] - b.window[0]
-  )
-  .slice(0, RESCUE_CONFIRMATION_WINDOWS)
-  .map(candidate => candidate.window);
-const actualTail = rescue.slice(-RESCUE_CONFIRMATION_WINDOWS);
-assert.deepStrictEqual(
-  actualTail,
-  strongestTail,
-  'the final three rescue probes must reserve the strongest fresh-evidence locations'
-);
 
 const windows = primary.concat(rescue);
 assert.strictEqual(windows.length, MAX_WINDOWS);
@@ -84,8 +77,13 @@ for (const [start, end] of primary) {
 const rescueDurations = rescue.map(([start, end]) => end - start);
 assert.strictEqual(
   rescueDurations.filter(x => Math.abs(x - RESCUE_WINDOW_SECONDS) < 1e-9).length,
-  RESCUE_WINDOWS,
-  'all rescue probes must be independent 15-second evidence boundaries'
+  RESCUE_DISCOVERY_WINDOWS,
+  'three full 30-second discovery probes must remain'
+);
+assert.strictEqual(
+  rescueDurations.filter(x => Math.abs(x - RESCUE_CONFIRMATION_WINDOW_SECONDS) < 1e-9).length,
+  RESCUE_CONFIRMATION_WINDOWS,
+  'one 30-second location must become two 15-second confirmation probes'
 );
 
 const chronological = windows.slice().sort((a, b) => a[0] - b[0]);
@@ -115,6 +113,43 @@ assert.strictEqual(
   'confirmation reserve must not increase the six-minute sampled-audio cap'
 );
 
+
+const allSummaries = summaries.concat(rescue.map(([start, end], index) => ({
+  start,
+  end,
+  wordCount: 8 + index,
+  candidatePointGain: index < 2 ? 1 : 0,
+})));
+const lateConfirmation = makeLateConfirmationWindows(
+  duration,
+  windows,
+  allSummaries
+);
+assert.strictEqual(
+  lateConfirmation.length,
+  LATE_CONFIRMATION_WINDOWS,
+  'late canonical lock must have three fresh 30-second confirmation opportunities'
+);
+assert.strictEqual(
+  lateConfirmation.reduce((sum, [start, end]) => sum + end - start, 0),
+  MAX_LATE_CONFIRMATION_SECONDS,
+  'late confirmation reserve must be capped at 90 seconds'
+);
+for (const candidate of lateConfirmation) {
+  assert(
+    windows.every(window =>
+      candidate[1] <= window[0] + 1e-9 || candidate[0] >= window[1] - 1e-9
+    ),
+    'late confirmation windows must not reuse already sampled audio'
+  );
+}
+assert.strictEqual(
+  windows.concat(lateConfirmation)
+    .reduce((sum, [start, end]) => sum + end - start, 0),
+  MAX_ROMANIAN_SAMPLED_AUDIO_SECONDS,
+  'absolute Romanian sampled-audio ceiling must be 450 seconds'
+);
+
 // Rescue must still prioritize actual correlation gain over raw speech density.
 const rich = primary[6];
 assert(
@@ -124,27 +159,18 @@ assert(
   'rescue planner should continue near a point-gain-rich primary probe'
 );
 
-// The fixed 120-second reserve now uses eight independent 15-second physical
-// locations. This creates enough fresh-evidence boundaries for a late canonical
-// lock while preserving the same total sampled-audio cap.
+// Five probe boundaries represent four physical timeline locations because the
+// confirmation location is split into two adjacent halves.
+const locationKeys = [];
+for (const [start, end] of rescue) {
+  const center = (start + end) / 2;
+  const quarter = Math.min(3, Math.floor(4 * center / duration));
+  if (!locationKeys.includes(quarter)) locationKeys.push(quarter);
+}
 assert.strictEqual(
-  rescue.length,
+  locationKeys.length,
   RESCUE_LOCATIONS,
-  'rescue must use eight independent physical search locations'
-);
-const rescueCenters = rescue.map(([start, end]) => (start + end) / 2);
-assert.strictEqual(
-  new Set(rescueCenters.map(center => center.toFixed(6))).size,
-  RESCUE_LOCATIONS,
-  'rescue locations must be distinct'
-);
-const rescueQuarters = new Set(
-  rescueCenters.map(center => Math.min(3, Math.floor(4 * center / duration)))
-);
-assert.strictEqual(
-  rescueQuarters.size,
-  4,
-  'rescue must still cover all four timeline quarters when not coverage-targeted'
+  'rescue must preserve four-quarter title coverage'
 );
 
 // Real-title regression shape: a stable canonical formula can still cover only
@@ -175,7 +201,8 @@ const coverageRescue = makeRescueWindows(
 assert.strictEqual(coverageRescue.length, RESCUE_WINDOWS);
 assert.strictEqual(
   coverageRescue.reduce((sum, [start, end]) => sum + end - start, 0),
-  RESCUE_WINDOWS * RESCUE_WINDOW_SECONDS,
+  RESCUE_DISCOVERY_WINDOWS * RESCUE_WINDOW_SECONDS
+    + RESCUE_CONFIRMATION_WINDOWS * RESCUE_CONFIRMATION_WINDOW_SECONDS,
   'coverage recovery must stay inside the existing 120-second rescue budget'
 );
 
@@ -195,7 +222,7 @@ for (const [start, end] of coverageRescue) {
 assert.strictEqual(
   coveragePhysicalLocations.length,
   RESCUE_LOCATIONS,
-  'coverage recovery must keep eight independent physical search locations'
+  'coverage recovery must keep four independent physical search locations'
 );
 const locationCenters = coveragePhysicalLocations.map(
   item => (item.start + item.end) / 2
@@ -211,8 +238,8 @@ assert(
 );
 const leftLocations = locationCenters.filter(center => center < evidenceStart).length;
 const rightLocations = locationCenters.filter(center => center > evidenceEnd).length;
-assert.strictEqual(leftLocations, 3);
-assert.strictEqual(rightLocations, 5);
+assert.strictEqual(leftLocations, 1);
+assert.strictEqual(rightLocations, 3);
 
 const mediumDuration = 300;
 const mediumPrimary = makePrimaryWindows(mediumDuration);

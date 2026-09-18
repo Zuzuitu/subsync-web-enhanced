@@ -7,12 +7,16 @@ import { annotateErrorStage, classifyErrorStage } from './diagnostics.js';
 const {
   PRIMARY_WINDOWS,
   RESCUE_WINDOWS,
+  LATE_CONFIRMATION_WINDOWS,
   makePrimaryWindows,
   makeRescueWindows,
+  makeLateConfirmationWindows,
 } = require('./romanian-windows.js');
 const {
   RomanianConvergenceTracker,
   MIN_PROBE_COVERAGE_RATIO,
+  REQUIRED_STABLE_CORRELATED_WINDOWS,
+  needsLateConfirmation,
 } = require('./romanian-convergence.js');
 const { RomanianContextAnchorStream } = require('./romanian-context-anchors.js');
 const { selectCanonicalStatus } = require('./correlation-status.js');
@@ -118,12 +122,18 @@ export default class Synchronizer {
             duration: ref.duration,
             primaryWindows: romanianPrimaryWindows,
             primarySummaries: [],
+            windowSummaries: [],
+            scheduledWindows: romanianPrimaryWindows.map(window => window.slice()),
             rescueAdded: false,
+            lateConfirmationAdded: false,
           };
           this.romanianConvergence = new RomanianConvergenceTracker(
             ref.duration,
             romanianPrimaryWindows.length + RESCUE_WINDOWS,
-            { primaryWindows: romanianPrimaryWindows.length }
+            {
+              primaryWindows: romanianPrimaryWindows.length,
+              baseRescueWindows: RESCUE_WINDOWS,
+            }
           );
           this.diagnostics.romanianConvergence = this.romanianConvergence.getStatus();
           logger.log(
@@ -224,14 +234,9 @@ export default class Synchronizer {
       }
 
       if (!issub && this.romanianConvergence && s.windowCompleted) {
-        let primarySummary = null;
-        if (
-          this.romanianScan
-          && this.romanianScan.primarySummaries.length < this.romanianScan.primaryWindows.length
-        ) {
-          primarySummary = { ...s.windowCompleted };
-          this.romanianScan.primarySummaries.push(primarySummary);
-        }
+        const windowSummary = this.romanianScan
+          ? { ...s.windowCompleted }
+          : null;
 
         let rawStats;
         try {
@@ -251,10 +256,19 @@ export default class Synchronizer {
           s.windowCompleted.wordCount || 0,
           rawStats
         );
-        if (primarySummary) {
-          primarySummary.candidatePointGain = convergence.candidatePointGain || 0;
-          primarySummary.candidatePoints = convergence.lastPoints || 0;
-          primarySummary.candidateSpan = convergence.candidateProbeCoverageRatio || 0;
+        if (windowSummary) {
+          windowSummary.candidatePointGain = convergence.candidatePointGain || 0;
+          windowSummary.candidatePoints = convergence.lastPoints || 0;
+          windowSummary.candidateSpan = convergence.candidateProbeCoverageRatio || 0;
+          windowSummary.canonicalSpan = convergence.probeCoverageRatio || 0;
+          windowSummary.correlated = Boolean(rawStats && rawStats.correlated);
+          this.romanianScan.windowSummaries.push(windowSummary);
+          if (
+            this.romanianScan.primarySummaries.length
+            < this.romanianScan.primaryWindows.length
+          ) {
+            this.romanianScan.primarySummaries.push(windowSummary);
+          }
         }
         this.diagnostics.romanianConvergence = convergence;
 
@@ -318,6 +332,10 @@ export default class Synchronizer {
               ? 'candidate-coverage'
               : 'content-aware';
           this.romanianScan.rescueAdded = true;
+          this.romanianScan.scheduledWindows.push(
+            ...rescueWindows.map(window => window.slice())
+          );
+          this.romanianConvergence.setBaseRescueWindows(rescueWindows.length);
           convergence = this.romanianConvergence.setTotalWindows(
             this.romanianScan.primaryWindows.length + rescueWindows.length
           );
@@ -338,6 +356,58 @@ export default class Synchronizer {
           } else {
             logger.log(
               'Romanian ASR primary stage remained noncanonical and no suitable unused rescue gaps were available'
+            );
+          }
+        }
+
+        if (
+          this.romanianScan
+          && this.romanianScan.rescueAdded
+          && !this.romanianScan.lateConfirmationAdded
+          && needsLateConfirmation(
+            convergence,
+            Boolean((rawStats && rawStats.correlated) || (this.status && this.status.correlated))
+          )
+        ) {
+          const canonicalCoverageDeficit = (
+            convergence.probeCoverageRatio > 0
+            && convergence.probeCoverageRatio < MIN_PROBE_COVERAGE_RATIO
+            && Number.isFinite(convergence.evidenceStart)
+            && Number.isFinite(convergence.evidenceEnd)
+          );
+          const confirmationWindows = makeLateConfirmationWindows(
+            this.romanianScan.duration,
+            this.romanianScan.scheduledWindows,
+            this.romanianScan.windowSummaries,
+            {
+              prioritizeCoverage: canonicalCoverageDeficit,
+              evidenceStart: convergence.evidenceStart,
+              evidenceEnd: convergence.evidenceEnd,
+            }
+          );
+          this.romanianScan.lateConfirmationAdded = true;
+
+          if (confirmationWindows.length) {
+            this.romanianScan.scheduledWindows.push(
+              ...confirmationWindows.map(window => window.slice())
+            );
+            convergence = this.romanianConvergence.setTotalWindows(
+              convergence.totalWindows + confirmationWindows.length
+            );
+            this.diagnostics.romanianConvergence = convergence;
+
+            const appended = await extractor.appendTimeWindows(confirmationWindows);
+            if (appended && appended.resumed) {
+              s.done = false;
+              s.progress = convergence.completedWindows / convergence.totalWindows;
+              logger.log(
+                `Romanian canonical lock arrived too late for ${REQUIRED_STABLE_CORRELATED_WINDOWS}/${REQUIRED_STABLE_CORRELATED_WINDOWS} verification; `
+                + `appended ${confirmationWindows.length}/${LATE_CONFIRMATION_WINDOWS} fresh 30 s confirmation probes`
+              );
+            }
+          } else {
+            logger.log(
+              'Romanian canonical lock arrived late, but no unused 30 s confirmation gaps were available'
             );
           }
         }
