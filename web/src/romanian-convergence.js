@@ -28,6 +28,37 @@ function formulaDeltaSeconds(previous, current, duration) {
   );
 }
 
+function needsLateConfirmation(status, canonicalAvailable) {
+  if (!status || status.verified) return false;
+
+  const remaining = Math.max(
+    0,
+    (Number(status.totalWindows) || 0) - (Number(status.completedWindows) || 0)
+  );
+  const stable = Math.max(0, Number(status.stableCorrelatedWindows) || 0);
+  const confirmationsNeeded = Math.max(
+    0,
+    REQUIRED_STABLE_CORRELATED_WINDOWS - stable
+  );
+  const canonicalSeen = Boolean(
+    canonicalAvailable
+    || stable > 0
+    || (Number(status.probeCoverageRatio) || 0) > 0
+  );
+  if (!canonicalSeen) return false;
+
+  if (remaining < confirmationsNeeded) {
+    return true;
+  }
+
+  const coverage = Number(status.probeCoverageRatio) || 0;
+  return (
+    coverage > 0
+    && coverage < MIN_PROBE_COVERAGE_RATIO
+    && remaining === 0
+  );
+}
+
 function evidenceSpanRatio(stats, duration) {
   const start = Number(stats && stats.evidenceStart);
   const end = Number(stats && stats.evidenceEnd);
@@ -273,5 +304,6 @@ module.exports = {
   MAX_FORMULA_DELTA_SECONDS,
   formulaDeltaSeconds,
   evidenceSpanRatio,
+  needsLateConfirmation,
   RomanianConvergenceTracker,
 };
