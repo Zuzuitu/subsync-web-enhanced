@@ -59,6 +59,10 @@ class RomanianConvergenceTracker {
       this.totalWindows,
       Number(options.primaryWindows) || this.totalWindows
     );
+    this.baseRescueWindows = Math.max(
+      0,
+      Number(options.baseRescueWindows) || (this.totalWindows - this.primaryWindows)
+    );
 
     this.completedWindows = 0;
     this.informativeWindows = 0;
@@ -213,8 +217,15 @@ class RomanianConvergenceTracker {
       && this.probeCoverageRatio >= this.minProbeCoverageRatio
     );
 
-    const rescueWindowsTotal = Math.max(0, this.totalWindows - this.primaryWindows);
-    const rescueWindowsCompleted = Math.max(0, this.completedWindows - this.primaryWindows);
+    const afterPrimaryTotal = Math.max(0, this.totalWindows - this.primaryWindows);
+    const afterPrimaryCompleted = Math.max(0, this.completedWindows - this.primaryWindows);
+    const rescueWindowsTotal = Math.min(this.baseRescueWindows, afterPrimaryTotal);
+    const rescueWindowsCompleted = Math.min(rescueWindowsTotal, afterPrimaryCompleted);
+    const lateConfirmationWindowsTotal = Math.max(0, afterPrimaryTotal - rescueWindowsTotal);
+    const lateConfirmationWindowsCompleted = Math.max(
+      0,
+      afterPrimaryCompleted - rescueWindowsTotal
+    );
 
     return {
       completedWindows: this.completedWindows,
@@ -222,7 +233,11 @@ class RomanianConvergenceTracker {
       primaryWindows: this.primaryWindows,
       rescueWindowsTotal,
       rescueWindowsCompleted,
-      phase: rescueWindowsCompleted > 0 ? 'rescue' : 'primary',
+      lateConfirmationWindowsTotal,
+      lateConfirmationWindowsCompleted,
+      phase: lateConfirmationWindowsCompleted > 0
+        ? 'confirmation'
+        : rescueWindowsCompleted > 0 ? 'rescue' : 'primary',
       informativeWindows: this.informativeWindows,
       stableCorrelatedWindows: this.stableCorrelatedWindows,
       probeCoverageRatio: this.probeCoverageRatio,
