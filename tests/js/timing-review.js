@@ -33,7 +33,29 @@ assert.strictEqual(timingReview([{start: 0, end: 4}, {start: 2, end: 5}], formul
   'overlapping cues do not imply backward start-time jumps');
 
 const status = {subReady: true, formula, points: 28, correlated: true,
-  diagnostics: {refWords: 161, romanianConvergence: {verified: false, completedWindows: 10},
+  diagnostics: {refWords: 161, romanianConvergence: {
+    verified: false,
+    completedWindows: 10,
+    lateConfirmationWindowsTotal: 3,
+    lateConfirmationWindowsCompleted: 1,
+    history: [{
+      index: 10,
+      start: 120,
+      end: 150,
+      words: 8,
+      points: 20,
+      correlated: true,
+      candidatePointGain: 1,
+      canonicalPointGain: 1,
+      candidateCoverageRatio: 0.8,
+      canonicalCoverageRatio: 0.78,
+      stableCorrelatedWindows: 1,
+      formulaDeltaSeconds: 0.1,
+      factor: 0.99999,
+      maxDistance: 1.4,
+      leakedText: 'private speech',
+    }],
+  },
     errors: [{message: '/private/movie.mkv transcript'}], privateExtra: 'secret'}};
 const env = {runtime: {hash: 'fixture'}, browser: 'test', elapsedSeconds: 1, outcome: 'completed'};
 let report = diagnosticReport(status, review, env);
@@ -41,6 +63,11 @@ assert.strictEqual(report.saveEligible, false, 'pending adaptive lock stays fail
 assert.strictEqual(report.errorCount, 1);
 assert.strictEqual(report.evidence.refWords, 161);
 assert.strictEqual(report.convergence.completedWindows, 10);
+assert.strictEqual(report.convergence.lateConfirmationWindowsTotal, 3);
+assert.strictEqual(report.probeHistory.length, 1);
+assert.strictEqual(report.probeHistory[0].points, 20);
+assert.strictEqual(report.probeHistory[0].correlated, true);
+assert.strictEqual(report.probeHistory[0].leakedText, undefined);
 assert(!/secret|private|script>/.test(JSON.stringify(report)), 'report excludes user text and paths');
 assert.deepStrictEqual(diagnosticReport({}, timingReview([], null), env).formula, {});
 status.diagnostics.romanianConvergence.verified = true;
