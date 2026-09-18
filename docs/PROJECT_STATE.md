@@ -13,6 +13,67 @@ Repository truth overrides chat memory. Before material changes, read in this or
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
 
+## 2026-09-18 — Smallfoot verified lock / precision-balance follow-up
+
+Physical iPhone/Chrome Smallfoot run on runtime
+`ae75206e3991912affaee2bbdf4116033d128f57` is the first fully verified
+Smallfoot result after the post-lock confirmation redesign:
+- saveEligible=true;
+- 22 canonical buckets / 27 raw matches;
+- 3/3 stable confirmations;
+- 75.8387% canonical span;
+- factor ~0.9999994502;
+- maxDistance ~1.7699 s;
+- 252 reference words / 185 Romanian reference context anchors;
+- completed 22/24 probes (16 primary + 5 rescue + 1 late confirmation);
+- precision thirds 8/9/5;
+- zero recorded processing errors.
+
+The synchronized SRT from that exact run was retained and matches the diagnostic
+timing endpoints (1517 cues, first output start 23.532 s, final output end
+5776.910 s). The controlled test input is the known original Smallfoot Romanian
+SRT shifted by exactly +10.000 s. Inverting the accepted affine formula against
+that controlled shift reconstructs the original cue timing within <1 ms at the
+known first and last endpoints, so no title text or guessed offset is required
+for the comparison.
+
+Exact full-title start residuals versus the reconstructed original:
+- mean -597.7 ms;
+- median -584.1 ms;
+- MAE 606.0 ms;
+- median absolute error 584.1 ms;
+- p95 absolute error 1205.7 ms;
+- max absolute error 1289.3 ms;
+- third medians -1070.7 / -583.7 / -146.7 ms;
+- first cue -1289.3 ms; final cue +275.1 ms.
+
+This is an affine precision bias, not a constant offset and not a canonical
+acceptance failure. Do not hard-code Smallfoot, -10 s, an iPhone offset or a
+global millisecond compensation.
+
+The diagnostic also reveals an evidence-distribution weakness at acceptance:
+8/9/5 canonical buckets across beginning/middle/end. Two 30-second
+late-confirmation windows were already scheduled but left unused because the
+run stopped immediately at 3/3. Branch `fix/romanian-precision-balance`
+therefore preserves the canonical fitter and all sc0ty thresholds, but changes
+the late-lock evidence scheduler:
+- late confirmation locations are ordered toward the least-represented title
+  thirds using current precision bucket counts;
+- once 3/3 is reached, the run may continue only inside the already reserved
+  late-confirmation budget while any title third holds <25% of canonical
+  buckets;
+- processing still stops as soon as distribution reaches the precision balance
+  floor or the existing 450 s absolute cap is exhausted;
+- verified canonical acceptance remains valid; the precision rule only decides
+  whether already-reserved evidence should still be collected;
+- normal runs that verify before the late-confirmation path retain the existing
+  early-stop behavior.
+
+Regression shape from the physical run: 8/9/5 must continue precision probing;
+8/9/6 (weakest share 6/23 >25%) may stop. Late windows for an 8/7/5 state must
+target the final third first. No estimator, canonical threshold, Save policy,
+Whisper model, worker count or paid service changes in this follow-up.
+
 ## 2026-09-18 — Smallfoot post-lock confirmation redesign
 
 Two consecutive physical iPhone/Chrome Smallfoot runs now isolate two separate
