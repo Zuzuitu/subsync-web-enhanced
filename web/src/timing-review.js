@@ -56,6 +56,11 @@ function numbers(source, keys) {
   return result;
 }
 
+function numericEntries(items, keys) {
+  if (!Array.isArray(items)) return [];
+  return items.map(item => numbers(item, keys));
+}
+
 function diagnosticReport(status, review, environment) {
   const diagnostics = status.diagnostics || {};
   return {
@@ -74,9 +79,21 @@ function diagnosticReport(status, review, environment) {
       'romanianSubContextAnchors', 'romanianRefContextAnchors']),
     convergence: numbers(diagnostics.romanianConvergence, [
       'verified', 'completedWindows', 'totalWindows', 'primaryWindows',
-      'rescueWindowsTotal', 'rescueWindowsCompleted', 'stableCorrelatedWindows',
-      'lastWindowWords', 'lastPoints', 'candidatePointGain', 'candidateProbeCoverageRatio',
+      'rescueWindowsTotal', 'rescueWindowsCompleted',
+      'lateConfirmationWindowsTotal', 'lateConfirmationWindowsCompleted',
+      'stableCorrelatedWindows', 'lastWindowWords', 'lastPoints',
+      'candidatePointGain', 'candidateProbeCoverageRatio',
       'probeCoverageRatio', 'lastFormulaDeltaSeconds']),
+    probeHistory: numericEntries(
+      diagnostics.romanianConvergence && diagnostics.romanianConvergence.history,
+      [
+        'index', 'start', 'end', 'words', 'points', 'correlated',
+        'candidatePointGain', 'canonicalPointGain',
+        'candidateCoverageRatio', 'canonicalCoverageRatio',
+        'stableCorrelatedWindows', 'formulaDeltaSeconds',
+        'factor', 'maxDistance',
+      ]
+    ),
     precision: numbers(status.precision || diagnostics.precision, [
       'available', 'rawPoints', 'buckets', 'beginningBuckets', 'middleBuckets', 'endBuckets',
       'jackknifeSamples', 'maxMappedDelta', 'medianMappedDelta', 'maxSlopeDeltaPpm', 'maxOffsetDelta']),
