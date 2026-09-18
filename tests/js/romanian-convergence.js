@@ -234,12 +234,15 @@ assert.strictEqual(state.verified, true);
 assert.strictEqual(state.phase, 'rescue');
 
 
-// Physical Smallfoot late-lock regression: primary plus five discovery probes
-// may still be noncanonical. The fixed 120-second rescue budget must leave a
-// three-probe confirmation tail, so a canonical lock at 20 buckets can still
-// earn two fresh-bucket confirmations without weakening any acceptance gate.
-const lateLock = new RomanianConvergenceTracker(5800, 24, { primaryWindows: 16 });
-for (let i = 0; i < 21; i++) {
+// Physical Smallfoot late-lock regression: the proven 360-second planner may
+// first reach a valid canonical line on its final 21st boundary. The tracker
+// must preserve the original five rescue probes, then allow a separate
+// confirmation-only extension without reclassifying those checks as rescue.
+const lateLock = new RomanianConvergenceTracker(5800, 21, {
+  primaryWindows: 16,
+  baseRescueWindows: 5,
+});
+for (let i = 0; i < 20; i++) {
   state = lateLock.observe(
     { start: i * 20, end: i * 20 + 15 },
     7,
@@ -249,29 +252,79 @@ for (let i = 0; i < 21; i++) {
       formula: { a: 1.00028, b: -11.38 },
       candidateEvidenceStart: 700,
       candidateEvidenceEnd: 5100,
+      factor: 0.99999,
+      maxDistance: 2.5,
     }
   );
 }
-assert.strictEqual(state.stableCorrelatedWindows, 0);
+state = lateLock.observe(
+  { start: 5100, end: 5115 },
+  7,
+  {
+    correlated: true,
+    points: 20,
+    formula: { a: 1.00028, b: -11.38 },
+    evidenceStart: 650,
+    evidenceEnd: 5100,
+    candidateEvidenceStart: 650,
+    candidateEvidenceEnd: 5100,
+    factor: 0.999999,
+    maxDistance: 1.72,
+  }
+);
+assert.strictEqual(state.completedWindows, 21);
+assert.strictEqual(state.stableCorrelatedWindows, 1);
 assert.strictEqual(state.verified, false);
+assert.strictEqual(state.rescueWindowsTotal, 5);
+assert.strictEqual(state.rescueWindowsCompleted, 5);
+assert.strictEqual(state.lateConfirmationWindowsTotal, 0);
 
-for (let i = 0; i < 3; i++) {
-  state = lateLock.observe(
-    { start: 5000 + i * 20, end: 5015 + i * 20 },
-    7,
-    {
-      correlated: true,
-      points: 20 + i,
-      formula: { a: 1.00028, b: -11.38 + i * 0.02 },
-      evidenceStart: 650,
-      evidenceEnd: 5100,
-      candidateEvidenceStart: 650,
-      candidateEvidenceEnd: 5100,
-    }
-  );
-}
-assert.strictEqual(state.completedWindows, 24);
+state = lateLock.setTotalWindows(24);
+assert.strictEqual(state.rescueWindowsTotal, 5);
+assert.strictEqual(state.lateConfirmationWindowsTotal, 3);
+assert.strictEqual(state.lateConfirmationWindowsCompleted, 0);
+
+state = lateLock.observe(
+  { start: 5200, end: 5230 },
+  8,
+  {
+    correlated: true,
+    points: 21,
+    formula: { a: 1.00027, b: -11.36 },
+    evidenceStart: 640,
+    evidenceEnd: 5120,
+    candidateEvidenceStart: 640,
+    candidateEvidenceEnd: 5120,
+    factor: 0.999999,
+    maxDistance: 1.70,
+  }
+);
+assert.strictEqual(state.stableCorrelatedWindows, 2);
+assert.strictEqual(state.phase, 'confirmation');
+assert.strictEqual(state.lateConfirmationWindowsCompleted, 1);
+
+state = lateLock.observe(
+  { start: 5300, end: 5330 },
+  9,
+  {
+    correlated: true,
+    points: 22,
+    formula: { a: 1.00027, b: -11.35 },
+    evidenceStart: 630,
+    evidenceEnd: 5140,
+    candidateEvidenceStart: 630,
+    candidateEvidenceEnd: 5140,
+    factor: 0.999999,
+    maxDistance: 1.68,
+  }
+);
 assert.strictEqual(state.stableCorrelatedWindows, 3);
 assert.strictEqual(state.verified, true);
+assert.strictEqual(state.lateConfirmationWindowsCompleted, 2);
+assert.strictEqual(state.history.length, 23);
+assert.strictEqual(state.history[20].correlated, true);
+assert.strictEqual(state.history[20].points, 20);
+assert.strictEqual(state.history[21].canonicalPointGain, 1);
+assert.strictEqual(state.history[22].stableCorrelatedWindows, 3);
 
 console.log('Romanian adaptive convergence tracker: OK');
