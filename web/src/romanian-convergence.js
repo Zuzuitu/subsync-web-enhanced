@@ -202,6 +202,14 @@ class RomanianConvergenceTracker {
     return this.getStatus();
   }
 
+  setBaseRescueWindows(baseRescueWindows) {
+    const parsed = Number(baseRescueWindows);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      this.baseRescueWindows = parsed;
+    }
+    return this.getStatus();
+  }
+
   setTotalWindows(totalWindows) {
     const parsed = Number(totalWindows);
     if (Number.isFinite(parsed) && parsed >= this.completedWindows) {
