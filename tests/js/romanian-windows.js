@@ -19,6 +19,7 @@ const {
   MAX_ROMANIAN_SAMPLED_AUDIO_SECONDS,
   farthestFirstOrder,
   makePrimaryWindows,
+  precisionDeficitThirdOrder,
   makeRescueWindows,
   makeLateConfirmationWindows,
   makeRomanianTimeWindows,
@@ -41,6 +42,16 @@ assert.strictEqual(MAX_LATE_CONFIRMATION_SECONDS, 90);
 assert.strictEqual(MAX_ROMANIAN_SAMPLED_AUDIO_SECONDS, 450);
 assert.strictEqual(makeRomanianTimeWindows(undefined), null);
 assert.strictEqual(makeRomanianTimeWindows(240), null);
+
+assert.deepStrictEqual(
+  precisionDeficitThirdOrder({
+    beginningBuckets: 8,
+    middleBuckets: 7,
+    endBuckets: 5,
+  }, 3),
+  [2, 2, 1],
+  'late probes must first target the most underrepresented title third'
+);
 
 const order = farthestFirstOrder(PRIMARY_WINDOWS);
 assert.strictEqual(order.length, PRIMARY_WINDOWS);
@@ -123,12 +134,29 @@ const allSummaries = summaries.concat(rescue.map(([start, end], index) => ({
 const lateConfirmation = makeLateConfirmationWindows(
   duration,
   windows,
-  allSummaries
+  allSummaries,
+  {
+    precision: {
+      available: true,
+      beginningBuckets: 8,
+      middleBuckets: 7,
+      endBuckets: 5,
+    },
+  }
 );
 assert.strictEqual(
   lateConfirmation.length,
   LATE_CONFIRMATION_WINDOWS,
   'late canonical lock must have three fresh 30-second confirmation opportunities'
+);
+
+const lateThirds = lateConfirmation.map(([start, end]) =>
+  Math.min(2, Math.floor(3 * ((start + end) / 2) / duration))
+);
+assert.deepStrictEqual(
+  lateThirds.slice(0, 2),
+  [2, 2],
+  'the first two late probes must target the weakest final third for an 8/7/5 distribution'
 );
 assert.strictEqual(
   lateConfirmation.reduce((sum, [start, end]) => sum + end - start, 0),
