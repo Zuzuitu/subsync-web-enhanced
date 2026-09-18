@@ -334,6 +334,7 @@ export default class Synchronizer {
           this.romanianScan.scheduledWindows.push(
             ...rescueWindows.map(window => window.slice())
           );
+          this.romanianConvergence.setBaseRescueWindows(rescueWindows.length);
           convergence = this.romanianConvergence.setTotalWindows(
             this.romanianScan.primaryWindows.length + rescueWindows.length
           );
