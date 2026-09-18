@@ -5,6 +5,7 @@ const MIN_POINT_GAIN = 1;
 const REQUIRED_STABLE_CORRELATED_WINDOWS = 3;
 const MIN_PROBE_COVERAGE_RATIO = 0.75;
 const MAX_FORMULA_DELTA_SECONDS = 0.75;
+const MIN_PRECISION_THIRD_SHARE = 0.25;
 
 function validFormula(formula) {
   return formula
@@ -57,6 +58,18 @@ function needsLateConfirmation(status, canonicalAvailable) {
     && coverage < MIN_PROBE_COVERAGE_RATIO
     && remaining === 0
   );
+}
+
+function needsPrecisionPolish(precision) {
+  if (!precision || !precision.available) return false;
+  const counts = [
+    Number(precision.beginningBuckets) || 0,
+    Number(precision.middleBuckets) || 0,
+    Number(precision.endBuckets) || 0,
+  ];
+  const total = counts.reduce((sum, count) => sum + count, 0);
+  if (total <= 0) return false;
+  return Math.min(...counts) / total < MIN_PRECISION_THIRD_SHARE;
 }
 
 function evidenceSpanRatio(stats, duration) {
@@ -302,8 +315,10 @@ module.exports = {
   REQUIRED_STABLE_CORRELATED_WINDOWS,
   MIN_PROBE_COVERAGE_RATIO,
   MAX_FORMULA_DELTA_SECONDS,
+  MIN_PRECISION_THIRD_SHARE,
   formulaDeltaSeconds,
   evidenceSpanRatio,
   needsLateConfirmation,
+  needsPrecisionPolish,
   RomanianConvergenceTracker,
 };
