@@ -153,7 +153,13 @@
         "lateCanonicalConfirmationMaximum": 90,
         "absoluteMaximum": 450,
         "lateConfirmationOnlyAfterCanonicalCorrelation": true,
-        "earlyStopOnVerifiedConvergence": true
+        "earlyStopOnVerifiedConvergence": true,
+        "latePrecisionPolish": {
+          "onlyInsideAlreadyReservedLateConfirmationBudget": true,
+          "minimumBucketSharePerTitleThird": 0.25,
+          "targetLeastRepresentedThirdsFirst": true,
+          "doesNotChangeCanonicalAcceptance": true
+        }
       }
     }
   },
