@@ -9,6 +9,7 @@ const {
   MAX_FORMULA_DELTA_SECONDS,
   formulaDeltaSeconds,
   evidenceSpanRatio,
+  needsLateConfirmation,
   RomanianConvergenceTracker,
 } = require('../../web/src/romanian-convergence.js');
 
@@ -30,6 +31,63 @@ assert(
 assert.strictEqual(
   evidenceSpanRatio({ evidenceStart: 360, evidenceEnd: 6120 }, duration),
   0.8
+);
+
+
+assert.strictEqual(
+  needsLateConfirmation({
+    verified: false,
+    totalWindows: 21,
+    completedWindows: 19,
+    stableCorrelatedWindows: 1,
+    probeCoverageRatio: 0.8,
+  }, true),
+  false,
+  'two scheduled checks are enough for a 1/3 canonical lock'
+);
+assert.strictEqual(
+  needsLateConfirmation({
+    verified: false,
+    totalWindows: 21,
+    completedWindows: 20,
+    stableCorrelatedWindows: 1,
+    probeCoverageRatio: 0.8,
+  }, true),
+  true,
+  'one remaining check cannot complete an unchanged 3/3 verifier from 1/3'
+);
+assert.strictEqual(
+  needsLateConfirmation({
+    verified: false,
+    totalWindows: 21,
+    completedWindows: 21,
+    stableCorrelatedWindows: 1,
+    probeCoverageRatio: 0.8,
+  }, false),
+  true,
+  'retained canonical history must still request headroom after a neutral final probe'
+);
+assert.strictEqual(
+  needsLateConfirmation({
+    verified: false,
+    totalWindows: 21,
+    completedWindows: 21,
+    stableCorrelatedWindows: 3,
+    probeCoverageRatio: 0.7,
+  }, true),
+  true,
+  'a canonical formula with 3/3 checks but deficient coverage needs one more coverage opportunity'
+);
+assert.strictEqual(
+  needsLateConfirmation({
+    verified: false,
+    totalWindows: 21,
+    completedWindows: 21,
+    stableCorrelatedWindows: 0,
+    probeCoverageRatio: 0,
+  }, false),
+  false,
+  'never extend a run that has not produced canonical evidence'
 );
 
 const tracker = new RomanianConvergenceTracker(duration, 16);
