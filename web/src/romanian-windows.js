@@ -442,6 +442,10 @@ function makeLateConfirmationWindows(
     return [];
   }
 
+  const preferredThirdOrder = precisionDeficitThirdOrder(
+    context && context.precision,
+    LATE_CONFIRMATION_WINDOWS
+  );
   const selected = selectRescueLocations(
     duration,
     occupiedWindows,
@@ -450,21 +454,23 @@ function makeLateConfirmationWindows(
     {
       locationLimit: LATE_CONFIRMATION_WINDOWS,
       windowLength: LATE_CONFIRMATION_WINDOW_SECONDS,
-      preferredThirdOrder: precisionDeficitThirdOrder(
-        context && context.precision,
-        LATE_CONFIRMATION_WINDOWS
-      ),
+      preferredThirdOrder,
     }
   );
 
-  return selected
-    .slice()
-    .sort((a, b) =>
+  // When precision balance is driving the late reserve, preserve the deficit
+  // ordering selected above. A generic score sort would undo the whole point
+  // by moving a speech-rich middle probe ahead of the underrepresented third.
+  const ordered = preferredThirdOrder.length
+    ? selected
+    : selected.slice().sort((a, b) =>
       b.score - a.score
       || b.pointGain - a.pointGain
       || b.words - a.words
       || a.window[0] - b.window[0]
-    )
+    );
+
+  return ordered
     .slice(0, LATE_CONFIRMATION_WINDOWS)
     .map(candidate => candidate.window);
 }
