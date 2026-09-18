@@ -284,11 +284,16 @@ export default class Synchronizer {
           + `verified=${convergence.verified}`
         );
 
+        const precisionForPolish = (
+          this.status && this.status.precision
+            ? this.status.precision
+            : rawStats && rawStats.precision
+        );
         const precisionPolishPending = Boolean(
           this.romanianScan
           && this.romanianScan.lateConfirmationAdded
           && convergence.verified
-          && needsPrecisionPolish(rawStats && rawStats.precision)
+          && needsPrecisionPolish(precisionForPolish)
           && convergence.completedWindows < convergence.totalWindows
         );
 
@@ -301,7 +306,7 @@ export default class Synchronizer {
         }
 
         if (precisionPolishPending) {
-          const precision = rawStats.precision || {};
+          const precision = precisionForPolish || {};
           logger.log(
             'Romanian canonical verification reached 3/3, but title-third evidence '
             + `remains imbalanced (${precision.beginningBuckets || 0}/`
@@ -402,9 +407,11 @@ export default class Synchronizer {
               prioritizeCoverage: canonicalCoverageDeficit,
               evidenceStart: convergence.evidenceStart,
               evidenceEnd: convergence.evidenceEnd,
-              precision: rawStats && rawStats.precision
-                ? { ...rawStats.precision }
-                : null,
+              precision: this.status && this.status.precision
+                ? { ...this.status.precision }
+                : rawStats && rawStats.precision
+                  ? { ...rawStats.precision }
+                  : null,
             }
           );
           this.romanianScan.lateConfirmationAdded = true;
