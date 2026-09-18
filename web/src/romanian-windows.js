@@ -2,16 +2,25 @@
 
 const WINDOW_SECONDS = 15;
 const PRIMARY_WINDOWS = 16;
-const RESCUE_WINDOW_SECONDS = 15;
-const RESCUE_LOCATIONS = 8;
-const RESCUE_DISCOVERY_WINDOWS = 5;
-const RESCUE_CONFIRMATION_WINDOWS = 3;
+const RESCUE_WINDOW_SECONDS = 30;
+const RESCUE_CONFIRMATION_WINDOW_SECONDS = 15;
+const RESCUE_LOCATIONS = 4;
+const RESCUE_DISCOVERY_WINDOWS = 3;
+const RESCUE_CONFIRMATION_WINDOWS = 2;
 const RESCUE_WINDOWS = RESCUE_DISCOVERY_WINDOWS + RESCUE_CONFIRMATION_WINDOWS;
 const MAX_WINDOWS = PRIMARY_WINDOWS + RESCUE_WINDOWS;
 const FULL_SCAN_SECONDS = WINDOW_SECONDS * PRIMARY_WINDOWS;
 const MAX_SPARSE_AUDIO_SECONDS =
-  FULL_SCAN_SECONDS + RESCUE_WINDOWS * RESCUE_WINDOW_SECONDS;
+  FULL_SCAN_SECONDS
+  + RESCUE_DISCOVERY_WINDOWS * RESCUE_WINDOW_SECONDS
+  + RESCUE_CONFIRMATION_WINDOWS * RESCUE_CONFIRMATION_WINDOW_SECONDS;
 const MIN_RESCUE_WINDOW_SECONDS = 15;
+const LATE_CONFIRMATION_WINDOW_SECONDS = 30;
+const LATE_CONFIRMATION_WINDOWS = 3;
+const MAX_LATE_CONFIRMATION_SECONDS =
+  LATE_CONFIRMATION_WINDOW_SECONDS * LATE_CONFIRMATION_WINDOWS;
+const MAX_ROMANIAN_SAMPLED_AUDIO_SECONDS =
+  MAX_SPARSE_AUDIO_SECONDS + MAX_LATE_CONFIRMATION_SECONDS;
 
 function farthestFirstOrder(count) {
   if (count <= 0) return [];
@@ -93,13 +102,20 @@ function evidencePriority(evidence) {
   return evidence.pointGain * 1000 + evidence.words;
 }
 
-function makeGapCandidate(duration, gap, left, right, summaries) {
+function makeGapCandidate(
+  duration,
+  gap,
+  left,
+  right,
+  summaries,
+  maxLength = RESCUE_WINDOW_SECONDS
+) {
   const gapLength = gap[1] - gap[0];
   if (gapLength < MIN_RESCUE_WINDOW_SECONDS) {
     return null;
   }
 
-  const length = Math.min(RESCUE_WINDOW_SECONDS, gapLength);
+  const length = Math.min(maxLength, gapLength);
   const leftEvidence = left ? summaryEvidence(left, summaries) : { words: 0, pointGain: 0 };
   const rightEvidence = right ? summaryEvidence(right, summaries) : { words: 0, pointGain: 0 };
   const leftPriority = evidencePriority(leftEvidence);
@@ -129,7 +145,12 @@ function candidateCenter(candidate) {
   return (candidate.window[0] + candidate.window[1]) / 2;
 }
 
-function selectCoverageDeficitLocations(duration, candidates, context) {
+function selectCoverageDeficitLocations(
+  duration,
+  candidates,
+  context,
+  locationLimit = RESCUE_LOCATIONS
+) {
   if (!context || !context.prioritizeCoverage) return [];
 
   const evidenceStart = Number(context.evidenceStart);
@@ -174,14 +195,14 @@ function selectCoverageDeficitLocations(duration, candidates, context) {
   );
   if (!left.length && !right.length) return [];
 
-  let leftSlots = Math.round(RESCUE_LOCATIONS * leftNeed / totalNeed);
+  let leftSlots = Math.round(locationLimit * leftNeed / totalNeed);
   if (left.length && right.length) {
-    leftSlots = Math.max(1, Math.min(RESCUE_LOCATIONS - 1, leftSlots));
+    leftSlots = Math.max(1, Math.min(locationLimit - 1, leftSlots));
   }
   leftSlots = Math.min(leftSlots, left.length);
-  let rightSlots = Math.min(RESCUE_LOCATIONS - leftSlots, right.length);
+  let rightSlots = Math.min(locationLimit - leftSlots, right.length);
 
-  let remaining = RESCUE_LOCATIONS - leftSlots - rightSlots;
+  let remaining = locationLimit - leftSlots - rightSlots;
   if (remaining > 0) {
     const addLeft = Math.min(remaining, left.length - leftSlots);
     leftSlots += addLeft;
@@ -194,8 +215,8 @@ function selectCoverageDeficitLocations(duration, candidates, context) {
   }
 
   const selected = left.slice(0, leftSlots).concat(right.slice(0, rightSlots));
-  if (selected.length >= RESCUE_LOCATIONS) {
-    return selected.slice(0, RESCUE_LOCATIONS);
+  if (selected.length >= locationLimit) {
+    return selected.slice(0, locationLimit);
   }
 
   const used = new Set(selected);
@@ -205,15 +226,18 @@ function selectCoverageDeficitLocations(duration, candidates, context) {
       b.score - a.score
       || a.window[0] - b.window[0]
     );
-  return selected.concat(fallback.slice(0, RESCUE_LOCATIONS - selected.length));
+  return selected.concat(fallback.slice(0, locationLimit - selected.length));
 }
 
 function selectRescueLocations(
   duration,
   primaryWindows,
   primarySummaries = [],
-  context = null
+  context = null,
+  options = {}
 ) {
+  const locationLimit = Number(options.locationLimit) || RESCUE_LOCATIONS;
+  const windowLength = Number(options.windowLength) || RESCUE_WINDOW_SECONDS;
   const chronological = primaryWindows.slice().sort((a, b) => a[0] - b[0]);
   const candidates = [];
 
@@ -226,7 +250,8 @@ function selectRescueLocations(
         [cursor, right[0]],
         left,
         right,
-        primarySummaries
+        primarySummaries,
+        windowLength
       );
       if (candidate) candidates.push(candidate);
     }
@@ -240,7 +265,8 @@ function selectRescueLocations(
       [cursor, duration],
       left,
       null,
-      primarySummaries
+      primarySummaries,
+      windowLength
     );
     if (candidate) candidates.push(candidate);
   }
@@ -248,7 +274,8 @@ function selectRescueLocations(
   const coverageSelected = selectCoverageDeficitLocations(
     duration,
     candidates,
-    context
+    context,
+    locationLimit
   );
   if (coverageSelected.length) {
     return coverageSelected;
@@ -258,7 +285,7 @@ function selectRescueLocations(
   const used = new Set();
 
   // Preserve broad title coverage first.
-  for (let quarter = 0; quarter < 4 && selected.length < RESCUE_LOCATIONS; quarter++) {
+  for (let quarter = 0; quarter < 4 && selected.length < locationLimit; quarter++) {
     let bestIndex = -1;
     for (let i = 0; i < candidates.length; i++) {
       if (used.has(i) || candidates[i].quarter !== quarter) continue;
@@ -281,11 +308,25 @@ function selectRescueLocations(
     );
 
   for (const item of remaining) {
-    if (selected.length >= RESCUE_LOCATIONS) break;
+    if (selected.length >= locationLimit) break;
     selected.push(item.candidate);
   }
 
   return selected;
+}
+
+function splitConfirmationWindow(window) {
+  if (!window || window.length < 2) return [];
+  const [start, end] = window;
+  const length = end - start;
+  if (length < 2 * RESCUE_CONFIRMATION_WINDOW_SECONDS) {
+    return [window];
+  }
+  const mid = start + RESCUE_CONFIRMATION_WINDOW_SECONDS;
+  return [
+    [start, mid],
+    [mid, start + 2 * RESCUE_CONFIRMATION_WINDOW_SECONDS],
+  ];
 }
 
 function makeRescueWindows(
@@ -311,30 +352,66 @@ function makeRescueWindows(
   );
   if (!selected.length) return [];
 
-  // The physical Smallfoot reproduction can first cross the canonical
-  // 20-bucket gate on the final rescue boundary. Keep the exact 120 s rescue
-  // audio budget, but expose more independent 15 s evidence boundaries and
-  // reserve the three strongest selected locations for the verifier tail.
-  // If the first tail probe establishes a canonical line, two fresh locations
-  // remain available for the unchanged 3/3 stable-confirmation requirement.
+  // Keep the strongest location as a full 30 s discovery probe. Reserve the
+  // second-strongest location for two 15 s confirmation boundaries. This keeps
+  // the exact 120 s rescue-audio budget while giving the 3-check verifier one
+  // extra opportunity when canonical correlation appears late in rescue.
   const ranked = selected.slice().sort((a, b) =>
-    b.score - a.score
-    || b.pointGain - a.pointGain
-    || b.words - a.words
-    || a.window[0] - b.window[0]
+    b.score - a.score || a.window[0] - b.window[0]
   );
-  const confirmation = ranked.slice(0, RESCUE_CONFIRMATION_WINDOWS);
-  const confirmationSet = new Set(confirmation);
 
-  const discoveryCandidates = selected
-    .filter(candidate => !confirmationSet.has(candidate))
-    .sort((a, b) => a.window[0] - b.window[0]);
-  const discoveryOrder = farthestFirstOrder(discoveryCandidates.length);
-  const discovery = discoveryOrder
-    .map(index => discoveryCandidates[index].window)
-    .slice(0, RESCUE_DISCOVERY_WINDOWS);
+  const confirmation = ranked.length >= 2 ? ranked[1] : null;
+  const discovery = selected
+    .filter(candidate => candidate !== confirmation)
+    .sort((a, b) =>
+      b.score - a.score || a.window[0] - b.window[0]
+    )
+    .slice(0, RESCUE_DISCOVERY_WINDOWS)
+    .map(candidate => candidate.window);
 
-  return discovery.concat(confirmation.map(candidate => candidate.window));
+  if (!confirmation) {
+    return discovery;
+  }
+
+  return discovery.concat(splitConfirmationWindow(confirmation.window));
+}
+
+function makeLateConfirmationWindows(
+  duration,
+  occupiedWindows,
+  windowSummaries = [],
+  context = null
+) {
+  if (
+    !Number.isFinite(duration)
+    || duration <= FULL_SCAN_SECONDS
+    || !occupiedWindows
+    || !occupiedWindows.length
+  ) {
+    return [];
+  }
+
+  const selected = selectRescueLocations(
+    duration,
+    occupiedWindows,
+    windowSummaries,
+    context,
+    {
+      locationLimit: LATE_CONFIRMATION_WINDOWS,
+      windowLength: LATE_CONFIRMATION_WINDOW_SECONDS,
+    }
+  );
+
+  return selected
+    .slice()
+    .sort((a, b) =>
+      b.score - a.score
+      || b.pointGain - a.pointGain
+      || b.words - a.words
+      || a.window[0] - b.window[0]
+    )
+    .slice(0, LATE_CONFIRMATION_WINDOWS)
+    .map(candidate => candidate.window);
 }
 
 function makeRomanianTimeWindows(duration, primarySummaries = [], context = null) {
@@ -352,6 +429,7 @@ module.exports = {
   WINDOW_SECONDS,
   PRIMARY_WINDOWS,
   RESCUE_WINDOW_SECONDS,
+  RESCUE_CONFIRMATION_WINDOW_SECONDS,
   RESCUE_LOCATIONS,
   RESCUE_DISCOVERY_WINDOWS,
   RESCUE_CONFIRMATION_WINDOWS,
@@ -360,6 +438,10 @@ module.exports = {
   FULL_SCAN_SECONDS,
   MAX_SPARSE_AUDIO_SECONDS,
   MIN_RESCUE_WINDOW_SECONDS,
+  LATE_CONFIRMATION_WINDOW_SECONDS,
+  LATE_CONFIRMATION_WINDOWS,
+  MAX_LATE_CONFIRMATION_SECONDS,
+  MAX_ROMANIAN_SAMPLED_AUDIO_SECONDS,
   farthestFirstOrder,
   centeredWindow,
   summaryEvidence,
@@ -368,6 +450,8 @@ module.exports = {
   candidateCenter,
   selectCoverageDeficitLocations,
   selectRescueLocations,
+  splitConfirmationWindow,
   makeRescueWindows,
+  makeLateConfirmationWindows,
   makeRomanianTimeWindows,
 };
