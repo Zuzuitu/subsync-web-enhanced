@@ -16,6 +16,7 @@ const {
   RomanianConvergenceTracker,
   MIN_PROBE_COVERAGE_RATIO,
   REQUIRED_STABLE_CORRELATED_WINDOWS,
+  needsLateConfirmation,
 } = require('./romanian-convergence.js');
 const { RomanianContextAnchorStream } = require('./romanian-context-anchors.js');
 const { selectCanonicalStatus } = require('./correlation-status.js');
@@ -359,24 +360,14 @@ export default class Synchronizer {
           }
         }
 
-        const remainingChecks = Math.max(
-          0,
-          convergence.totalWindows - convergence.completedWindows
-        );
-        const confirmationsNeeded = Math.max(
-          0,
-          REQUIRED_STABLE_CORRELATED_WINDOWS
-            - convergence.stableCorrelatedWindows
-        );
         if (
           this.romanianScan
           && this.romanianScan.rescueAdded
           && !this.romanianScan.lateConfirmationAdded
-          && rawStats
-          && rawStats.correlated
-          && convergence.stableCorrelatedWindows > 0
-          && !convergence.verified
-          && remainingChecks < confirmationsNeeded
+          && needsLateConfirmation(
+            convergence,
+            Boolean((rawStats && rawStats.correlated) || (this.status && this.status.correlated))
+          )
         ) {
           const canonicalCoverageDeficit = (
             convergence.probeCoverageRatio > 0
