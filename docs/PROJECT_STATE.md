@@ -13,39 +13,60 @@ Repository truth overrides chat memory. Before material changes, read in this or
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
 
-## 2026-09-18 — Smallfoot late canonical lock / confirmation reserve
+## 2026-09-18 — Smallfoot post-lock confirmation redesign
 
-Physical iPhone/Chrome Smallfoot rerun on deployed runtime
-`9053f8c7faa6c7efbbd4440e5f1033667d1f7c9c` confirms PR #53 fixed the
-stale residual bug: canonical correlation is now true at the exact 20-bucket
-minimum, factor ~0.99999947 and maxDistance ~1.724 s (< 2 s). The run completed
-21/21 probes with zero recorded processing errors, 216 reference words,
-155 Romanian reference context anchors and 75.8387% canonical span.
+Two consecutive physical iPhone/Chrome Smallfoot runs now isolate two separate
+failure modes on current code rather than one generic "inconclusive" result.
 
-Save correctly remained fail-closed because the valid canonical line first
-arrived too late for the unchanged 3/3 convergence verifier:
-stableCorrelatedWindows=1 after the final available probe. Precision diagnostics
-were available (25 raw matches / 20 buckets; thirds 8/7/5; jackknife max mapped
-delta ~204 ms, median ~95.6 ms; max slope delta ~45.3 ppm; max offset delta
-~154 ms). This is evidence of a late-lock scheduling failure, not a correlation
-threshold failure.
+Runtime `9053f8c7faa6c7efbbd4440e5f1033667d1f7c9c` (PR #53) confirmed the native
+stale-residual fix: the final 21/21 probe reached a canonical 20-bucket line with
+factor ~0.99999947, maxDistance ~1.724 s (< 2 s), 75.8387% canonical span and
+precision diagnostics available. Save correctly remained blocked because the
+canonical line appeared only on the final available boundary, leaving
+stableCorrelatedWindows=1/3.
 
-The existing 120 s rescue reserve used only five verifier boundaries
-(3×30 s discovery + 2×15 s confirmation). If the 20-bucket gate is crossed on
-the last boundary, the 3/3 requirement is mathematically impossible even though
-the total 360 s sampled-audio budget has been fully consumed.
+PR #54 attempted to preserve the same 360 s sampled-audio ceiling by replacing
+the proven 3×30 s + 2×15 s rescue structure with eight independent 15 s rescue
+windows. The deployed runtime
+`b4c146bba7e930ea4108328833300d6df5d6066b` physically failed on the same
+Smallfoot reproduction after 24/24 probes: 214 reference words, 155 Romanian
+reference context anchors, 20 points, factor ~0.99999791, maxDistance ~3.078 s,
+candidate span 62.6132%, no canonical span, stableCorrelatedWindows=0 and zero
+recorded processing errors. Precision remained unavailable because canonical
+correlation was not reached.
 
-Branch `fix/romanian-late-lock-reserve` keeps every canonical threshold and the
-360 s cap unchanged, but schedules the same 120 s rescue reserve as eight
-independent 15 s locations. Five discovery boundaries are followed by a
-three-location confirmation tail selected from the strongest remaining evidence.
-A deterministic convergence regression covers the exact late-lock shape:
-noncanonical through primary + five discovery probes, then canonical 20/21/22
-buckets across the three tail probes, requiring the unchanged 3/3 verifier.
+This demonstrates that the #54 all-15-second rescue increased verifier
+boundaries at the cost of the longer Whisper discovery context that had produced
+the valid line on PR #53. #54 is therefore superseded; do not tune the canonical
+sc0ty thresholds to compensate for this scheduling regression.
 
-No Save bypass, duplicate-evidence confirmation, threshold reduction, paid
-service, extra sampled audio or title/device-specific timing constant is
-introduced.
+Branch `fix/romanian-post-lock-confirmation` restores the PR #53 rescue planner:
+three 30 s discovery probes plus two 15 s confirmation boundaries inside the
+normal 120 s rescue reserve. The normal Romanian budget remains 240 s primary +
+120 s rescue = 360 s.
+
+A separate post-lock confirmation reserve is now permitted only when:
+- a canonical correlation already exists;
+- the unchanged 3/3 verifier is still pending; and
+- the remaining scheduled boundaries are mathematically insufficient to reach
+  3/3.
+
+In that narrow case, up to three fresh non-overlapping 30 s confirmation probes
+may be appended from unused title gaps. Processing still stops immediately when
+3/3 verifies. The conditional extension is capped at 90 s, making 450 s the
+absolute maximum only for a late canonical lock. This budget change is justified
+by the two physical results above: 360 s with 30 s discovery can produce the
+correct canonical line too late to verify, while forcing more boundaries into
+the same 360 s can destroy that line.
+
+The branch also records a privacy-safe numeric per-probe history in diagnostics:
+window start/end, word count, points, canonical/candidate gains and spans,
+correlation state, stable-check count, formula delta, factor and maxDistance.
+No filenames, subtitle text, recognized words or media are added to diagnostics.
+
+Canonical thresholds, Save fail-closed behavior, Romanian Whisper model,
+single-worker memory policy, browser-local processing, language compatibility
+and GPL/sc0ty attribution remain unchanged.
 
 ## 2026-09-17 — Smallfoot exact-minimum correlation residual fix
 
@@ -1308,8 +1329,9 @@ The agreed engineering sequence is:
 
 Guardrails for all of the above:
 - canonical thresholds remain unchanged;
-- maximum Romanian sampled-audio budget remains 360 s unless separately
-  justified by new evidence;
+- normal Romanian sampled-audio budget remains 360 s; only a late canonical
+  lock may use the separately justified confirmation-only reserve, capped at
+  90 additional seconds / 450 s absolute maximum;
 - browser-local processing remains mandatory;
 - no paid API/service without explicit user approval;
 - no title/device-specific timing constants;
