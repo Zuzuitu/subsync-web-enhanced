@@ -77,6 +77,7 @@ class RomanianConvergenceTracker {
     this.candidateProbeCoverageRatio = 0;
     this.candidateEvidenceStart = null;
     this.candidateEvidenceEnd = null;
+    this.history = [];
   }
 
   observe(window, words, stats) {
@@ -168,6 +169,29 @@ class RomanianConvergenceTracker {
       }
     }
 
+    const windowStart = Number(window && window.start);
+    const windowEnd = Number(window && window.end);
+    const factor = Number(stats && stats.factor);
+    const maxDistance = Number(stats && stats.maxDistance);
+    this.history.push({
+      index: this.completedWindows,
+      start: Number.isFinite(windowStart) ? windowStart : 0,
+      end: Number.isFinite(windowEnd) ? windowEnd : 0,
+      words: this.lastWindowWords,
+      points,
+      correlated,
+      candidatePointGain: this.candidatePointGain,
+      canonicalPointGain: this.lastPointGain,
+      candidateCoverageRatio: this.candidateProbeCoverageRatio,
+      canonicalCoverageRatio: this.probeCoverageRatio,
+      stableCorrelatedWindows: this.stableCorrelatedWindows,
+      formulaDeltaSeconds: Number.isFinite(this.lastFormulaDeltaSeconds)
+        ? this.lastFormulaDeltaSeconds
+        : 0,
+      factor: Number.isFinite(factor) ? factor : 0,
+      maxDistance: Number.isFinite(maxDistance) ? maxDistance : 0,
+    });
+
     // An inconclusive probe is neutral: it neither confirms nor invalidates a
     // previous canonical result. Only a materially different canonical formula
     // can reset the sequence above.
@@ -212,6 +236,7 @@ class RomanianConvergenceTracker {
       candidateProbeCoverageRatio: this.candidateProbeCoverageRatio,
       candidateEvidenceStart: this.candidateEvidenceStart,
       candidateEvidenceEnd: this.candidateEvidenceEnd,
+      history: this.history.map(entry => ({ ...entry })),
       verified,
     };
   }
