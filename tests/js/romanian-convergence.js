@@ -7,9 +7,11 @@ const {
   REQUIRED_STABLE_CORRELATED_WINDOWS,
   MIN_PROBE_COVERAGE_RATIO,
   MAX_FORMULA_DELTA_SECONDS,
+  MIN_PRECISION_THIRD_SHARE,
   formulaDeltaSeconds,
   evidenceSpanRatio,
   needsLateConfirmation,
+  needsPrecisionPolish,
   RomanianConvergenceTracker,
 } = require('../../web/src/romanian-convergence.js');
 
@@ -18,6 +20,30 @@ assert.strictEqual(MIN_POINT_GAIN, 1);
 assert.strictEqual(REQUIRED_STABLE_CORRELATED_WINDOWS, 3);
 assert.strictEqual(MIN_PROBE_COVERAGE_RATIO, 0.75);
 assert.strictEqual(MAX_FORMULA_DELTA_SECONDS, 0.75);
+assert.strictEqual(MIN_PRECISION_THIRD_SHARE, 0.25);
+
+assert.strictEqual(
+  needsPrecisionPolish({
+    available: true,
+    buckets: 22,
+    beginningBuckets: 8,
+    middleBuckets: 9,
+    endBuckets: 5,
+  }),
+  true,
+  '8/9/5 physical Smallfoot evidence must keep using already-reserved late probes'
+);
+assert.strictEqual(
+  needsPrecisionPolish({
+    available: true,
+    buckets: 23,
+    beginningBuckets: 8,
+    middleBuckets: 9,
+    endBuckets: 6,
+  }),
+  false,
+  '6/23 in the weakest third is enough to stop optional precision probing'
+);
 
 const duration = 7200;
 assert.strictEqual(
