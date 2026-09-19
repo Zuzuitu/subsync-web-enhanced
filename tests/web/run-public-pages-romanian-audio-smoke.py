@@ -362,8 +362,8 @@ with sync_playwright() as p:
     allowed_report_keys = {
         "schemaVersion", "application", "runtime", "browser", "elapsedSeconds", "outcome",
         "privacy", "interpretation", "saveEligible", "correlation", "formula",
-        "canonicalFormula", "evidence", "convergence", "precision", "errorCount",
-        "timingReview",
+        "canonicalFormula", "evidence", "convergence", "probeHistory", "precision",
+        "errorCount", "timingReview",
     }
     unexpected_report_keys = set(report) - allowed_report_keys
     if unexpected_report_keys:
