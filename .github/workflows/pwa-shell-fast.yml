@@ -40,7 +40,7 @@ jobs:
           path: web/scripts
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository }}
-          run-id: 34712143001
+          run-id: 35445199768
 
       - name: Verify WASM inputs
         shell: bash
