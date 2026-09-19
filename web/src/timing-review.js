@@ -75,6 +75,7 @@ function diagnosticReport(status, review, environment) {
     saveEligible: isSaveReady(status),
     correlation: numbers(status, ['correlated', 'subReady', 'points', 'factor', 'maxDistance', 'maxChange']),
     formula: numbers(status.formula, ['a', 'b']),
+    canonicalFormula: numbers(status.canonicalFormula, ['a', 'b']),
     evidence: numbers(diagnostics, ['subtitles', 'subWords', 'refWords',
       'romanianSubContextAnchors', 'romanianRefContextAnchors']),
     convergence: numbers(diagnostics.romanianConvergence, [
@@ -96,6 +97,8 @@ function diagnosticReport(status, review, environment) {
     ),
     precision: numbers(status.precision || diagnostics.precision, [
       'available', 'rawPoints', 'buckets', 'beginningBuckets', 'middleBuckets', 'endBuckets',
+      'refinementAvailable', 'refinementFactor', 'refinementMaxDistance',
+      'refinementMappedDelta', 'refinementApplied',
       'jackknifeSamples', 'maxMappedDelta', 'medianMappedDelta', 'maxSlopeDeltaPpm', 'maxOffsetDelta']),
     errorCount: Array.isArray(diagnostics.errors) ? diagnostics.errors.length : 0,
     timingReview: review,
