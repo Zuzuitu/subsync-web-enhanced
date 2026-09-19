@@ -33,6 +33,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Resolve latest unexpired known-good WASM
+        id: legacy_wasm
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_id="$(
+            gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?name=legacy-wasm&per_page=100" \
+              --jq '[.artifacts[] | select(.expired == false)] | sort_by(.created_at) | last | .workflow_run.id'
+          )"
+          test -n "$run_id"
+          test "$run_id" != "null"
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "Using legacy-wasm artifact from workflow run $run_id"
+
       - name: Download current known-good authoritative WASM
         uses: actions/download-artifact@v4
         with:
@@ -40,7 +56,7 @@ jobs:
           path: web/scripts
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository }}
-          run-id: 35445199768
+          run-id: ${{ steps.legacy_wasm.outputs.run_id }}
 
       - name: Verify WASM inputs
         shell: bash
