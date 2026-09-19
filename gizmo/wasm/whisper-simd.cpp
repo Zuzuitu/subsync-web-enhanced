@@ -199,16 +199,23 @@ private:
         for (int segment = 0; segment < segments; ++segment) {
             const int tokens = whisper_full_n_tokens(m_whisper, segment);
             for (int token = 0; token < tokens; ++token) {
+                const whisper_token_data data =
+                    whisper_full_get_token_data(m_whisper, segment, token);
+
+                // whisper.cpp v1.5.4 represents timestamp/task/language tokens
+                // at and above EOT. Never let those special tokens mutate a
+                // lexical word's text, end timestamp, duration or probability.
+                // String-prefix filtering is insufficient for this pinned
+                // version because timestamp tokens render as "[_TT_N]".
+                if (data.id >= whisper_token_eot(m_whisper)) continue;
+                if (data.t0 < 0 || data.t1 < data.t0) continue;
+
                 const char *raw =
                     whisper_full_get_token_text(m_whisper, segment, token);
                 if (!raw) continue;
 
                 string piece(raw);
                 if (piece.empty() || isSpecialToken(piece)) continue;
-
-                const whisper_token_data data =
-                    whisper_full_get_token_data(m_whisper, segment, token);
-                if (data.t0 < 0 || data.t1 < data.t0) continue;
 
                 const bool startsWord =
                     isspace(static_cast<unsigned char>(piece.front())) != 0;
