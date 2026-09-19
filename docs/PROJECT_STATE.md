@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-18
+LAST_UPDATED: 2026-09-19
 
 ## Canonical status
 
@@ -12,6 +12,88 @@ Repository truth overrides chat memory. Before material changes, read in this or
 4. relevant current implementation
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
+
+## 2026-09-19 — Session closeout / deployed precision-balance runtime
+
+Current repository main before this documentation-only closeout:
+`1ac8a82d114238d98b398f65623c63be24d3da41`.
+
+PR #56 `Use late Romanian probes to balance precision evidence` was merged after
+all required gates passed:
+- CI;
+- PWA Shell Fast Build;
+- Mobile WebKit Compatibility;
+- Large-file Browser Stress;
+- fresh Legacy WebAssembly Build, including Romanian Chromium and iPhone-like
+  WebKit coverage.
+
+Deliberate Pages deployment:
+- Deploy PWA Preview #19 / run `35445199768`: PASS;
+- deployed product runtime:
+  `1ac8a82d114238d98b398f65623c63be24d3da41`;
+- build job: PASS;
+- Pages deploy job: PASS.
+
+This deployed runtime is the next required physical iPhone/Chrome Smallfoot
+retest target.
+
+The previous physical runtime
+`ae75206e3991912affaee2bbdf4116033d128f57` already achieved valid canonical
+acceptance and export:
+- `saveEligible=true`;
+- 22 canonical buckets / 27 raw matches;
+- stable confirmations 3/3;
+- 75.8387% canonical span;
+- factor ~0.9999994502;
+- maxDistance ~1.7699 s;
+- 252 reference words / 185 Romanian reference context anchors;
+- 22/24 probes completed;
+- precision distribution 8/9/5 beginning/middle/end;
+- zero processing errors.
+
+Its synchronized 1517-cue SRT was materially improved but still showed an
+affine residual versus the controlled original timing: MAE ~606 ms, p95
+~1.206 s, max ~1.289 s, with third medians approximately
+-1.071 / -0.584 / -0.147 s. This must not be "fixed" with a constant offset or a
+Smallfoot-specific correction.
+
+PR #56 does not replace or weaken the canonical sc0ty fitter. Instead it uses
+only already-reserved late-confirmation capacity to improve evidence balance:
+- late probes target the least-represented title thirds first;
+- after canonical 3/3 verification, processing may continue only while a title
+  third holds <25% of canonical buckets and late reserve remains;
+- example physical regression rule: 8/9/5 continues; 8/9/6 may stop;
+- the existing 450 s absolute Romanian sampled-audio ceiling remains unchanged;
+- normal runs that verify before entering the late-confirmation path keep normal
+  early-stop behavior;
+- canonical thresholds, Save fail-closed semantics, Whisper model, one-worker
+  iPhone memory policy, browser-local processing and language compatibility are
+  unchanged.
+
+A regression caught and fixed a planner-order bug before merge: after selecting
+precision-targeted third locations, a generic score sort could move a middle
+probe ahead of the weak final-third probe. Precision-target ordering is now
+preserved.
+
+A second pre-merge review fixed a neutral-probe edge case: precision polish now
+retains the last canonical precision evidence from `selectCanonicalStatus` if
+a later extra probe is temporarily noncanonical, preventing premature polish
+termination.
+
+For the next physical test:
+1. use deployed runtime
+   `1ac8a82d114238d98b398f65623c63be24d3da41`;
+2. keep the browser foregrounded until terminal state;
+3. save the synchronized SRT and `subsync2-diagnostics.json`;
+4. verify the diagnostic runtime hash before analyzing timing;
+5. compare output directly against the known-correct original Smallfoot SRT
+   cue-by-cue when available;
+6. inspect whether precision thirds become more balanced and whether slope /
+   intercept residual materially improve;
+7. do not tune against Smallfoot alone if the improvement is not generalizable.
+
+The original Smallfoot SRT should be re-uploaded in the next chat if direct
+cue-by-cue comparison is required and it is not available in that conversation.
 
 ## 2026-09-18 — Smallfoot verified lock / precision-balance follow-up
 
