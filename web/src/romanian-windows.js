@@ -138,11 +138,35 @@ function makeGapCandidate(
     pointGain: leftEvidence.pointGain + rightEvidence.pointGain,
     words: leftEvidence.words + rightEvidence.words,
     quarter: Math.min(3, Math.max(0, Math.floor(4 * center / duration))),
+    third: Math.min(2, Math.max(0, Math.floor(3 * center / duration))),
   };
 }
 
 function candidateCenter(candidate) {
   return (candidate.window[0] + candidate.window[1]) / 2;
+}
+
+function precisionDeficitThirdOrder(precision, limit = LATE_CONFIRMATION_WINDOWS) {
+  const counts = [
+    Number(precision && precision.beginningBuckets) || 0,
+    Number(precision && precision.middleBuckets) || 0,
+    Number(precision && precision.endBuckets) || 0,
+  ];
+  if (!counts.some(count => count > 0) || limit <= 0) return [];
+
+  const virtual = counts.slice();
+  const order = [];
+  for (let slot = 0; slot < limit; slot++) {
+    let best = 0;
+    for (let third = 1; third < virtual.length; third++) {
+      if (virtual[third] < virtual[best]) {
+        best = third;
+      }
+    }
+    order.push(best);
+    virtual[best] += 1;
+  }
+  return order;
 }
 
 function selectCoverageDeficitLocations(
@@ -238,6 +262,9 @@ function selectRescueLocations(
 ) {
   const locationLimit = Number(options.locationLimit) || RESCUE_LOCATIONS;
   const windowLength = Number(options.windowLength) || RESCUE_WINDOW_SECONDS;
+  const preferredThirdOrder = Array.isArray(options.preferredThirdOrder)
+    ? options.preferredThirdOrder.slice(0, locationLimit)
+    : [];
   const chronological = primaryWindows.slice().sort((a, b) => a[0] - b[0]);
   const candidates = [];
 
@@ -284,7 +311,31 @@ function selectRescueLocations(
   const selected = [];
   const used = new Set();
 
-  // Preserve broad title coverage first.
+  // Late confirmation may explicitly target the least-represented title thirds.
+  // This affects evidence collection only; it never changes canonical thresholds.
+  for (const preferredThird of preferredThirdOrder) {
+    if (selected.length >= locationLimit) break;
+    let bestIndex = -1;
+    for (let i = 0; i < candidates.length; i++) {
+      if (used.has(i) || candidates[i].third !== preferredThird) continue;
+      if (
+        bestIndex < 0
+        || candidates[i].pointGain > candidates[bestIndex].pointGain
+        || (
+          candidates[i].pointGain === candidates[bestIndex].pointGain
+          && candidates[i].score > candidates[bestIndex].score
+        )
+      ) {
+        bestIndex = i;
+      }
+    }
+    if (bestIndex >= 0) {
+      used.add(bestIndex);
+      selected.push(candidates[bestIndex]);
+    }
+  }
+
+  // Preserve broad title coverage for any slots not claimed by precision balance.
   for (let quarter = 0; quarter < 4 && selected.length < locationLimit; quarter++) {
     let bestIndex = -1;
     for (let i = 0; i < candidates.length; i++) {
@@ -391,6 +442,10 @@ function makeLateConfirmationWindows(
     return [];
   }
 
+  const preferredThirdOrder = precisionDeficitThirdOrder(
+    context && context.precision,
+    LATE_CONFIRMATION_WINDOWS
+  );
   const selected = selectRescueLocations(
     duration,
     occupiedWindows,
@@ -399,17 +454,23 @@ function makeLateConfirmationWindows(
     {
       locationLimit: LATE_CONFIRMATION_WINDOWS,
       windowLength: LATE_CONFIRMATION_WINDOW_SECONDS,
+      preferredThirdOrder,
     }
   );
 
-  return selected
-    .slice()
-    .sort((a, b) =>
+  // When precision balance is driving the late reserve, preserve the deficit
+  // ordering selected above. A generic score sort would undo the whole point
+  // by moving a speech-rich middle probe ahead of the underrepresented third.
+  const ordered = preferredThirdOrder.length
+    ? selected
+    : selected.slice().sort((a, b) =>
       b.score - a.score
       || b.pointGain - a.pointGain
       || b.words - a.words
       || a.window[0] - b.window[0]
-    )
+    );
+
+  return ordered
     .slice(0, LATE_CONFIRMATION_WINDOWS)
     .map(candidate => candidate.window);
 }
@@ -448,6 +509,7 @@ module.exports = {
   evidencePriority,
   makePrimaryWindows,
   candidateCenter,
+  precisionDeficitThirdOrder,
   selectCoverageDeficitLocations,
   selectRescueLocations,
   splitConfirmationWindow,

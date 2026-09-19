@@ -17,6 +17,7 @@ const {
   MIN_PROBE_COVERAGE_RATIO,
   REQUIRED_STABLE_CORRELATED_WINDOWS,
   needsLateConfirmation,
+  needsPrecisionPolish,
 } = require('./romanian-convergence.js');
 const { RomanianContextAnchorStream } = require('./romanian-context-anchors.js');
 const { selectCanonicalStatus } = require('./correlation-status.js');
@@ -283,12 +284,35 @@ export default class Synchronizer {
           + `verified=${convergence.verified}`
         );
 
-        if (convergence.verified && this.gotAllSubs) {
+        const precisionForPolish = (
+          this.status && this.status.precision
+            ? this.status.precision
+            : rawStats && rawStats.precision
+        );
+        const precisionPolishPending = Boolean(
+          this.romanianScan
+          && this.romanianScan.lateConfirmationAdded
+          && convergence.verified
+          && needsPrecisionPolish(precisionForPolish)
+          && convergence.completedWindows < convergence.totalWindows
+        );
+
+        if (convergence.verified && this.gotAllSubs && !precisionPolishPending) {
           logger.log(
             `Romanian ASR adaptive convergence verified after ${convergence.completedWindows}/${convergence.totalWindows} probes`
           );
           this.progress[no] = 1;
           break;
+        }
+
+        if (precisionPolishPending) {
+          const precision = precisionForPolish || {};
+          logger.log(
+            'Romanian canonical verification reached 3/3, but title-third evidence '
+            + `remains imbalanced (${precision.beginningBuckets || 0}/`
+            + `${precision.middleBuckets || 0}/${precision.endBuckets || 0}); `
+            + 'continuing within the already-reserved late-confirmation budget'
+          );
         }
 
         if (
@@ -383,6 +407,11 @@ export default class Synchronizer {
               prioritizeCoverage: canonicalCoverageDeficit,
               evidenceStart: convergence.evidenceStart,
               evidenceEnd: convergence.evidenceEnd,
+              precision: this.status && this.status.precision
+                ? { ...this.status.precision }
+                : rawStats && rawStats.precision
+                  ? { ...rawStats.precision }
+                  : null,
             }
           );
           this.romanianScan.lateConfirmationAdded = true;
