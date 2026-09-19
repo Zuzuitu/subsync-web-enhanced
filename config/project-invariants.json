@@ -160,6 +160,17 @@
           "targetLeastRepresentedThirdsFirst": true,
           "doesNotChangeCanonicalAcceptance": true
         }
+      },
+      "postLockPrecisionRefinement": {
+        "romanianAdaptiveOnly": true,
+        "onlyAfterVerifiedCanonicalConvergence": true,
+        "equalCueBucketWeighting": true,
+        "requiresDuplicateRawMatches": true,
+        "requiresBalancedTitleThirds": true,
+        "minimumBucketSharePerTitleThird": 0.25,
+        "maxMappedDeltaSeconds": 0.75,
+        "canonicalAcceptanceUnchanged": true,
+        "fallbackToCanonicalFormula": true
       }
     }
   },
