@@ -13,6 +13,80 @@ Repository truth overrides chat memory. Before material changes, read in this or
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
 
+## 2026-09-19 — PR #58 merged / cue-balanced refinement deployed
+
+Current product-code main before this documentation-only checkpoint:
+`2fe4b96be83cec621eceb67ac3ba356850f76a3c`.
+
+PR #58 `Refine verified Romanian timing with equal cue-bucket weighting`
+was merged after all required gates passed on final PR head
+`66b26fba9c8d8edb041e0931bca818578cb6bff0`:
+- CI / governance: PASS;
+- Mobile WebKit Compatibility: PASS;
+- Large-file Browser Stress: PASS;
+- fresh Legacy WebAssembly Build #188 / run `35469597808`: PASS;
+- native synchronizer regressions: PASS;
+- fresh correlator + extractor WASM build: PASS;
+- Romanian Whisper SIMD build/runtime verification: PASS;
+- canonical MKV matrix through browser WASM: PASS;
+- English audio -> Romanian subtitles E2E: PASS;
+- real PWA primary workflow: PASS;
+- Romanian audio PWA workflow in Chromium: PASS;
+- Romanian audio PWA workflow in iPhone-like WebKit: PASS.
+
+Merged behavior:
+- canonical sc0ty correlation, thresholds and Save verification remain unchanged;
+- after verified Romanian 3/3 convergence only, precision may derive one
+  centroid per retained subtitle cue bucket so each independent cue gets one
+  vote in the refinement fit;
+- the refinement requires duplicate raw matches, balanced title-third evidence,
+  a valid cue-balanced fit that still satisfies the canonical
+  correlation/max-distance gates, and <=0.75 s mapped divergence from the
+  canonical formula;
+- any failed guard falls back to the canonical formula;
+- diagnostics now preserve the canonical formula separately when a refinement
+  is applied, so physical runs can distinguish acceptance from export timing;
+- no Smallfoot/+10 s constant, device offset, threshold reduction, extra audio
+  sampling, piecewise correction or backend media path was added.
+
+CI artifact reliability was also hardened:
+- fast PWA, Mobile WebKit and large-file stress no longer depend on an expiring
+  hard-coded workflow run ID;
+- they resolve the newest unexpired repository `legacy-wasm` artifact through
+  the GitHub API and then use first-party `actions/download-artifact`;
+- authoritative `legacy-wasm` retention is 30 days;
+- the fresh Legacy WebAssembly workflow remains the behavior merge gate.
+
+Deliberate Pages deployment:
+- `deploy/pages-preview` was fast-forwarded to
+  `2fe4b96be83cec621eceb67ac3ba356850f76a3c`;
+- Deploy PWA Preview #20 / run `35470220955`: PASS;
+- build / wasm-build: PASS;
+- deploy: PASS;
+- deployed runtime:
+  `2fe4b96be83cec621eceb67ac3ba356850f76a3c`.
+
+Required next physical iPhone/Chrome Smallfoot test:
+1. open the build-specific runtime
+   `https://zuzuitu.github.io/subsync-web-enhanced/build-2fe4b96be83cec621eceb67ac3ba356850f76a3c.html`;
+2. keep the browser foregrounded until terminal state;
+3. export the synchronized SRT and `subsync2-diagnostics.json`;
+4. before analyzing accuracy, require
+   `runtime.hash === 2fe4b96be83cec621eceb67ac3ba356850f76a3c`;
+5. inspect `canonicalFormula`, `formula`,
+   `precision.refinementAvailable`, `precision.refinementApplied` and
+   `precision.refinementMappedDelta`;
+6. compare the saved SRT directly against the known original Smallfoot SRT;
+7. compute mean signed start error, MAE, median absolute, p95 absolute,
+   max absolute, title-third signed medians and full-title drift;
+8. compare directly against the PR #56 physical baseline
+   (MAE 646.8 ms, median absolute 635.0 ms, p95 1178.0 ms,
+   max 1251.0 ms, thirds -1033/-569/-197 ms).
+
+Do not claim a physical accuracy improvement from PR #58 until that exact-runtime
+real-device test is completed. If Smallfoot improves, validate the refinement on
+multiple unrelated real titles before any further estimator expansion.
+
 ## 2026-09-19 — PR #56 physical Smallfoot retest / cue-balanced refinement follow-up
 
 Physical iPhone/Chrome retest was completed on the exact deployed PR #56 runtime
