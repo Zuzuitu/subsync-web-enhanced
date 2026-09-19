@@ -13,6 +13,108 @@ Repository truth overrides chat memory. Before material changes, read in this or
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
 
+## 2026-09-19 — PR #56 physical Smallfoot retest / cue-balanced refinement follow-up
+
+Physical iPhone/Chrome retest was completed on the exact deployed PR #56 runtime
+`1ac8a82d114238d98b398f65623c63be24d3da41`.
+
+Runtime validation:
+- diagnostic `runtime.hash` exactly matched the deployed PR #56 SHA;
+- `outcome=completed`;
+- `saveEligible=true`;
+- 1517 output cues matched the uploaded original cue-for-cue and text-for-text;
+- elapsed time ~1016.1 s;
+- zero recorded processing errors.
+
+Canonical convergence remained healthy:
+- canonical lock first appeared at probe 20 with 20 buckets / stable 1/3;
+- probe 21 added one canonical bucket and reached stable 2/3;
+- late probe 22 targeted the final third but had only 3 recognized words and
+  added no bucket, so stable remained 2/3;
+- late probe 23 had 19 words, added one bucket, and reached verified 3/3;
+- completed 23/24 probes: 16 primary + 5 rescue + 2 late confirmation;
+- canonical/candidate span ~75.8387%;
+- final factor ~0.9999994366;
+- final maxDistance ~1.7676 s;
+- final formula `a=1.0002379417419434`,
+  `b=-11.258645057678223`;
+- final precision distribution improved from the previous 8/9/5 to 8/8/6;
+- 27 retained raw matches still represented only 22 independent cue buckets.
+
+Direct cue-by-cue comparison against the uploaded original Smallfoot SRT:
+- mean signed start error: -646.5 ms;
+- median signed start error: -635.0 ms;
+- MAE: 646.8 ms;
+- median absolute error: 635.0 ms;
+- p95 absolute error: 1178.0 ms;
+- max absolute error: 1251.0 ms;
+- title-third signed medians: -1033 / -569 / -197 ms;
+- first cue: -1251 ms;
+- final cue: +116 ms;
+- residual affine slope ~+237.94 ppm across the title.
+
+Compared with physical runtime
+`ae75206e3991912affaee2bbdf4116033d128f57`:
+- MAE regressed by ~40.8 ms (606.0 -> 646.8 ms);
+- median absolute error regressed by ~50.9 ms;
+- mean signed error became ~48.8 ms more negative;
+- p95 improved by ~27.7 ms;
+- max absolute error improved by ~38.3 ms;
+- affine slope improved from ~272.27 ppm to ~237.94 ppm;
+- beginning/middle medians improved modestly, while the final-third median
+  regressed by ~50.3 ms.
+
+Conclusion: PR #56 did what it was designed to do as an evidence scheduler, but
+better 8/8/6 third balance did not improve aggregate physical accuracy. This
+rules out "just collect one more late window" as the next fix. The direct
+original/output residual remains almost purely affine, so there is no evidence
+from this controlled title that piecewise/cut handling is the immediate answer.
+
+Repository inspection identified a fitting inconsistency that is now the next
+target. Canonical acceptance counts independent subtitle cue buckets, and
+precision/jackknife diagnostics also treat a cue as one independent unit, but
+the accepted sc0ty line is fitted over every retained raw word/context-anchor
+match. In this physical run 27 raw matches represented only 22 cue buckets, so
+some cues can receive multiple times the leverage of others in `a/b`.
+
+Branch `fix/romanian-cue-balanced-refinement` therefore adds a guarded
+post-lock refinement candidate:
+- canonical sc0ty acceptance, thresholds, raw-match fitter and Save verification
+  remain unchanged;
+- after canonical verification, retained matches are grouped by the same
+  subtitle cue buckets already used by canonical point counting;
+- one centroid per cue is fitted so each independent cue receives one vote;
+- the refined formula is eligible only for Romanian adaptive output after
+  verified 3/3 convergence;
+- duplicate raw matches must actually exist;
+- title-third evidence must already satisfy the existing 25% minimum share;
+- the refinement itself must still satisfy the canonical factor/max-distance
+  limits on cue centroids;
+- mapped divergence from the canonical formula is capped by the existing
+  0.75-second formula-stability guard;
+- any failed guard falls back to the unchanged canonical formula.
+
+This is a general duplicate-evidence weighting fix, not a Smallfoot, +10 s,
+device, or constant-offset correction. Native regression coverage constructs a
+synthetic duplicate-heavy cue set and requires equal-cue weighting to reduce
+the known affine bias. A separate JS regression enforces verified-only,
+balanced-only, bounded application. Physical benefit is not claimed until a
+new exact-runtime iPhone test is performed.
+
+CI reliability follow-up from the same PR:
+- the fast PWA, Mobile WebKit and large-file stress workflows previously
+  hard-pinned a specific legacy-wasm run ID;
+- that artifact expired and produced a false infrastructure failure before
+  product tests could execute;
+- these consumers now resolve the newest unexpired repository artifact named
+  `legacy-wasm` via the GitHub API, then use the first-party
+  `actions/download-artifact` action with that resolved run ID;
+- no external service or third-party download action was introduced;
+- authoritative `legacy-wasm` retention is extended from 7 to 30 days;
+- the fresh Legacy WebAssembly workflow for the current PR remains the merge
+  gate for C++/WASM behavior, while the fast jobs intentionally consume the
+  latest previously validated engine.
+
 ## 2026-09-19 — Session closeout / deployed precision-balance runtime
 
 Current repository main before this documentation-only closeout:

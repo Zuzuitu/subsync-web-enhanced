@@ -368,7 +368,7 @@ jobs:
             web/scripts/whisper.wasm
             web/scripts/SHA256SUMS
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30
 
       - name: Upload MKV smoke diagnostics
         if: always()

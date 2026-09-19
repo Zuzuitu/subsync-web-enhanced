@@ -32,7 +32,20 @@ assert.strictEqual(timingReview([{start: 3, end: 2}], formula).invalidCues, 1);
 assert.strictEqual(timingReview([{start: 0, end: 4}, {start: 2, end: 5}], formula).backwardStarts, 0,
   'overlapping cues do not imply backward start-time jumps');
 
-const status = {subReady: true, formula, points: 28, correlated: true,
+const status = {subReady: true, formula, canonicalFormula: {a: 1, b: -15}, points: 28, correlated: true,
+  precision: {
+    available: true,
+    rawPoints: 27,
+    buckets: 22,
+    beginningBuckets: 8,
+    middleBuckets: 8,
+    endBuckets: 6,
+    refinementAvailable: true,
+    refinementFactor: 0.99999,
+    refinementMaxDistance: 1.4,
+    refinementMappedDelta: 0.2,
+    refinementApplied: true,
+  },
   diagnostics: {refWords: 161, romanianConvergence: {
     verified: false,
     completedWindows: 10,
@@ -68,6 +81,10 @@ assert.strictEqual(report.probeHistory.length, 1);
 assert.strictEqual(report.probeHistory[0].points, 20);
 assert.strictEqual(report.probeHistory[0].correlated, true);
 assert.strictEqual(report.probeHistory[0].leakedText, undefined);
+assert.deepStrictEqual(report.canonicalFormula, {a: 1, b: -15});
+assert.strictEqual(report.precision.refinementAvailable, true);
+assert.strictEqual(report.precision.refinementApplied, true);
+assert.strictEqual(report.precision.refinementMappedDelta, 0.2);
 assert(!/secret|private|script>/.test(JSON.stringify(report)), 'report excludes user text and paths');
 assert.deepStrictEqual(diagnosticReport({}, timingReview([], null), env).formula, {});
 status.diagnostics.romanianConvergence.verified = true;

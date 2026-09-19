@@ -35,6 +35,8 @@ jobs:
         run: node tests/js/romanian-context-anchors.js
       - name: Validate Romanian adaptive convergence
         run: node tests/js/romanian-convergence.js
+      - name: Validate Romanian post-lock precision refinement
+        run: node tests/js/romanian-precision.js
       - name: Validate canonical correlation status selection
         run: node tests/js/correlation-status.js
       - name: Validate Romanian adaptive save policy

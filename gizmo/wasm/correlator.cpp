@@ -77,6 +77,14 @@ static em::val getStats(shared_ptr<Synchronizer> s, double duration)
 	precisionValue.set("beginningBuckets", precision.beginningBuckets);
 	precisionValue.set("middleBuckets", precision.middleBuckets);
 	precisionValue.set("endBuckets", precision.endBuckets);
+	precisionValue.set("refinementAvailable", precision.refinementAvailable);
+	precisionValue.set("refinementFactor", precision.refinementFactor);
+	precisionValue.set("refinementMaxDistance", precision.refinementMaxDistance);
+	precisionValue.set("refinementMappedDelta", precision.refinementMappedDelta);
+	em::val refinementFormula = em::val::object();
+	refinementFormula.set("a", precision.refinementFormula.a);
+	refinementFormula.set("b", precision.refinementFormula.b);
+	precisionValue.set("refinementFormula", refinementFormula);
 	precisionValue.set("jackknifeSamples", precision.jackknifeSamples);
 	precisionValue.set("maxMappedDelta", precision.maxMappedDelta);
 	precisionValue.set("medianMappedDelta", precision.medianMappedDelta);

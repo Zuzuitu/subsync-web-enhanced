@@ -17,6 +17,11 @@ struct PrecisionStats
 	unsigned beginningBuckets;
 	unsigned middleBuckets;
 	unsigned endBuckets;
+	bool     refinementAvailable;
+	double   refinementFactor;
+	double   refinementMaxDistance;
+	double   refinementMappedDelta;
+	Line     refinementFormula;
 	unsigned jackknifeSamples;
 	double   maxMappedDelta;
 	double   medianMappedDelta;
