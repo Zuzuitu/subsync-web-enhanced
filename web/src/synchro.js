@@ -20,6 +20,7 @@ const {
   needsPrecisionPolish,
 } = require('./romanian-convergence.js');
 const { RomanianContextAnchorStream } = require('./romanian-context-anchors.js');
+const { selectRomanianPrecisionRefinement } = require('./romanian-precision.js');
 const { selectCanonicalStatus } = require('./correlation-status.js');
 const logger = Logger.logger.get('[Synchronizer]');
 
@@ -157,6 +158,8 @@ export default class Synchronizer {
       this.recordStage(listener, 'processing', 'running');
       listener.onSyncStarted();
       await Promise.all(this.extractors.map( (ex, i) => this.runExtractor(ex, i, listener)) );
+
+      this.applyRomanianPrecisionRefinement();
 
       this.recordStage(listener, 'processing', 'ready');
       this.recordStage(listener, 'correlation', 'ready', {
@@ -447,6 +450,33 @@ export default class Synchronizer {
         break;
       }
     }
+  }
+
+  applyRomanianPrecisionRefinement() {
+    const convergence = this.diagnostics && this.diagnostics.romanianConvergence;
+    const refinement = selectRomanianPrecisionRefinement(this.status, convergence);
+    if (!refinement || !this.status.formula) {
+      return false;
+    }
+
+    const canonicalFormula = { ...this.status.formula };
+    const precision = {
+      ...this.status.precision,
+      refinementApplied: true,
+    };
+    this.status = {
+      ...this.status,
+      canonicalFormula,
+      formula: { ...refinement.formula },
+      precision,
+    };
+    this.diagnostics.precision = { ...precision };
+
+    logger.log(
+      'Romanian verified precision refinement applied: equal cue-bucket weighting, '
+      + `max mapped delta=${refinement.mappedDeltaSeconds.toFixed(3)} s`
+    );
+    return true;
   }
 
   async preloadAssets(sub, ref, listener) {
