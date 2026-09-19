@@ -101,6 +101,20 @@ the known affine bias. A separate JS regression enforces verified-only,
 balanced-only, bounded application. Physical benefit is not claimed until a
 new exact-runtime iPhone test is performed.
 
+CI reliability follow-up from the same PR:
+- the fast PWA, Mobile WebKit and large-file stress workflows previously
+  hard-pinned a specific legacy-wasm run ID;
+- that artifact expired and produced a false infrastructure failure before
+  product tests could execute;
+- these consumers now resolve the newest unexpired repository artifact named
+  `legacy-wasm` via the GitHub API, then use the first-party
+  `actions/download-artifact` action with that resolved run ID;
+- no external service or third-party download action was introduced;
+- authoritative `legacy-wasm` retention is extended from 7 to 30 days;
+- the fresh Legacy WebAssembly workflow for the current PR remains the merge
+  gate for C++/WASM behavior, while the fast jobs intentionally consume the
+  latest previously validated engine.
+
 ## 2026-09-19 — Session closeout / deployed precision-balance runtime
 
 Current repository main before this documentation-only closeout:
