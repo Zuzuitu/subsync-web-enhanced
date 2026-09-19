@@ -17,6 +17,11 @@ PrecisionStats::PrecisionStats() :
 	beginningBuckets(0),
 	middleBuckets(0),
 	endBuckets(0),
+	refinementAvailable(false),
+	refinementFactor(0.0),
+	refinementMaxDistance(0.0),
+	refinementMappedDelta(0.0),
+	refinementFormula(),
 	jackknifeSamples(0),
 	maxMappedDelta(0.0),
 	medianMappedDelta(0.0),
@@ -229,12 +234,19 @@ PrecisionStats Synchronizer::getPrecisionStats(double duration) const
 		return precision;
 
 	const double refDuration = duration > 0.0 ? duration : 0.0;
+	Points cueBalanced;
 	for (const auto &entry : grouped)
 	{
+		double subTime = 0.0;
 		double refTime = 0.0;
 		for (const Point &pt : entry.second)
+		{
+			subTime += pt.x;
 			refTime += pt.y;
+		}
+		subTime /= (double) entry.second.size();
 		refTime /= (double) entry.second.size();
+		cueBalanced.insert(Point((float) subTime, (float) refTime));
 
 		if (refDuration > 0.0)
 		{
@@ -252,6 +264,38 @@ PrecisionStats Synchronizer::getPrecisionStats(double duration) const
 		refDuration,
 		m_buckets.empty() ? 0.0 : (double) *m_buckets.rbegin()
 	);
+
+	// Canonical acceptance above intentionally remains the original sc0ty raw-
+	// match fit. Precision refinement is a downstream candidate only: give each
+	// independent subtitle cue one vote by fitting the centroid of its retained
+	// raw matches. This prevents repeated words/context anchors inside one cue
+	// from silently receiving several times the leverage of another cue.
+	if (used.size() > cueBalanced.size() && cueBalanced.size() >= m_minPointsNo)
+	{
+		Line refined;
+		const double refinedFactor = refined.interpolate(cueBalanced);
+		const float refinedDistSqr = refined.findFurthestPoint(cueBalanced);
+		if (std::isfinite(refinedFactor)
+				&& std::isfinite((double) refined.a)
+				&& std::isfinite((double) refined.b)
+				&& refinedFactor >= m_minCorrelation
+				&& refinedDistSqr <= m_maxDistanceSqr)
+		{
+			const double deltaStart = std::abs(
+				(double) refined.getY(0.0f) - (double) stats.formula.getY(0.0f)
+			);
+			const double deltaEnd = std::abs(
+				(double) refined.getY((float) evalEnd)
+				- (double) stats.formula.getY((float) evalEnd)
+			);
+			precision.refinementAvailable = true;
+			precision.refinementFactor = refinedFactor;
+			precision.refinementMaxDistance = std::sqrt((double) refinedDistSqr);
+			precision.refinementMappedDelta = std::max(deltaStart, deltaEnd);
+			precision.refinementFormula = refined;
+		}
+	}
+
 	std::vector<double> mappedDeltas;
 
 	for (const auto &entry : grouped)
