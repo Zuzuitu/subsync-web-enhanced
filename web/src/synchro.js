@@ -301,6 +301,7 @@ export default class Synchronizer {
         );
 
         if (convergence.verified && this.gotAllSubs && !precisionPolishPending) {
+          this.applyRomanianPrecisionRefinement();
           logger.log(
             `Romanian ASR adaptive convergence verified after ${convergence.completedWindows}/${convergence.totalWindows} probes`
           );
@@ -453,6 +454,10 @@ export default class Synchronizer {
   }
 
   applyRomanianPrecisionRefinement() {
+    if (this.status && this.status.canonicalFormula) {
+      return false;
+    }
+
     const convergence = this.diagnostics && this.diagnostics.romanianConvergence;
     const refinement = selectRomanianPrecisionRefinement(this.status, convergence);
     if (!refinement || !this.status.formula) {
