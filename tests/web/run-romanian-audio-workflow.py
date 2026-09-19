@@ -472,6 +472,20 @@ try:
             )
         timing_quality = measure_srt_timing(original, output, expected_shift)
         correlation_trace = page.evaluate("window.__correlationTrace || null")
+        leaked_special_words = []
+        for event in (correlation_trace or {}).get("events", []):
+            if event.get("direction") != "request" or event.get("method") != "addRefWord":
+                continue
+            args = event.get("args") or []
+            word = args[0] if args and isinstance(args[0], dict) else None
+            text = str((word or {}).get("text") or "")
+            if re.search(r"\[_(?:TT_\d+|BEG|EOT|SOT|NOT|NOSP|PREV|TRANSCRIBE|TRANSLATE|LANG_[^\]]+)\]", text):
+                leaked_special_words.append(text)
+        if leaked_special_words:
+            raise SystemExit(
+                "Romanian Whisper leaked special/timestamp tokens into lexical words: "
+                + ", ".join(leaked_special_words[:5])
+            )
         timestamp_calibration = summarize_timestamp_calibration(fixture, correlation_trace)
         if timestamp_calibration["traceDropped"]:
             raise SystemExit("Romanian timestamp calibration trace was truncated")
@@ -523,6 +537,7 @@ try:
             "savedTimingShiftSeconds": shift,
             "timingQuality": timing_quality,
             "timestampCalibration": timestamp_calibration,
+            "whisperSpecialTokenLeakCount": len(leaked_special_words),
             "romanianDiacriticsVerifiedInSavedSubtitle": required_diacritics,
             "consoleErrors": console_errors,
             "pageErrors": page_errors,
