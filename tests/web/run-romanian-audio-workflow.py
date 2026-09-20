@@ -476,8 +476,8 @@ try:
         for event in (correlation_trace or {}).get("events", []):
             if event.get("direction") != "request" or event.get("method") != "addRefWord":
                 continue
-            args = event.get("args") or []
-            word = args[0] if args and isinstance(args[0], dict) else None
+            event_args = event.get("args") or []
+            word = event_args[0] if event_args and isinstance(event_args[0], dict) else None
             text = str((word or {}).get("text") or "")
             if re.search(r"\[_(?:TT_\d+|BEG|EOT|SOT|NOT|NOSP|PREV|TRANSCRIBE|TRANSLATE|LANG_[^\]]+)\]", text):
                 leaked_special_words.append(text)
