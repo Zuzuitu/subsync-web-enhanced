@@ -171,6 +171,12 @@
         "maxMappedDeltaSeconds": 0.75,
         "canonicalAcceptanceUnchanged": true,
         "fallbackToCanonicalFormula": true
+      },
+      "whisperLexicalTokenSafety": {
+        "excludeSpecialAndTimestampTokensByTokenId": true,
+        "specialTokenBoundary": "token_id_at_or_above_whisper_token_eot",
+        "regressionRequired": true,
+        "mustNotAlterCanonicalThresholds": true
       }
     }
   },
