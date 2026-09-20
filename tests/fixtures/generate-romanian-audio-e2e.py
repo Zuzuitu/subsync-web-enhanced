@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import json
 import hashlib
+import array
+import sys
 import importlib.metadata
 import os
 import subprocess
@@ -108,6 +110,43 @@ SPARSE_DURATION = 481.0
 SPARSE_EDGE_MARGIN = 12.0
 MIN_SPEECH_SPAN_RATIO = 0.85
 
+def measure_pcm_activity(frames):
+    """Return deterministic active-speech bounds for generated PCM diagnostics.
+
+    These bounds are fixture-only evidence. They never affect the product input,
+    synchronization formula, or pass/fail result. Multiple relative thresholds
+    let us distinguish stable synthesized leading/trailing silence from a
+    threshold artifact.
+    """
+    samples = array.array("h")
+    samples.frombytes(frames)
+    if sys.byteorder != "little":
+        samples.byteswap()
+    if not samples:
+        return {}
+
+    peak = max(abs(sample) for sample in samples)
+    if peak <= 0:
+        return {}
+
+    bounds = {}
+    for ratio in (0.005, 0.01, 0.02):
+        threshold = max(1, int(round(peak * ratio)))
+        active = [i for i, sample in enumerate(samples) if abs(sample) >= threshold]
+        if not active:
+            continue
+        first = active[0]
+        last = active[-1] + 1
+        key = f"{ratio * 100:g}pct"
+        bounds[key] = {
+            "thresholdAmplitude": threshold,
+            "startSeconds": first / RATE,
+            "endSeconds": last / RATE,
+            "leadingSilenceSeconds": first / RATE,
+            "trailingSilenceSeconds": (len(samples) - last) / RATE,
+        }
+    return bounds
+
 if len(PHRASES) <= MIN_CORRELATION_BUCKETS:
     raise SystemExit(
         f"Romanian E2E fixture must have more than {MIN_CORRELATION_BUCKETS} subtitle cues; "
@@ -162,6 +201,7 @@ with tempfile.TemporaryDirectory() as tmp:
             "phrase": phrase,
             "frames": frames,
             "duration": len(frames) / WIDTH / RATE,
+            "activity": measure_pcm_activity(frames),
         })
 
 timeline = []
@@ -204,12 +244,20 @@ if SPARSE_REGRESSION:
 
         actual_start = start_sample / RATE
         actual_end = end_sample / RATE
+        activity = {}
+        for key, bounds in segment["activity"].items():
+            activity[key] = {
+                **bounds,
+                "globalStartSeconds": actual_start + bounds["startSeconds"],
+                "globalEndSeconds": actual_start + bounds["endSeconds"],
+            }
         timeline.append({
             "phrase": segment["phrase"],
             "audioStart": actual_start,
             "audioEnd": actual_end,
             "subtitleStart": actual_start + OFFSET,
             "subtitleEnd": actual_end + OFFSET,
+            "activity": activity,
         })
         cursor = actual_end + distributed_gap
 
@@ -235,12 +283,20 @@ else:
         start = len(combined) / WIDTH / RATE
         combined.extend(segment["frames"])
         end = len(combined) / WIDTH / RATE
+        activity = {}
+        for key, bounds in segment["activity"].items():
+            activity[key] = {
+                **bounds,
+                "globalStartSeconds": start + bounds["startSeconds"],
+                "globalEndSeconds": start + bounds["endSeconds"],
+            }
         timeline.append({
             "phrase": segment["phrase"],
             "audioStart": start,
             "audioEnd": end,
             "subtitleStart": start + OFFSET,
             "subtitleEnd": end + OFFSET,
+            "activity": activity,
         })
         combined.extend(b"\x00" * int(RATE * GAP) * WIDTH)
     speech_span = timeline[-1]["audioEnd"] - timeline[0]["audioStart"]

@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-19
+LAST_UPDATED: 2026-09-20
 
 ## Canonical status
 
@@ -12,6 +12,75 @@ Repository truth overrides chat memory. Before material changes, read in this or
 4. relevant current implementation
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
+
+## 2026-09-20 — PR #60 Romanian Whisper special-token leak fix
+
+PR #60 root-cause work started from the deployed PR #58 runtime after the exact
+physical Smallfoot retest proved that cue-balanced refinement was beneficial but
+incomplete. On that real iPhone/Chrome run:
+- runtime hash matched `2fe4b96be83cec621eceb67ac3ba356850f76a3c`;
+- refinement was available and applied;
+- all 1517 cue timings remained structurally valid;
+- refined output MAE was ~606 ms versus ~646 ms reconstructed canonical;
+- p95 improved from ~1177 ms canonical to ~1100 ms refined;
+- the result still retained a material affine residual, so no constant-offset
+  correction was justified.
+
+A separate deterministic Romanian fixture then reproduced a systematic residual.
+Repository and retained RPC-trace inspection identified a concrete Whisper input
+bug rather than a reason to weaken the synchronizer:
+- pinned whisper.cpp v1.5.4 represents timestamp/task tokens with IDs at or above
+  EOT and can render them as strings such as `[_TT_N]` and `[_BEG_]`;
+- SubSync2 previously filtered only the newer-style textual `<|...|>` marker;
+- retained deterministic PR #44 evidence showed 34/161 usable Romanian Whisper
+  words (~21%) contaminated by leaked special/timestamp fragments;
+- contamination could alter lexical text, word end time/duration/probability and
+  cause otherwise useful matches to miss the unchanged similarity threshold.
+
+PR #60 fixes the source boundary in `gizmo/wasm/whisper-simd.cpp`:
+- token metadata is read first;
+- any token with `id >= whisper_token_eot()` is excluded before it can mutate a
+  lexical word;
+- canonical correlation thresholds, Save verification, sampling budgets,
+  midpoint semantics, cue-balanced refinement and browser-local processing are
+  unchanged;
+- no title/device-specific offset or paid service is introduced.
+
+Regression/diagnostic coverage now also:
+- fails Romanian E2E if any Whisper special/timestamp marker reaches an
+  `addRefWord` lexical event;
+- records fixture-only active-speech bounds at 0.5/1/2% peak thresholds;
+- compares Whisper lexical timestamps against full-cue and active-speech
+  pseudo-word timing without feeding calibration data back into product logic;
+- keeps public diagnostic schema checks aligned with already-deployed
+  `canonicalFormula` and `probeHistory` fields;
+- resolves the newest unexpired `legacy-wasm` artifact in the fast MKV
+  diagnostic instead of a stale hard-coded run ID.
+
+Final candidate head `9d44f8a2c3245686f3e7eb31fa3b68f68abe153c` passed all five PR
+workflows before this checkpoint update:
+- CI: PASS;
+- MKV WASM Fast Diagnostic: PASS;
+- Public Pages Language Smoke: PASS;
+- Romanian Identical Input Study: PASS;
+- Legacy WebAssembly Build: PASS.
+
+Fresh authoritative Romanian E2E on the candidate produced identical Chromium
+and iPhone-like WebKit results:
+- `whisperSpecialTokenLeakCount=0`;
+- 151 reference words / 133 Romanian context anchors;
+- 27 precision cue buckets, balanced 9/9/9, 87 raw matches;
+- formula `0.9998x-8.173`, saved shift ~-8.177 s on the known +8 s fixture;
+- start MAE ~213 ms, median absolute ~213.5 ms, p95 ~246.1 ms, max 250 ms;
+- residual slope ~-161.5 ppm / drift ~-73.1 ms across the synthetic title;
+- active-speech calibration median at the 1% threshold was ~-5.6 ms, which
+  argues against synthesized leading/trailing silence as the dominant remaining
+  timestamp bias;
+- zero console, page or HTTP errors.
+
+This is strong controlled evidence for the special-token bug fix, but physical
+Smallfoot benefit must still be confirmed on the exact deployed PR #60 runtime
+after merge/deploy. Do not claim physical improvement from synthetic E2E alone.
 
 ## 2026-09-19 — PR #58 merged / cue-balanced refinement deployed
 

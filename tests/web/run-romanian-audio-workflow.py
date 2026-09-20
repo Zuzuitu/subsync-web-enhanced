@@ -29,6 +29,149 @@ MIN_CORRELATION_BUCKETS = 20
 MIN_SPARSE_CUES = 64
 MIN_SPARSE_CUES_PER_MINUTE = 8.0
 
+def _normalize_token(text):
+    return re.sub(r"^\\W+|\\W+$", "", str(text or "").lower(), flags=re.UNICODE)
+
+def _percentile(values, fraction):
+    values = sorted(values)
+    if not values:
+        return None
+    if len(values) == 1:
+        return values[0]
+    pos = fraction * (len(values) - 1)
+    lo = int(pos)
+    hi = min(len(values) - 1, lo + 1)
+    weight = pos - lo
+    return values[lo] * (1.0 - weight) + values[hi] * weight
+
+def _word_events(trace, method):
+    events = []
+    for event in (trace or {}).get("events", []):
+        if event.get("direction") != "request" or event.get("method") != method:
+            continue
+        args = event.get("args") or []
+        word = args[0] if args and isinstance(args[0], dict) else None
+        if not word:
+            continue
+        token = _normalize_token(word.get("text"))
+        try:
+            time = float(word.get("time"))
+        except (TypeError, ValueError):
+            continue
+        if not token or re.fullmatch(r"r2[0-9a-f]{16}", token):
+            continue
+        events.append({
+            "token": token,
+            "time": time,
+            "duration": float(word.get("duration") or 0.0),
+        })
+    return events
+
+def summarize_timestamp_calibration(fixture, trace):
+    """Fixture-only calibration. Never feeds data back into product behavior."""
+    subtitle_words = _word_events(trace, "addSubWord")
+    reference_words = _word_events(trace, "addRefWord")
+    offset = float(fixture.get("offsetSeconds", 0.0))
+    raw_deltas = []
+    activity_deltas = {"0.5pct": [], "1pct": [], "2pct": []}
+    matched = 0
+    phrases_with_matches = 0
+
+    for item in fixture.get("phrases", []):
+        sub_start = float(item["subtitleStart"])
+        sub_end = float(item["subtitleEnd"])
+        audio_start = float(item["audioStart"])
+        audio_end = float(item["audioEnd"])
+        subs = [
+            word for word in subtitle_words
+            if sub_start - 1e-6 <= word["time"] <= sub_end + 1e-6
+        ]
+        refs = [
+            word for word in reference_words
+            if audio_start - 0.35 <= word["time"] <= audio_end + 0.35
+        ]
+        if not subs or not refs:
+            continue
+
+        used = set()
+        phrase_matches = 0
+        for sub_word in subs:
+            expected = sub_word["time"] - offset
+            candidates = [
+                (abs(ref_word["time"] - expected), index, ref_word)
+                for index, ref_word in enumerate(refs)
+                if index not in used and ref_word["token"] == sub_word["token"]
+            ]
+            if not candidates:
+                continue
+            distance, index, ref_word = min(candidates, key=lambda value: value[0])
+            if distance > 2.0:
+                continue
+            used.add(index)
+            phrase_matches += 1
+            matched += 1
+            raw_deltas.append(ref_word["time"] - expected)
+
+            full_span = sub_end - sub_start
+            if full_span <= 0:
+                continue
+            fraction = max(0.0, min(1.0, (sub_word["time"] - sub_start) / full_span))
+            for key in activity_deltas:
+                activity = (item.get("activity") or {}).get(key)
+                if not activity:
+                    continue
+                active_start = float(activity["globalStartSeconds"])
+                active_end = float(activity["globalEndSeconds"])
+                active_pseudo_time = active_start + fraction * (active_end - active_start)
+                activity_deltas[key].append(ref_word["time"] - active_pseudo_time)
+
+        if phrase_matches:
+            phrases_with_matches += 1
+
+    def stats(values):
+        if not values:
+            return None
+        ordered_abs = [abs(value) for value in values]
+        return {
+            "samples": len(values),
+            "meanSeconds": sum(values) / len(values),
+            "medianSeconds": sorted(values)[len(values) // 2]
+                if len(values) % 2
+                else 0.5 * (
+                    sorted(values)[len(values) // 2 - 1]
+                    + sorted(values)[len(values) // 2]
+                ),
+            "p95AbsSeconds": _percentile(ordered_abs, 0.95),
+        }
+
+    silence = {}
+    for key in activity_deltas:
+        leading = []
+        trailing = []
+        for item in fixture.get("phrases", []):
+            activity = (item.get("activity") or {}).get(key)
+            if activity:
+                leading.append(float(activity["leadingSilenceSeconds"]))
+                trailing.append(float(activity["trailingSilenceSeconds"]))
+        silence[key] = {
+            "medianLeadingSeconds": _percentile(leading, 0.5),
+            "medianTrailingSeconds": _percentile(trailing, 0.5),
+        }
+
+    return {
+        "traceEvents": len((trace or {}).get("events", [])),
+        "traceDropped": int((trace or {}).get("dropped", 0)),
+        "subtitleLexicalWords": len(subtitle_words),
+        "referenceLexicalWords": len(reference_words),
+        "matchedLexicalWords": matched,
+        "phrasesWithMatches": phrases_with_matches,
+        "fullCuePseudoTimingDelta": stats(raw_deltas),
+        "activeSpeechPseudoTimingDelta": {
+            key: stats(values) for key, values in activity_deltas.items()
+        },
+        "synthesisSilence": silence,
+    }
+
 class QuietHandler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
@@ -71,6 +214,9 @@ try:
         else:
             browser = p.webkit.launch(headless=True)
         context = browser.new_context(accept_downloads=True)
+        # Test-only RPC observation: captures generated fixture word timestamps
+        # without changing messages or application behavior.
+        context.add_init_script(path=str(ROOT / "tests/web/capture-correlation-rpc.js"))
         page = context.new_page()
 
         console_messages = []
@@ -325,6 +471,29 @@ try:
                 f"(expected {expected_shift:.3f}s ± {max_fine_timing_error:.2f}s)"
             )
         timing_quality = measure_srt_timing(original, output, expected_shift)
+        correlation_trace = page.evaluate("window.__correlationTrace || null")
+        leaked_special_words = []
+        for event in (correlation_trace or {}).get("events", []):
+            if event.get("direction") != "request" or event.get("method") != "addRefWord":
+                continue
+            event_args = event.get("args") or []
+            word = event_args[0] if event_args and isinstance(event_args[0], dict) else None
+            text = str((word or {}).get("text") or "")
+            if re.search(r"\[_(?:TT_\d+|BEG|EOT|SOT|NOT|NOSP|PREV|TRANSCRIBE|TRANSLATE|LANG_[^\]]+)\]", text):
+                leaked_special_words.append(text)
+        if leaked_special_words:
+            raise SystemExit(
+                "Romanian Whisper leaked special/timestamp tokens into lexical words: "
+                + ", ".join(leaked_special_words[:5])
+            )
+        timestamp_calibration = summarize_timestamp_calibration(fixture, correlation_trace)
+        if timestamp_calibration["traceDropped"]:
+            raise SystemExit("Romanian timestamp calibration trace was truncated")
+        if timestamp_calibration["matchedLexicalWords"] < 20:
+            raise SystemExit(
+                "Romanian timestamp calibration matched too few lexical words: "
+                + str(timestamp_calibration["matchedLexicalWords"])
+            )
         if timing_quality["startP95AbsErrorSeconds"] > max_fine_timing_error:
             raise SystemExit(
                 "Romanian audio full-title timing error too large: "
@@ -367,6 +536,8 @@ try:
             "precisionThirdBuckets": precision_thirds,
             "savedTimingShiftSeconds": shift,
             "timingQuality": timing_quality,
+            "timestampCalibration": timestamp_calibration,
+            "whisperSpecialTokenLeakCount": len(leaked_special_words),
             "romanianDiacriticsVerifiedInSavedSubtitle": required_diacritics,
             "consoleErrors": console_errors,
             "pageErrors": page_errors,
