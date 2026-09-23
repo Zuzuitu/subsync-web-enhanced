@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-20
+LAST_UPDATED: 2026-09-23
 
 ## Canonical status
 
@@ -12,6 +12,35 @@ Repository truth overrides chat memory. Before material changes, read in this or
 4. relevant current implementation
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
+
+## 2026-09-23 — Physical Smallfoot timing evidence and retained-fit fix candidate
+
+The supplied diagnostic is from exact runtime `2cca78a6e57d831935a310fe71aa855902fe0bcb`.
+All 1517 exported cues match the preferred original text and order. Output
+minus preferred-original start time: mean -519.2 ms, MAE 519.5 ms, p95
+absolute 942 ms, maximum absolute 999 ms. Beginning/middle/end title-third
+medians are -848/-510/-206.5 ms. The difference is almost exactly affine:
+`output - original = -1.00416 + 0.000189069 * originalTime` seconds, maximum
+fit residual about 0.51 ms after SRT rounding. The diagnostic's canonical
+formula is `1.000211954x-11.138036`; cue-balanced export formula is
+`1.000189066x-11.005540`. The recorded input samples agree with the original
+shifted by +10 seconds. Thus the intended correction for this physical title
+is `t-10`, while the recognized-match estimator picked a different intercept
+and slope. The SRT pair alone cannot distinguish subtitle word-placement bias,
+Whisper timestamp bias, false lexical matches or fitted-point selection.
+
+Confirmed code issue: `getPrecisionStats()` previously called
+`getUsedPoints()`, which selected all matches inside the final line's broad
+distance band. A point discarded by canonical outlier pruning can still lie
+inside that band and re-enter the downstream cue-balanced refinement and
+jackknife. This branch feeds the exact retained canonical hits into precision
+instead. Canonical acceptance, thresholds and `getUsedPoints()`'s public API
+are unchanged. A native regression uses 21 cue matches, including an outlier
+that gets pruned and would previously re-enter; precision must use only the 20
+retained hits. The real title's exact matched words/points and audio are not
+present in the user diagnostic, so this fix cannot yet be attributed to its
+~1-second error or claimed to improve its physical output. No original-derived
+offset or slope is shipped in the product.
 
 ## 2026-09-20 — PR #60 Romanian Whisper special-token leak fix
 

@@ -84,3 +84,26 @@ TEST_CASE("Precision refinement gives each subtitle cue one vote")
 	REQUIRE(precision.refinementMappedDelta > 0.0);
 	REQUIRE(refinedError < canonicalError);
 }
+
+TEST_CASE("Precision excludes points rejected by the canonical fit")
+{
+	Synchronizer sync(30.0f, 0.9999, 2.0f, 20, 1.0f);
+	for (unsigned i = 0; i < 21; ++i)
+	{
+		const float time = 100.0f + 2.0f * i;
+		const std::string token = "retained_" + std::to_string(i);
+		sync.addSubtitle(time - 0.5f, time + 0.5f);
+		sync.addSubWord(Word(token, time));
+		sync.addRefWord(Word(token, time - 10.0f + (i == 20 ? 2.5f : 0.0f)));
+	}
+
+	const CorrelationStats canonical = sync.correlate();
+	REQUIRE(canonical.correlated);
+	REQUIRE(canonical.points == 20);
+	// The broad final-line distance band can rediscover the pruned point.
+	REQUIRE(sync.getUsedPoints().size() == 21);
+	const PrecisionStats precision = sync.getPrecisionStats(150.0);
+	REQUIRE(precision.rawPoints == 20);
+	REQUIRE(precision.buckets == 20);
+	REQUIRE(precision.jackknifeSamples == 20);
+}

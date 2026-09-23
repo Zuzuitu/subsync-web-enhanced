@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <map>
 #include <vector>
+#include <utility>
 
 using namespace std;
 
@@ -122,6 +123,11 @@ void Synchronizer::addSubtitle(double startTime, double endTime)
 
 CorrelationStats Synchronizer::correlate() const
 {
+	return correlateRetained(nullptr);
+}
+
+CorrelationStats Synchronizer::correlateRetained(Points *retained) const
+{
 	const Line bestLine = m_lineFinder.getBestLine();
 	const Points &points = m_lineFinder.getPoints();
 	Points hits = bestLine.getPointsInLine(points, 10.0f*m_maxDistanceSqr);
@@ -153,6 +159,8 @@ CorrelationStats Synchronizer::correlate() const
 		factor >= m_minCorrelation &&
 		distSqr <= m_maxDistanceSqr &&
 		stats.points >= m_minPointsNo;
+	if (retained)
+		*retained = std::move(hits);
 
 	return stats;
 }
@@ -204,15 +212,15 @@ Points Synchronizer::getUsedPoints() const
 PrecisionStats Synchronizer::getPrecisionStats(double duration) const
 {
 	PrecisionStats precision;
-	const CorrelationStats stats = correlate();
+	Points used;
+	const CorrelationStats stats = correlateRetained(&used);
 
-	// Precision diagnostics are deliberately downstream of canonical acceptance.
-	// They never participate in correlation, point filtering, Save eligibility,
-	// or the selected timing formula.
+	// Precision evidence is downstream of canonical acceptance. Reuse exactly
+	// the retained fit points; a broad distance-band reselection could bring a
+	// canonically rejected match back into refinement or jackknife.
 	if (!stats.correlated)
 		return precision;
 
-	const Points used = getUsedPoints();
 	precision.rawPoints = used.size();
 	if (used.size() < 2 || m_buckets.empty())
 		return precision;
