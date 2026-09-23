@@ -19,7 +19,7 @@ const {
   needsLateConfirmation,
   needsPrecisionPolish,
 } = require('./romanian-convergence.js');
-const { RomanianContextAnchorStream } = require('./romanian-context-anchors.js');
+const { RomanianContextAnchorStream, normalizeRomanianCorrelationWord } = require('./romanian-context-anchors.js');
 const { selectRomanianPrecisionRefinement } = require('./romanian-precision.js');
 const { selectCanonicalStatus } = require('./correlation-status.js');
 const logger = Logger.logger.get('[Synchronizer]');
@@ -507,11 +507,14 @@ export default class Synchronizer {
   }
 
   async addSubWord(word) {
-    const status = await this.correlator.addSubWord(word);
+    const correlationWord = this.romanianContextAnchors
+      ? { ...word, text: normalizeRomanianCorrelationWord(word.text) }
+      : word;
+    const status = await this.correlator.addSubWord(correlationWord);
     this.status = selectCanonicalStatus(this.status, status);
 
     if (this.romanianContextAnchors) {
-      const anchor = this.romanianContextAnchors.sub.push(word);
+      const anchor = this.romanianContextAnchors.sub.push(correlationWord);
       if (anchor) {
         this.diagnostics.romanianSubContextAnchors += 1;
         const anchorStatus = await this.correlator.addSubWord(anchor);
@@ -521,11 +524,14 @@ export default class Synchronizer {
   }
 
   async addRefWord(word) {
-    const status = await this.correlator.addRefWord(word);
+    const correlationWord = this.romanianContextAnchors
+      ? { ...word, text: normalizeRomanianCorrelationWord(word.text) }
+      : word;
+    const status = await this.correlator.addRefWord(correlationWord);
     this.status = selectCanonicalStatus(this.status, status);
 
     if (this.romanianContextAnchors) {
-      const anchor = this.romanianContextAnchors.ref.push(word);
+      const anchor = this.romanianContextAnchors.ref.push(correlationWord);
       if (anchor) {
         this.diagnostics.romanianRefContextAnchors += 1;
         const anchorStatus = await this.correlator.addRefWord(anchor);

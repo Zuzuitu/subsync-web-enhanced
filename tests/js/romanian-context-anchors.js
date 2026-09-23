@@ -5,6 +5,7 @@ const {
   MAX_CONTEXT_GAP_SECONDS,
   MAX_CONTEXT_SPAN_SECONDS,
   normalizeContextWord,
+  normalizeRomanianCorrelationWord,
   wordBounds,
   anchorToken,
   makeContextAnchor,
@@ -14,6 +15,21 @@ const {
 assert.strictEqual(MAX_CONTEXT_GAP_SECONDS, 1.25);
 assert.strictEqual(MAX_CONTEXT_SPAN_SECONDS, 4.0);
 assert.strictEqual(normalizeContextWord('ÎNTREBARE'), 'întrebare');
+assert.strictEqual(normalizeRomanianCorrelationWord('Durã, ºi þara'), 'Dură, și țara');
+assert.strictEqual(normalizeRomanianCorrelationWord('ªTIU ÃSTA ÞI'), 'ȘTIU ĂSTA ȚI');
+assert.strictEqual(normalizeRomanianCorrelationWord('Ştiinţă'), 'Știință');
+assert.strictEqual(normalizeRomanianCorrelationWord('Asta e lumea mea.'), 'Asta e lumea mea.');
+assert.strictEqual(anchorToken('ºi', 'þarã'), anchorToken('și', 'țară'));
+assert.strictEqual(
+  makeContextAnchor(
+    { text: 'ºi', time: 10, duration: 0.2 },
+    { text: 'þarã', time: 10.3, duration: 0.4 }
+  ).text,
+  makeContextAnchor(
+    { text: 'și', time: 10, duration: 0.2 },
+    { text: 'țară', time: 10.3, duration: 0.4 }
+  ).text
+);
 
 assert.deepStrictEqual(
   wordBounds({ time: 10.5, duration: 1.0, timeAnchor: 'center' }),
