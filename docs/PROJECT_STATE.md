@@ -13,6 +13,34 @@ Repository truth overrides chat memory. Before material changes, read in this or
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
 
+## 2026-09-23 — Romanian legacy subtitle glyphs
+
+The preferred Smallfoot SRT supplied with the physical timing run is UTF-8,
+but its Romanian text contains 2,339 literal legacy glyphs: `ã`, `þ`, `º`,
+`ª`, `Þ`, `Ã`. For example, `ºi` and `þarã` represent modern `și` and
+`țară`. Whisper emits modern Romanian Unicode, while the same-language
+single-word correlator compares literal word prefixes and the adjacent-word
+context anchors hash literal normalized text. Thus true Romanian words and
+pairs can fail to match, especially when the legacy glyph is early in a word.
+
+This change maps those legacy glyphs, plus cedilla variants `ş/ţ`, to modern
+Romanian Unicode only for the Romanian-audio/Romanian-subtitle correlation
+stream. It also makes the two-word context token use the same normalization.
+The decoded/exported SRT text, canonical thresholds, Save gate, duration and
+other language workflows remain unchanged. A deterministic JS regression
+requires legacy and modern word pairs to produce identical context anchors.
+
+The user supplied a 23 MB Opus rendering of the original Romanian audio with
+duration 5777.7985 s, zero start time. Its 32 kb/s re-encoding changes some
+Whisper results: the exact pinned WebAssembly engine recognized 148 words over
+the diagnostic's 22 windows versus 167 in the physical iPhone diagnostic.
+An approximate local subtitle-word replay on that rendition produced 19
+candidate cue buckets without glyph normalization and 20 with it, but neither
+met the existing max-distance gate. It therefore demonstrates improved lexical
+evidence, **not** a verified timing or physical Save improvement. The original
+AC3 sampled windows would be needed to attribute the ~1 s residual to a
+specific fit and validate a further estimator change.
+
 ## 2026-09-23 — Physical Smallfoot timing evidence and retained-fit fix candidate
 
 The supplied diagnostic is from exact runtime `2cca78a6e57d831935a310fe71aa855902fe0bcb`.

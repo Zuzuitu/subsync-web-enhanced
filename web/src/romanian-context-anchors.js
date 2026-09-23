@@ -3,8 +3,21 @@
 const MAX_CONTEXT_GAP_SECONDS = 1.25;
 const MAX_CONTEXT_SPAN_SECONDS = 4.0;
 
+// Older Romanian SRT releases often contain ISO-8859-2 glyphs stored as
+// literal Unicode characters (e.g. "ºi", "þarã"). Normalize only the lexical
+// evidence sent to the Romanian correlator; never rewrite exported subtitles.
+const ROMANIAN_LEGACY_GLYPHS = {
+  'ã': 'ă', 'Ã': 'Ă', 'º': 'ș', 'ª': 'Ș', 'þ': 'ț', 'Þ': 'Ț',
+  'ş': 'ș', 'Ş': 'Ș', 'ţ': 'ț', 'Ţ': 'Ț',
+};
+
+function normalizeRomanianCorrelationWord(text) {
+  return String(text || '').normalize('NFC')
+    .replace(/[ãÃºªþÞşŞţŢ]/g, glyph => ROMANIAN_LEGACY_GLYPHS[glyph]);
+}
+
 function normalizeContextWord(text) {
-  return String(text || '').normalize('NFC').toLowerCase();
+  return normalizeRomanianCorrelationWord(text).toLowerCase();
 }
 
 function fnv1a32(text, seed) {
@@ -109,6 +122,7 @@ module.exports = {
   MAX_CONTEXT_GAP_SECONDS,
   MAX_CONTEXT_SPAN_SECONDS,
   normalizeContextWord,
+  normalizeRomanianCorrelationWord,
   wordBounds,
   anchorToken,
   makeContextAnchor,
