@@ -75,6 +75,7 @@ class Synchronizer
 		PrecisionStats getPrecisionStats(double duration) const;
 
 	private:
+		CorrelationStats correlateRetained(Points *retained) const;
 		unsigned countBuckets(const Points &pts, unsigned limit=UINT_MAX) const;
 
 	private:
