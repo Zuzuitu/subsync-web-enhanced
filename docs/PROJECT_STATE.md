@@ -13,6 +13,42 @@ Repository truth overrides chat memory. Before material changes, read in this or
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
 
+## 2026-09-24 — Original AC3 window replay and retained-fit coordinates
+
+The user supplied 22 original Romanian AC3 audio windows from the >2 GB
+Smallfoot MKV (25.8 MB uncompressed in the archive). Every window is intact,
+AC3 48 kHz/5.1. Their absolute positions were checked by waveform
+cross-correlation against the earlier full Opus rendition: all 22 agree within
+24 ms (correlation about 0.99). This rules out a one-second timestamp error in
+the clipped-audio replay. The exact WebAssembly subtitle extractor produced
+2,764 words and 1,518 cues, matching the physical iPhone diagnostic.
+
+The pinned WebAssembly AC3 decoder and Whisper produced 177 words versus 167
+on the physical iPhone. Ten of 22 probe word counts matched exactly. One
+music-heavy window produced 15 repeated false words versus one physically;
+isolated clips cannot reproduce all original MKV seek/pre-roll and interleaving
+conditions. Combining adjacent original windows before replay changed another
+late probe from five to ten words versus nine physically. A conservative
+replay (excluding both unstable music windows and including that late pre-roll)
+found 29 cue buckets, matching the physical count, but only 40 retained raw
+matches versus 44 physically. Its refined formula was approximately
+`0.99998945x-10.02403`, against the physical `1.00018907x-11.00554`.
+The simulated formula would yield about 55 ms mean absolute cue error on this
+known +10 s shift; **that is not a measured iPhone improvement**. The changed
+match set precludes attributing the physical ~0.52 s residual to one estimator
+defect. Legacy-glyph normalization adds one replay bucket but does not itself
+resolve the difference. No title offset or speculative slope correction is
+being shipped.
+
+For a future physical run, precision diagnostics now include at most 256 exact
+retained canonical fit coordinates `[subtitleTime, referenceTime]`, or a
+truncation flag for larger matches. They contain no filenames, text or media;
+the export formula, canonical acceptance, thresholds and Save gate are
+unchanged. A native regression verifies rejected points are absent from these
+coordinates; the report allowlist rejects malformed, oversized or nonnumeric
+data. This evidence is needed to identify which real fit points differ before
+an estimator change can be justified.
+
 ## 2026-09-23 — Romanian legacy subtitle glyphs
 
 The preferred Smallfoot SRT supplied with the physical timing run is UTF-8,

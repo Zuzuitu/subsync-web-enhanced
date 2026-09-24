@@ -45,6 +45,8 @@ const status = {subReady: true, formula, canonicalFormula: {a: 1, b: -15}, point
     refinementMaxDistance: 1.4,
     refinementMappedDelta: 0.2,
     refinementApplied: true,
+    fitPointTimes: [[110.25, 100.25], [210.5, 200.5]],
+    fitPointTimesTruncated: false,
   },
   diagnostics: {refWords: 161, romanianConvergence: {
     verified: false,
@@ -85,6 +87,12 @@ assert.deepStrictEqual(report.canonicalFormula, {a: 1, b: -15});
 assert.strictEqual(report.precision.refinementAvailable, true);
 assert.strictEqual(report.precision.refinementApplied, true);
 assert.strictEqual(report.precision.refinementMappedDelta, 0.2);
+assert.deepStrictEqual(report.precision.fitPointTimes, [[110.25, 100.25], [210.5, 200.5]]);
+assert.strictEqual(report.precision.fitPointTimesTruncated, false);
+status.precision.fitPointTimes = [[110, 100, 'private speech']];
+assert.strictEqual(diagnosticReport(status, review, env).precision.fitPointTimes, undefined);
+status.precision.fitPointTimes = Array.from({length: 257}, () => [1, 2]);
+assert.strictEqual(diagnosticReport(status, review, env).precision.fitPointTimes, undefined);
 assert(!/secret|private|script>/.test(JSON.stringify(report)), 'report excludes user text and paths');
 assert.deepStrictEqual(diagnosticReport({}, timingReview([], null), env).formula, {});
 status.diagnostics.romanianConvergence.verified = true;
