@@ -104,6 +104,10 @@ TEST_CASE("Precision excludes points rejected by the canonical fit")
 	REQUIRE(sync.getUsedPoints().size() == 21);
 	const PrecisionStats precision = sync.getPrecisionStats(150.0);
 	REQUIRE(precision.rawPoints == 20);
+	REQUIRE(precision.fitPointTimes.size() == 20);
+	REQUIRE_FALSE(precision.fitPointTimesTruncated);
+	for (const Point &point : precision.fitPointTimes)
+		REQUIRE(point.y == Approx(point.x - 10.0f));
 	REQUIRE(precision.buckets == 20);
 	REQUIRE(precision.jackknifeSamples == 20);
 }

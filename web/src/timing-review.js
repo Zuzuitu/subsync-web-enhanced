@@ -61,6 +61,23 @@ function numericEntries(items, keys) {
   return items.map(item => numbers(item, keys));
 }
 
+function precisionEvidence(source) {
+  const result = numbers(source, [
+    'available', 'rawPoints', 'buckets', 'beginningBuckets', 'middleBuckets', 'endBuckets',
+    'refinementAvailable', 'refinementFactor', 'refinementMaxDistance',
+    'refinementMappedDelta', 'refinementApplied',
+    'jackknifeSamples', 'maxMappedDelta', 'medianMappedDelta', 'maxSlopeDeltaPpm', 'maxOffsetDelta',
+    'fitPointTimesTruncated',
+  ]);
+  const times = source && source.fitPointTimes;
+  if (Array.isArray(times) && times.length <= 256 && times.every(pair =>
+    Array.isArray(pair) && pair.length === 2
+    && pair.every(value => typeof value === 'number' && Number.isFinite(value)))) {
+    result.fitPointTimes = times.map(pair => [pair[0], pair[1]]);
+  }
+  return result;
+}
+
 function diagnosticReport(status, review, environment) {
   const diagnostics = status.diagnostics || {};
   return {
@@ -95,11 +112,7 @@ function diagnosticReport(status, review, environment) {
         'factor', 'maxDistance',
       ]
     ),
-    precision: numbers(status.precision || diagnostics.precision, [
-      'available', 'rawPoints', 'buckets', 'beginningBuckets', 'middleBuckets', 'endBuckets',
-      'refinementAvailable', 'refinementFactor', 'refinementMaxDistance',
-      'refinementMappedDelta', 'refinementApplied',
-      'jackknifeSamples', 'maxMappedDelta', 'medianMappedDelta', 'maxSlopeDeltaPpm', 'maxOffsetDelta']),
+    precision: precisionEvidence(status.precision || diagnostics.precision),
     errorCount: Array.isArray(diagnostics.errors) ? diagnostics.errors.length : 0,
     timingReview: review,
   };

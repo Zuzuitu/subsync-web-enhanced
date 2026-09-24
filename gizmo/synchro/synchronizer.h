@@ -7,12 +7,15 @@
 #include <set>
 #include <cmath>
 #include <climits>
+#include <vector>
 
 
 struct PrecisionStats
 {
 	bool     available;
 	unsigned rawPoints;
+	std::vector<Point> fitPointTimes;
+	bool     fitPointTimesTruncated;
 	unsigned buckets;
 	unsigned beginningBuckets;
 	unsigned middleBuckets;

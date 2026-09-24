@@ -14,6 +14,7 @@ using namespace std;
 PrecisionStats::PrecisionStats() :
 	available(false),
 	rawPoints(0),
+	fitPointTimesTruncated(false),
 	buckets(0),
 	beginningBuckets(0),
 	middleBuckets(0),
@@ -222,6 +223,12 @@ PrecisionStats Synchronizer::getPrecisionStats(double duration) const
 		return precision;
 
 	precision.rawPoints = used.size();
+	// Diagnostic coordinates contain no words or media. Bound the payload so
+	// large titles cannot inflate every correlator status message.
+	if (used.size() <= 256)
+		precision.fitPointTimes.assign(used.begin(), used.end());
+	else
+		precision.fitPointTimesTruncated = true;
 	if (used.size() < 2 || m_buckets.empty())
 		return precision;
 
