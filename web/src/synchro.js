@@ -459,7 +459,9 @@ export default class Synchronizer {
     }
 
     const convergence = this.diagnostics && this.diagnostics.romanianConvergence;
-    const refinement = selectRomanianPrecisionRefinement(this.status, convergence);
+    const refinement = selectRomanianPrecisionRefinement(
+      this.status, convergence, this.subtitles.events, this.referenceDuration
+    );
     if (!refinement || !this.status.formula) {
       return false;
     }
@@ -468,6 +470,10 @@ export default class Synchronizer {
     const precision = {
       ...this.status.precision,
       refinementApplied: true,
+      refinementMappedDelta: refinement.mappedDeltaSeconds,
+      robustRetainedApplied: refinement.method === 'robust-retained-cues',
+      robustInlierBuckets: refinement.inlierBuckets,
+      robustInlierPoints: refinement.inlierPoints,
     };
     this.status = {
       ...this.status,
@@ -478,7 +484,7 @@ export default class Synchronizer {
     this.diagnostics.precision = { ...precision };
 
     logger.log(
-      'Romanian verified precision refinement applied: equal cue-bucket weighting, '
+      `Romanian verified precision refinement applied: ${refinement.method || 'equal cue-bucket weighting'}, `
       + `max mapped delta=${refinement.mappedDeltaSeconds.toFixed(3)} s`
     );
     return true;

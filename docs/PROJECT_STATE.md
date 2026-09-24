@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-23
+LAST_UPDATED: 2026-09-24
 
 ## Canonical status
 
@@ -12,6 +12,46 @@ Repository truth overrides chat memory. Before material changes, read in this or
 4. relevant current implementation
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
+
+## 2026-09-24 — Physical retained-point evidence and robust precision candidate
+
+The user's second physical iPhone diagnostic, runtime
+`9c02c5b5f0ceeb85ba8f01cc054033b962c45726`, contains all 35 retained
+raw fit coordinates across 26 subtitle cue buckets. Its canonical formula is
+`1.000192404x-10.933162`, and its cue-balanced export formula is
+`1.000135064x-10.735373`. Compared against the user's preferred original SRT
+and the known +10 s input shift, this exported formula has about 388 ms mean
+absolute cue-start error, 689 ms p95 and 731 ms maximum. This is a new run;
+the previous run's approximately 519 ms MAE must not be used as its baseline.
+
+Several retained raw matches contradict one another: the same subtitle time
+at 166.104 s maps to reference times 152.953 s and 156.553 s; another at
+1268.007 s maps to 1254.550 s and 1258.275 s. Most other physical reference
+timestamps agree with the original AC3-window replay to within a few hundred
+milliseconds. The repeat-word cross-matches are the demonstrated immediate
+source of leverage on the ordinary least-squares formula. They passed the
+unchanged native canonical residual/point gates and remain useful for deciding
+whether a title is correlated; they must not individually dictate the final
+precision estimate.
+
+The new post-lock candidate estimates a pilot slope from widely separated
+retained pairs using a median, selects pairs within 1.25 s of that pilot, then
+fits one centroid per independent subtitle cue. It requires at least 20
+inlier cue buckets, at least 75% of the previously accepted bucket count,
+at least 25% of inlier buckets in each title third, and at least 100 ms
+improvement in median absolute residual over the existing cue-balanced formula.
+It never alters the native canonical gate or the 0.75 s maximum formula change:
+candidate movement is capped relative to that canonical formula. Missing,
+truncated, or contradictory evidence falls back to the previous refinement.
+
+On the *captured physical point set*, the candidate is
+`1.000021343x-10.183162`, supported by 27 raw pairs in 24 cues. Replaying this
+formula mathematically over all 1,517 original SRT cues predicts about 128 ms
+MAE, 176 ms p95, and 182 ms maximum cue-start error. This is a counterfactual
+calculation, **not yet a post-patch physical iPhone measurement**. The earlier
+AC3 replay, which already estimated almost exactly `x-10`, does not pass the
+candidate's minimum improvement gate. A synthetic duplicate-match regression
+and the existing precision regressions cover the new choice and fallback.
 
 ## 2026-09-24 — Original AC3 window replay and retained-fit coordinates
 

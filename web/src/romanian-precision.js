@@ -4,6 +4,7 @@ const {
   MIN_PRECISION_THIRD_SHARE,
   MAX_FORMULA_DELTA_SECONDS,
 } = require('./romanian-convergence.js');
+const { robustRetainedRefinement } = require('./romanian-robust.js');
 
 const MAX_REFINEMENT_MAPPED_DELTA_SECONDS = MAX_FORMULA_DELTA_SECONDS;
 
@@ -16,7 +17,7 @@ function validFormula(formula) {
   );
 }
 
-function selectRomanianPrecisionRefinement(status, convergence) {
+function selectRomanianPrecisionRefinement(status, convergence, events, duration) {
   if (!status || !status.correlated || !convergence || !convergence.verified) {
     return null;
   }
@@ -57,13 +58,18 @@ function selectRomanianPrecisionRefinement(status, convergence) {
     return null;
   }
 
-  return {
+  const standard = {
     formula: {
       a: precision.refinementFormula.a,
       b: precision.refinementFormula.b,
     },
     mappedDeltaSeconds,
   };
+  const robust = robustRetainedRefinement(
+    precision, status.formula || standard.formula, standard.formula,
+    events, duration, MAX_REFINEMENT_MAPPED_DELTA_SECONDS, MIN_PRECISION_THIRD_SHARE
+  );
+  return robust ? { ...robust, method: 'robust-retained-cues' } : standard;
 }
 
 module.exports = {
