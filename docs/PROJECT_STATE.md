@@ -40,6 +40,17 @@ defect. Legacy-glyph normalization adds one replay bucket but does not itself
 resolve the difference. No title offset or speculative slope correction is
 being shipped.
 
+The isolated AC3 clips contain 458.592 s of decodable audio for 405 s of
+scheduled windows because the source extraction retains seek pre-roll. An
+offline experiment that fed Whisper only samples strictly inside each requested
+window reduced useful words and introduced repeated false words in music. The
+22-window replay ended with 20 candidate buckets, maximum point distance
+2.075 s and no canonical lock (versus 29 buckets and a valid lock with the
+original replay/pre-roll). Thus blindly clipping all pre-roll would regress
+this title; it is not a justified product change or proof of the original
+MKV's exact decoded-audio budget. The actual MKV's seek positions and fit
+coordinates must be observed before changing window decoding semantics.
+
 For a future physical run, precision diagnostics now include at most 256 exact
 retained canonical fit coordinates `[subtitleTime, referenceTime]`, or a
 truncation flag for larger matches. They contain no filenames, text or media;
