@@ -66,6 +66,7 @@ function precisionEvidence(source) {
     'available', 'rawPoints', 'buckets', 'beginningBuckets', 'middleBuckets', 'endBuckets',
     'refinementAvailable', 'refinementFactor', 'refinementMaxDistance',
     'refinementMappedDelta', 'refinementApplied',
+    'robustRetainedApplied', 'robustInlierBuckets', 'robustInlierPoints',
     'jackknifeSamples', 'maxMappedDelta', 'medianMappedDelta', 'maxSlopeDeltaPpm', 'maxOffsetDelta',
     'fitPointTimesTruncated',
   ]);

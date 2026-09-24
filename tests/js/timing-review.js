@@ -45,6 +45,9 @@ const status = {subReady: true, formula, canonicalFormula: {a: 1, b: -15}, point
     refinementMaxDistance: 1.4,
     refinementMappedDelta: 0.2,
     refinementApplied: true,
+    robustRetainedApplied: true,
+    robustInlierBuckets: 21,
+    robustInlierPoints: 25,
     fitPointTimes: [[110.25, 100.25], [210.5, 200.5]],
     fitPointTimesTruncated: false,
   },
@@ -87,6 +90,9 @@ assert.deepStrictEqual(report.canonicalFormula, {a: 1, b: -15});
 assert.strictEqual(report.precision.refinementAvailable, true);
 assert.strictEqual(report.precision.refinementApplied, true);
 assert.strictEqual(report.precision.refinementMappedDelta, 0.2);
+assert.strictEqual(report.precision.robustRetainedApplied, true);
+assert.strictEqual(report.precision.robustInlierBuckets, 21);
+assert.strictEqual(report.precision.robustInlierPoints, 25);
 assert.deepStrictEqual(report.precision.fitPointTimes, [[110.25, 100.25], [210.5, 200.5]]);
 assert.strictEqual(report.precision.fitPointTimesTruncated, false);
 status.precision.fitPointTimes = [[110, 100, 'private speech']];
