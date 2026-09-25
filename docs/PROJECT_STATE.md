@@ -13,6 +13,31 @@ Repository truth overrides chat memory. Before material changes, read in this or
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
 
+## 2026-09-25 — Physical Smallfoot precision pass after PR #65
+
+The user ran the merged and deployed build
+`24b663f3faeba50976200840a486cfa7a2eeba91` on a physical iPhone running
+Chrome iOS 154 (WebKit), using the same shifted Romanian SRT and the >2 GB MKV.
+The diagnostic reports completed, canonical verified, Save eligible, zero
+errors, and `robustRetainedApplied: true` with 27 inlier raw points across 24
+independent subtitle cue buckets. Its final formula is exactly the previously
+predicted `1.0000213426649058x-10.183161735534668`. The retained points and
+canonical formula match the preceding phone run, so this is direct physical
+confirmation of the new formula selection on those inputs, not a new test of
+recognizer variability across independent titles.
+
+The exported SRT contains all 1,517 preferred-original cues with identical
+text and order. Measured output-minus-preferred-original cue-start error:
+128.7 ms mean absolute, 176 ms p95 absolute, 183 ms maximum absolute.
+Beginning/middle/end time-third medians are -163/-122/-88 ms. No exported cue
+has a nonpositive duration. Cue-end timing has 128.7 ms mean absolute error and
+183 ms maximum. The earlier physical build on the same inputs had about 388 ms
+cue-start MAE, 689 ms p95 and 731 ms maximum; the patch therefore removes the
+observed 500–600 ms visual lead relative to the user's preferred SRT. The
+original SRT is a preferred reference, not a direct measurement of acoustic
+word onsets, so do not claim universal sub-200 ms speech accuracy from this
+single title. Further title-specific tuning is not justified.
+
 ## 2026-09-24 — Physical retained-point evidence and robust precision candidate
 
 The user's second physical iPhone diagnostic, runtime
