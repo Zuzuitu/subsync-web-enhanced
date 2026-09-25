@@ -15,6 +15,8 @@ PrecisionStats::PrecisionStats() :
 	available(false),
 	rawPoints(0),
 	fitPointTimesTruncated(false),
+	candidateRawPoints(0),
+	candidatePointTimesTruncated(false),
 	buckets(0),
 	beginningBuckets(0),
 	middleBuckets(0),
@@ -139,13 +141,49 @@ CorrelationStats Synchronizer::correlateRetained(Points *retained) const
 
 	while ((factor < m_minCorrelation || distSqr > m_maxDistanceSqr)
 			&& hits.size() > m_minPointsNo
-			&& countBuckets(hits, m_minPointsNo + 1) > m_minPointsNo)
+			&& countBuckets(hits) >= m_minPointsNo)
 	{
+		// At the minimum number of independent subtitle cues, a duplicate
+		// match can still be removed without losing a cue. The old loop stopped
+		// pruning altogether at this boundary, allowing one bad repeated word
+		// to keep maxDistance above the unchanged canonical 2 s gate.
+		const unsigned buckets = countBuckets(hits);
+		std::map<float, unsigned> multiplicity;
+		if (buckets == m_minPointsNo && !m_buckets.empty())
+		{
+			for (const Point &pt : hits)
+			{
+				const Buckets::const_iterator bucket = m_buckets.lower_bound(pt.x);
+				if (bucket != m_buckets.end())
+					++multiplicity[*bucket];
+			}
+		}
+
+		Points::iterator furthest = hits.end();
+		float furthestDistSqr = 0.0f;
+		for (auto point = hits.begin(); point != hits.end(); ++point)
+		{
+			if (buckets == m_minPointsNo && !m_buckets.empty())
+			{
+				const Buckets::const_iterator bucket = m_buckets.lower_bound(point->x);
+				if (bucket != m_buckets.end() && multiplicity[*bucket] <= 1)
+					continue;
+			}
+			const float distance = line.getDistanceSqr(*point);
+			if (distance > furthestDistSqr)
+			{
+				furthest = point;
+				furthestDistSqr = distance;
+			}
+		}
+		if (furthest == hits.end())
+			break;
+
 		// The removed point's distance belongs to the previous fit. Recompute
 		// the residual on the retained set after refitting; otherwise an outlier
 		// removed at the exact minPointsNo boundary can leave stale maxDistance
 		// evidence and incorrectly reject an otherwise canonical correlation.
-		line.removeFurthestPoint(hits);
+		hits.erase(furthest);
 		factor = line.interpolate(hits);
 		distSqr = line.findFurthestPoint(hits);
 	}
@@ -220,7 +258,14 @@ PrecisionStats Synchronizer::getPrecisionStats(double duration) const
 	// the retained fit points; a broad distance-band reselection could bring a
 	// canonically rejected match back into refinement or jackknife.
 	if (!stats.correlated)
+	{
+		precision.candidateRawPoints = used.size();
+		if (used.size() <= 256)
+			precision.candidatePointTimes.assign(used.begin(), used.end());
+		else
+			precision.candidatePointTimesTruncated = true;
 		return precision;
+	}
 
 	precision.rawPoints = used.size();
 	// Diagnostic coordinates contain no words or media. Bound the payload so

@@ -69,12 +69,19 @@ function precisionEvidence(source) {
     'robustRetainedApplied', 'robustInlierBuckets', 'robustInlierPoints',
     'jackknifeSamples', 'maxMappedDelta', 'medianMappedDelta', 'maxSlopeDeltaPpm', 'maxOffsetDelta',
     'fitPointTimesTruncated',
+    'candidateRawPoints', 'candidatePointTimesTruncated',
   ]);
   const times = source && source.fitPointTimes;
   if (Array.isArray(times) && times.length <= 256 && times.every(pair =>
     Array.isArray(pair) && pair.length === 2
     && pair.every(value => typeof value === 'number' && Number.isFinite(value)))) {
     result.fitPointTimes = times.map(pair => [pair[0], pair[1]]);
+  }
+  const candidate = source && source.candidatePointTimes;
+  if (Array.isArray(candidate) && candidate.length <= 256 && candidate.every(pair =>
+    Array.isArray(pair) && pair.length === 2
+    && pair.every(value => typeof value === 'number' && Number.isFinite(value)))) {
+    result.candidatePointTimes = candidate.map(pair => [pair[0], pair[1]]);
   }
   return result;
 }

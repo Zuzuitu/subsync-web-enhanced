@@ -16,6 +16,9 @@ struct PrecisionStats
 	unsigned rawPoints;
 	std::vector<Point> fitPointTimes;
 	bool     fitPointTimesTruncated;
+	unsigned candidateRawPoints;
+	std::vector<Point> candidatePointTimes;
+	bool     candidatePointTimesTruncated;
 	unsigned buckets;
 	unsigned beginningBuckets;
 	unsigned middleBuckets;

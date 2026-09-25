@@ -83,6 +83,17 @@ static em::val getStats(shared_ptr<Synchronizer> s, double duration)
 	}
 	precisionValue.set("fitPointTimes", fitPointTimes);
 	precisionValue.set("fitPointTimesTruncated", precision.fitPointTimesTruncated);
+	precisionValue.set("candidateRawPoints", precision.candidateRawPoints);
+	em::val candidatePointTimes = em::val::array();
+	for (const Point &point : precision.candidatePointTimes)
+	{
+		em::val pair = em::val::array();
+		pair.set(0, point.x);
+		pair.set(1, point.y);
+		candidatePointTimes.call<void>("push", pair);
+	}
+	precisionValue.set("candidatePointTimes", candidatePointTimes);
+	precisionValue.set("candidatePointTimesTruncated", precision.candidatePointTimesTruncated);
 	precisionValue.set("buckets", precision.buckets);
 	precisionValue.set("beginningBuckets", precision.beginningBuckets);
 	precisionValue.set("middleBuckets", precision.middleBuckets);
