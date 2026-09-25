@@ -111,3 +111,53 @@ TEST_CASE("Precision excludes points rejected by the canonical fit")
 	REQUIRE(precision.buckets == 20);
 	REQUIRE(precision.jackknifeSamples == 20);
 }
+
+TEST_CASE("Canonical fit prunes a duplicate without losing the minimum cue count")
+{
+	Synchronizer sync(30.0f, 0.9999, 2.0f, 20, 1.0f);
+	for (unsigned i = 0; i < 20; ++i)
+	{
+		const float x = 100.0f + 100.0f * i;
+		const std::string token = "cue_" + std::to_string(i);
+		sync.addSubtitle(x - 0.5f, x + 0.5f);
+		sync.addSubWord(Word(token, x));
+		sync.addRefWord(Word(token, x - 10.0f));
+	}
+
+	// The extra match belongs to an already represented cue and is not needed
+	// to maintain twenty independent subtitle buckets. It is still close
+	// enough to enter the broad initial native candidate band.
+	sync.addSubWord(Word("repeated", 1000.1f));
+	sync.addRefWord(Word("repeated", 996.1f));
+
+	const CorrelationStats stats = sync.correlate();
+	REQUIRE(stats.correlated);
+	REQUIRE(stats.points == 20);
+	REQUIRE(stats.maxDistance <= 2.0f);
+	REQUIRE(sync.getPrecisionStats(2000.0).rawPoints == 20);
+}
+
+TEST_CASE("Canonical fit cannot discard an independent cue at the minimum")
+{
+	Synchronizer sync(30.0f, 0.9999, 2.0f, 20, 1.0f);
+	for (unsigned i = 0; i < 20; ++i)
+	{
+		const float x = 100.0f + 100.0f * i;
+		const std::string token = "independent_" + std::to_string(i);
+		sync.addSubtitle(x - 0.5f, x + 0.5f);
+		sync.addSubWord(Word(token, x));
+		sync.addRefWord(Word(token, x - 10.0f + (i == 10 ? 4.0f : 0.0f)));
+	}
+
+	const CorrelationStats stats = sync.correlate();
+	REQUIRE_FALSE(stats.correlated);
+	REQUIRE(stats.points == 20);
+	REQUIRE(stats.maxDistance > 2.0f);
+	const PrecisionStats precision = sync.getPrecisionStats(2000.0);
+	REQUIRE_FALSE(precision.available);
+	REQUIRE(precision.rawPoints == 0);
+	REQUIRE(precision.fitPointTimes.empty());
+	REQUIRE(precision.candidateRawPoints == 20);
+	REQUIRE(precision.candidatePointTimes.size() == 20);
+	REQUIRE_FALSE(precision.candidatePointTimesTruncated);
+}

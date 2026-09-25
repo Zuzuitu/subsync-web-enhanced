@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-24
+LAST_UPDATED: 2026-09-25
 
 ## Canonical status
 
@@ -12,6 +12,37 @@ Repository truth overrides chat memory. Before material changes, read in this or
 4. relevant current implementation
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
+
+## 2026-09-25 — Different title: inconclusive run and canonical duplicate pruning
+
+The user's iPhone diagnostic `subsync2-diagnostics(10).json` on deployed
+`24b663f` completed after roughly 985 seconds with zero errors, but Save was
+not eligible. This was not a crash. All 21 Romanian probes finished (16
+primary and 5 rescue); 149 reference words and 20 candidate subtitle buckets
+were available. The broad candidate fit had factor 0.9999985 and maximum
+distance 3.7733 s, beyond the unchanged 2 s canonical gate. There was no
+canonical verification, no precision refinement, and no late confirmation.
+The report did not contain noncanonical candidate coordinates, so it cannot
+prove which individual matches caused the failure or that a particular fix
+will make this title pass. No new-title source media or SRT was supplied.
+
+A deterministic native regression exposed a general boundary defect: with
+exactly 20 independent subtitle cue buckets and an additional incorrect
+match in an already represented bucket, the prior pruning loop stopped before
+removing the duplicate. The new loop removes the furthest *removable* match
+while preserving at least 20 independent buckets and refits after removal.
+When every bucket has only one point, it still fails closed; the correlation
+factor, 2 s distance threshold, required buckets, Save gate, and sample budget
+are unchanged. Regression tests cover both the duplicate recovery and the
+unremovable singleton case.
+
+For future inconclusive physical runs, the diagnostic also records up to 256
+numeric `[subtitleTime, referenceTime]` pairs from the retained *candidate*
+fit (or a truncation flag). This is read-only evidence, separately named from
+accepted canonical `fitPointTimes`; no words, filenames or media are sent.
+The report validates the finite numeric pairs and bounds the payload. A new
+physical run is needed to establish whether this particular title now locks,
+or to identify the remaining failure mode without guessing.
 
 ## 2026-09-25 — Physical Smallfoot precision pass after PR #65
 
