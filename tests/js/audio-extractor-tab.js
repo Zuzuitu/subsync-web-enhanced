@@ -20,6 +20,9 @@ requireMatch(router, /audio:\s*AudioExtractorScreen/, 'Audio route missing');
 requireMatch(main, /get\('tab'\) === 'audio'/, 'Audio tab routing missing');
 requireMatch(extractorHtml, /value="mp3"/, 'MP3 mode missing');
 requireMatch(extractorHtml, /value="mka"/, 'MKA mode missing');
+if (/id="fileInput"[^>]*\saccept=/.test(extractorHtml)) {
+  throw new Error('Audio Extractor file picker must not restrict iOS Files with accept=; validate after selection instead');
+}
 requireMatch(extractor, /new BlobSource\(file\)/, 'Extractor must read selected media as File\/Blob');
 requireMatch(extractor, /sampleRate:\s*16000/, 'MP3 must remain 16 kHz');
 requireMatch(extractor, /bitrate:\s*64000/, 'MP3 must remain 64 kbps');
