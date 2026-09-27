@@ -15,6 +15,7 @@ on:
       - "config/test-fixture-pins.json"
       - "config/english-romanian-assets.json"
       - "config/romanian-asr.json"
+      - "config/audio-extractor-runtime.json"
       - "config/sc0ty-assets-public-key.pem"
       - "scripts/generate-web-metadata.py"
       - "scripts/mirror-upstream-assets.py"
