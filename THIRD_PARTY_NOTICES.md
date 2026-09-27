@@ -79,19 +79,18 @@ scripts.
 
 ## Mediabunny browser media toolkit
 
-The optional SubSync2 Audio Extractor tab loads the following pinned browser
-packages from jsDelivr on first use:
-
-- `mediabunny@1.60.0`
-- `@mediabunny/mp3-encoder@1.60.0`
-- `@mediabunny/ac3@1.60.0`
-- `@mediabunny/dts@1.60.0`
+The optional SubSync2 Audio Extractor tab uses the official Mediabunny v1.60.0
+release bundles for the core runtime plus MP3 encoder, AC-3/E-AC-3 and DTS
+extensions. During the SubSync2 build these exact release assets are downloaded
+from the upstream GitHub release, verified against repository-pinned SHA-256
+digests, and staged into the PWA. The user's browser therefore does not need a
+third-party CDN while extracting audio.
 
 These packages are published by the Mediabunny project under the Mozilla Public
 License 2.0 (MPL-2.0). SubSync2 does not modify their distributed source; it
-uses their public browser APIs at runtime. The AC-3/E-AC-3 and DTS extension
-packages include browser-side codec implementations/WASM as described by their
-upstream package documentation.
+uses their documented browser bundle APIs. The MP3 extension includes its LAME
+WASM encoder, while the AC-3/E-AC-3 and DTS extensions include browser-side
+codec implementations/WASM as described by upstream documentation.
 
 Mediabunny project: https://github.com/Vanilagy/mediabunny
 MPL-2.0: https://mozilla.org/MPL/2.0/
