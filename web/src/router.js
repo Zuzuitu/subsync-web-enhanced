@@ -2,6 +2,7 @@ import { router, mount } from 'redom';
 import InputScreen from './ui/inputScreen.jsx';
 import SyncScreen from './ui/syncScreen.jsx';
 import NotSupportedScreen from './ui/supportScreen.jsx';
+import AudioExtractorScreen from './ui/audioExtractorScreen.jsx';
 
 
 export default class Router {
@@ -11,6 +12,7 @@ export default class Router {
       input: InputScreen,
       sync: SyncScreen,
       notSupported: NotSupportedScreen,
+      audio: AudioExtractorScreen,
     });
     mount(parent, Router.instance);
   }
