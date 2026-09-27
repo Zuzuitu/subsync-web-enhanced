@@ -48,6 +48,20 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
+
+  // The embedded Audio Extractor keeps its pinned Mediabunny modules available
+  // after first use, matching the standalone iOS PWA behavior without adding a
+  // second service worker. No user media ever travels through fetch.
+  if (url.origin === 'https://cdn.jsdelivr.net') {
+    event.respondWith(
+      caches.match(event.request).then(cached => {
+        if (cached) return cached;
+        return fetch(event.request).then(response => cacheSuccessful(event.request, response));
+      })
+    );
+    return;
+  }
+
   if (url.origin !== self.location.origin) return;
 
   // Speech/dictionary packages are already persisted by the application in IDBFS.
