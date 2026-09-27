@@ -13,6 +13,44 @@ Repository truth overrides chat memory. Before material changes, read in this or
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
 
+## 2026-09-27 — Audio Extractor tab integration
+
+A user-provided iPhone-first local audio extractor is being integrated into the
+SubSync2 PWA as a separate top-level tool tab, without changing synchronization
+semantics.
+
+Architecture:
+- one installed SubSync2 PWA / one root service worker / one manifest;
+- `?tab=sync` keeps the existing subtitle synchronization workflow;
+- `?tab=audio` renders the Audio Extractor in a same-origin isolated view so
+  media/conversion state cannot interfere with the Whisper synchronization
+  worker lifecycle;
+- the extractor reads the selected MKV/MP4/M4V as browser `File/Blob`; media is
+  never uploaded;
+- MP3 mode transcodes the selected audio track to mono 16 kHz / 64 kbps;
+- Original MKA mode requires forced stream copy and performs no recoding;
+- OPFS streaming output is preferred on modern Safari/iOS, with an in-memory
+  fallback where OPFS is unavailable;
+- iOS Share Sheet and normal download remain available;
+- Mediabunny 1.60.0 plus the mp3-encoder/ac3/dts extension packages are pinned
+  runtime dependencies loaded from jsDelivr; no paid service is introduced.
+
+PWA/offline safety:
+- the extractor does not register a second service worker and does not ship a
+  nested manifest;
+- its local HTML/CSS/JS shell is precached by the existing SubSync2 service
+  worker;
+- Audio Extractor navigation has a separate cached fallback so its iframe cannot
+  overwrite the root SubSync2 offline index;
+- build staging versions the extractor CSS/JS with the same SubSync2 build hash.
+
+Regression coverage:
+- CI asserts both top-level tabs exist;
+- MP3/MKA behavior and fixed MP3 parameters are guarded;
+- File/Blob input, OPFS output and Share Sheet paths are guarded;
+- nested service-worker/manifest registration is rejected;
+- service-worker navigation isolation is guarded.
+
 ## 2026-09-27 — Goofy evidence and bounded subtitle-guided rescue
 
 The physical rerun on deployed `d370204` still completed without errors and
