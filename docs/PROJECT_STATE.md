@@ -32,8 +32,12 @@ Architecture:
 - OPFS streaming output is preferred on modern Safari/iOS, with an in-memory
   fallback where OPFS is unavailable;
 - iOS Share Sheet and normal download remain available;
-- Mediabunny 1.60.0 plus the mp3-encoder/ac3/dts extension packages are pinned
-  runtime dependencies loaded from jsDelivr; no paid service is introduced.
+- Mediabunny 1.60.0 plus the mp3-encoder/ac3/dts extension bundles are pinned
+  to official upstream GitHub release assets with exact SHA-256 digests;
+- build staging downloads and verifies those assets, then vendors them inside
+  the SubSync2 PWA, so extraction has no third-party CDN dependency at runtime;
+- all extensions register against the same Mediabunny core instance; no paid
+  service is introduced.
 
 PWA/offline safety:
 - the extractor does not register a second service worker and does not ship a
@@ -49,7 +53,10 @@ Regression coverage:
 - MP3/MKA behavior and fixed MP3 parameters are guarded;
 - File/Blob input, OPFS output and Share Sheet paths are guarded;
 - nested service-worker/manifest registration is rejected;
-- service-worker navigation isolation is guarded.
+- service-worker navigation isolation is guarded;
+- real browser E2E extracts both MKA and MP3 in Chromium and iPhone-like WebKit,
+  then ffprobe verifies one AAC audio stream/no video for MKA and MP3 mono
+  16 kHz output.
 
 ## 2026-09-27 — Goofy evidence and bounded subtitle-guided rescue
 
