@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-25
+LAST_UPDATED: 2026-09-27
 
 ## Canonical status
 
@@ -12,6 +12,53 @@ Repository truth overrides chat memory. Before material changes, read in this or
 4. relevant current implementation
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
+
+## 2026-09-27 — Goofy evidence and bounded subtitle-guided rescue
+
+The physical rerun on deployed `d370204` still completed without errors and
+without Save. All 21 probes finished in 944 s; 149 recognized words yielded
+20 retained candidate points in 20 subtitle cue buckets, with maximum distance
+2.768 s (previously 3.773 s). Duplicate pruning helped but did not establish
+canonical correlation. The supplied Goofy SRT has 870 cues and a user-imposed
++10 s shift. One audio timestamp matches two different subtitle cues whose
+offsets are -9.35 s and -15.29 s; the latter contradicts the known test shift.
+Removing it would leave insufficient independent evidence. The known shift
+is an evaluation reference only, never a runtime input or hard-coded fix.
+
+Two primary windows contain no SRT cues under the known shift. The first
+rescue location contains song lyrics and produced only three ASR words.
+Subtitle timings alone cannot identify singing or prove what speech is audible.
+The new sampling hint therefore makes only a bounded rescue adjustment:
+
+- same-language Romanian, complete subtitles, no accepted canonical status;
+- a finite provisional candidate with >=10 buckets, factor >=0.9999,
+  max distance <=10 s, >=75% candidate span, slope 0.9..1.1;
+- leave explicit coverage recovery, primary and late-confirmation plans alone;
+- retain the existing four selected locations/point-gain ranking, but search
+  up to 60 s locally within each unused gap and the same title quarter/third;
+- score independent timed cues, not subtitle text or word count, with a
+  worst-case +/-2 s offset margin; move only for >=2 cue-equivalents and
+  >=25% improvement. Identical timing duplicates count once; neighborhoods
+  with more than 64 distinct cues use the old window to bound phone work.
+
+This provisional evidence guides *sampling only*: native thresholds, Save,
+export formula, 240+120 s normal budget and canonical-only late reserve do not
+change. Missing/weak evidence and already canonical runs use the prior plan.
+Synthetic tests cover eligibility, fallback, input immutability, duplicate
+timings, bounded movement, non-overlap, quarter coverage and the 120 s reserve.
+
+An offline counterfactual using the final rejected Goofy candidate moves only
+the split confirmation location, from 3604.4..3634.4 s to approximately
+3577.81..3607.81 s. Relative to the known shift, total cue-equivalent coverage
+in the same 120 s rises from 31.69 to 35.08. The primary-stage candidate formula
+was not captured, so this is not an exact replay of runtime scheduling, nor a
+measurement of new ASR words or physical lock. Actual Goofy success remains
+unverified; no source audio for the proposed windows has been supplied.
+
+Historical CI caution: PR #67 first failed synthetic Romanian drift at 0.616 s
+(0.35 s gate), then passed on rerun with different ASR evidence; its subsequent
+Pages deployment also passed Chromium and WebKit. Do not erase the variability
+or equate a green synthetic run with guaranteed accuracy on every title.
 
 ## 2026-09-25 — Different title: inconclusive run and canonical duplicate pruning
 
