@@ -62,8 +62,14 @@ async function main() {
     }
   };
 
-  document.getElementById('subsync_tab_sync')?.addEventListener('click', () => navigate('input'));
-  document.getElementById('subsync_tab_audio')?.addEventListener('click', () => navigate('audioExtractor'));
+  document.getElementById('subsync_tab_sync')?.addEventListener('click', event => {
+    event.preventDefault();
+    navigate('input');
+  });
+  document.getElementById('subsync_tab_audio')?.addEventListener('click', event => {
+    event.preventDefault();
+    navigate('audioExtractor');
+  });
   window.addEventListener('popstate', () => navigate(requestedRoute(), { push: false }));
 
   const initial = requestedRoute();
