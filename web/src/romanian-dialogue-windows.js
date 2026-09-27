@@ -52,9 +52,21 @@ function makeDialogueWindowGuide(context, duration) {
       end > low - OFFSET_MARGIN_SECONDS && start < high + length + OFFSET_MARGIN_SECONDS);
     // One complete subtitle cue contributes at most one vote. Evaluate the
     // worst score under +/-2 s offset uncertainty instead of trusting the fit.
-    const score = start => Math.min(...[-OFFSET_MARGIN_SECONDS, 0, OFFSET_MARGIN_SECONDS].map(delta =>
-      nearby.reduce((sum, [left, right]) => sum + Math.max(0,
-        Math.min(start + length, right + delta) - Math.max(start, left + delta)) / (right - left), 0)));
+    const score = start => {
+      // Overlap is piecewise linear in the offset. Its minimum on the
+      // uncertainty interval is attained at an endpoint or a cue/window-edge
+      // crossing; checking only -2/0/+2 could miss an interior minimum.
+      const offsets = new Set([-OFFSET_MARGIN_SECONDS, 0, OFFSET_MARGIN_SECONDS]);
+      for (const [left, right] of nearby) {
+        for (const delta of [start - left, start - right,
+          start + length - left, start + length - right]) {
+          if (Math.abs(delta) <= OFFSET_MARGIN_SECONDS) offsets.add(delta);
+        }
+      }
+      return Math.min(...[...offsets].map(delta => nearby.reduce((sum, [left, right]) =>
+        sum + Math.max(0, Math.min(start + length, right + delta)
+          - Math.max(start, left + delta)) / (right - left), 0)));
+    };
     const candidates = new Set([window[0], low, high]);
     for (const [start, end] of nearby) {
       for (const delta of [-OFFSET_MARGIN_SECONDS, 0, OFFSET_MARGIN_SECONDS]) {
