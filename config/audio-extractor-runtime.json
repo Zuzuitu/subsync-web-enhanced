@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "project": "Mediabunny",
+  "version": "1.60.0",
+  "release": "https://github.com/Vanilagy/mediabunny/releases/tag/v1.60.0",
+  "license": "MPL-2.0",
+  "files": [
+    {
+      "name": "mediabunny.min.mjs",
+      "url": "https://github.com/Vanilagy/mediabunny/releases/download/v1.60.0/mediabunny.min.mjs",
+      "sha256": "ea3f1a537e64aa99e1e5af7d066977d4fac90bc6d71617200b4ab8147fb17f5a",
+      "bytes": 684785
+    },
+    {
+      "name": "mediabunny-mp3-encoder.min.js",
+      "url": "https://github.com/Vanilagy/mediabunny/releases/download/v1.60.0/mediabunny-mp3-encoder.min.js",
+      "sha256": "26a092c4e488a8b7d3de9bbbb8fde5c1c5c6eeab5243a683a4c8c9e7b703c3aa",
+      "bytes": 312421
+    },
+    {
+      "name": "mediabunny-ac3.min.js",
+      "url": "https://github.com/Vanilagy/mediabunny/releases/download/v1.60.0/mediabunny-ac3.min.js",
+      "sha256": "2a318ed5ec4e12021c871d82c6859dc64b5347fadaff7f4441b6e3faea7ba91d",
+      "bytes": 1148338
+    },
+    {
+      "name": "mediabunny-dts.min.js",
+      "url": "https://github.com/Vanilagy/mediabunny/releases/download/v1.60.0/mediabunny-dts.min.js",
+      "sha256": "6511130f0e0141dd63f009b3f3503d871e31376cab8bd701b6081cf2add501a4",
+      "bytes": 1624550
+    }
+  ]
+}
