@@ -56,6 +56,7 @@ if not (DIST / bootstrap_page).is_file():
     raise SystemExit(f"Missing staged PWA bootstrap page: {bootstrap_page}")
 index_text = (DIST / "index.html").read_text(encoding="utf-8")
 audio_index_text = (DIST / "audio-extractor" / "index.html").read_text(encoding="utf-8")
+audio_app_text = (DIST / "audio-extractor" / "app.js").read_text(encoding="utf-8")
 sw_text = (DIST / "sw.js").read_text(encoding="utf-8")
 
 if "__BUILD_HASH__" in index_text or "__BUILD_HASH__" in audio_index_text or "__BUILD_HASH__" in sw_text:
@@ -78,6 +79,19 @@ for expected in (
 ):
     if expected not in audio_index_text:
         raise SystemExit(f"Staged Audio Extractor is missing build-versioned reference: {expected}")
+
+if 'rel="manifest"' in audio_index_text or "serviceWorker.register" in audio_index_text:
+    raise SystemExit("Embedded Audio Extractor must use the parent SubSync2 PWA shell")
+for pin in (
+    "mediabunny@1.60.0",
+    "@mediabunny/mp3-encoder@1.60.0",
+    "@mediabunny/ac3@1.60.0",
+    "@mediabunny/dts@1.60.0",
+):
+    if pin not in audio_app_text:
+        raise SystemExit(f"Audio Extractor is missing pinned runtime dependency: {pin}")
+if "cdn.jsdelivr.net" not in sw_text:
+    raise SystemExit("SubSync2 service worker must cache pinned Audio Extractor modules after first use")
 
 
 class QuietHandler(http.server.SimpleHTTPRequestHandler):
@@ -142,6 +156,23 @@ try:
         bundle_src = page.locator('script[src*="scripts/subsync.js"]').get_attribute("src")
         if not bundle_src or not bundle_src.endswith("?" + build_hash):
             raise SystemExit(f"Browser bundle is not versioned with build hash: {bundle_src}")
+
+        sync_tab = page.locator("#subsync_tab_sync")
+        audio_tab = page.locator("#subsync_tab_audio")
+        if sync_tab.get_attribute("aria-selected") != "true":
+            raise SystemExit("Synchronization tab should be active on the default route")
+        audio_tab.click()
+        page.wait_for_selector("iframe.audio_extractor_frame", timeout=30_000)
+        if "tab=audio" not in page.url:
+            raise SystemExit(f"Audio Extractor tab did not update browser history: {page.url}")
+        if audio_tab.get_attribute("aria-selected") != "true":
+            raise SystemExit("Audio Extractor tab did not become active")
+        sync_tab.click()
+        page.wait_for_selector("#subsync_app", timeout=30_000)
+        if "tab=audio" in page.url:
+            raise SystemExit(f"Synchronization tab did not restore the default route: {page.url}")
+        if "Subtitle" not in page.locator("#subsync_app").inner_text():
+            raise SystemExit("Synchronization tab did not restore the input screen")
 
         manifest_ok = page.evaluate(
             "() => fetch('./manifest.webmanifest').then(r => r.ok)"
