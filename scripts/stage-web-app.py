@@ -104,6 +104,13 @@ index = index_path.read_text(encoding="utf-8").replace("__BUILD_HASH__", args.ha
 if "__BUILD_HASH__" in index:
     raise SystemExit("Unresolved build hash placeholder in staged index.html")
 index_path.write_text(index, encoding="utf-8")
+
+audio_extractor_index = DIST / "audio-extractor" / "index.html"
+audio_extractor_html = audio_extractor_index.read_text(encoding="utf-8").replace("__BUILD_HASH__", args.hash)
+if "__BUILD_HASH__" in audio_extractor_html:
+    raise SystemExit("Unresolved build hash placeholder in staged audio-extractor/index.html")
+audio_extractor_index.write_text(audio_extractor_html, encoding="utf-8")
+
 bootstrap_name = f"build-{args.hash}.html"
 bootstrap = """<!doctype html>
 <html lang="en">
