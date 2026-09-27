@@ -12,6 +12,10 @@ const APP_SHELL = [
   versioned('./audio-extractor/index.html'),
   versioned('./audio-extractor/styles.css'),
   versioned('./audio-extractor/app.js'),
+  './audio-extractor/vendor/mediabunny.min.mjs?v=1.60.0',
+  './audio-extractor/vendor/mediabunny-mp3-encoder.min.js?v=1.60.0',
+  './audio-extractor/vendor/mediabunny-ac3.min.js?v=1.60.0',
+  './audio-extractor/vendor/mediabunny-dts.min.js?v=1.60.0',
   versioned('./scripts/extractor.wasm'),
   versioned('./scripts/correlator.wasm')
 ];
