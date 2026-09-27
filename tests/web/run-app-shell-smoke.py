@@ -26,6 +26,9 @@ required_files = [
     "scripts/subsync.js",
     "scripts/extractor.wasm",
     "scripts/correlator.wasm",
+    "audio-extractor/index.html",
+    "audio-extractor/styles.css",
+    "audio-extractor/app.js",
     "assets/data/speech-eng.zip",
     "assets/data/dict-eng-rum.zip",
 ]
@@ -52,9 +55,10 @@ if bootstrap_page != f"build-{build_hash}.html":
 if not (DIST / bootstrap_page).is_file():
     raise SystemExit(f"Missing staged PWA bootstrap page: {bootstrap_page}")
 index_text = (DIST / "index.html").read_text(encoding="utf-8")
+audio_index_text = (DIST / "audio-extractor" / "index.html").read_text(encoding="utf-8")
 sw_text = (DIST / "sw.js").read_text(encoding="utf-8")
 
-if "__BUILD_HASH__" in index_text or "__BUILD_HASH__" in sw_text:
+if "__BUILD_HASH__" in index_text or "__BUILD_HASH__" in audio_index_text or "__BUILD_HASH__" in sw_text:
     raise SystemExit("Staged PWA still contains unresolved build hash placeholders")
 for expected in (
     f"./app.css?{build_hash}",
@@ -68,6 +72,12 @@ if "event.request.mode === 'navigate'" not in sw_text:
     raise SystemExit("Service worker must use a dedicated navigation update strategy")
 if "build-manifest.json" not in sw_text or "cache: 'no-store'" not in sw_text:
     raise SystemExit("Service worker must bypass shell cache for build manifest checks")
+for expected in (
+    f"./styles.css?{build_hash}",
+    f"./app.js?{build_hash}",
+):
+    if expected not in audio_index_text:
+        raise SystemExit(f"Staged Audio Extractor is missing build-versioned reference: {expected}")
 
 
 class QuietHandler(http.server.SimpleHTTPRequestHandler):
@@ -151,6 +161,24 @@ try:
         )
         if not service_worker or ("?" + build_hash) not in service_worker:
             raise SystemExit(f"Service worker is not bound to current build: {service_worker}")
+
+        audio_page = browser.new_page()
+        audio_console, audio_runtime, audio_failed = page_errors(audio_page)
+        audio_page.goto(url + "?tab=audio", wait_until="load")
+        audio_page.wait_for_selector("iframe.audio_extractor_frame", timeout=30_000)
+        audio_frame = audio_page.frame_locator("iframe.audio_extractor_frame")
+        audio_frame.locator("#fileInput").wait_for(state="attached", timeout=30_000)
+        audio_title = audio_frame.locator("h1").first.inner_text()
+        if audio_title != "Audio Extractor":
+            raise SystemExit(f"Unexpected Audio Extractor title: {audio_title!r}")
+        modes = audio_frame.locator('input[name="mode"]')
+        mode_values = [modes.nth(i).get_attribute("value") for i in range(modes.count())]
+        if mode_values != ["mp3", "mka"]:
+            raise SystemExit(f"Audio Extractor output modes mismatch: {mode_values}")
+        audio_iframe_src = audio_page.locator("iframe.audio_extractor_frame").get_attribute("src")
+        if audio_iframe_src != "./audio-extractor/index.html":
+            raise SystemExit(f"Unexpected Audio Extractor iframe source: {audio_iframe_src}")
+        audio_page.close()
 
         # Reproduce the pre-fix installed-PWA failure mode on an isolated origin:
         # first install a legacy cache-first worker, then publish the current
@@ -251,9 +279,14 @@ self.addEventListener('fetch', event => {
                 "bootstrapBundleSrc": recovered_bundle,
                 "normalNavigationBuildHash": normal_hash,
             },
-            "consoleErrors": console_errors + recovery_console,
-            "pageErrors": runtime_errors + recovery_runtime,
-            "httpFailures": failed + recovery_failed,
+            "audioExtractorTab": {
+                "title": audio_title,
+                "modes": mode_values,
+                "iframeSrc": audio_iframe_src,
+            },
+            "consoleErrors": console_errors + audio_console + recovery_console,
+            "pageErrors": runtime_errors + audio_runtime + recovery_runtime,
+            "httpFailures": failed + audio_failed + recovery_failed,
             "uiText": text,
         }
 
