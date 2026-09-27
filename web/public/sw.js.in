@@ -2,12 +2,16 @@ const BUILD_HASH = '__BUILD_HASH__';
 const CACHE_NAME = 'subsync2-shell-' + BUILD_HASH;
 const versioned = path => path + '?' + BUILD_HASH;
 const OFFLINE_INDEX = versioned('./index.html');
+const AUDIO_EXTRACTOR_INDEX = versioned('./audio-extractor/index.html');
 const APP_SHELL = [
   OFFLINE_INDEX,
   versioned('./app.css'),
   versioned('./manifest.webmanifest'),
   versioned('./icon.svg'),
   versioned('./scripts/subsync.js'),
+  versioned('./audio-extractor/index.html'),
+  versioned('./audio-extractor/styles.css'),
+  versioned('./audio-extractor/app.js'),
   versioned('./scripts/extractor.wasm'),
   versioned('./scripts/correlator.wasm')
 ];
@@ -57,13 +61,20 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Never pin navigations to an old cached index. Fetch the current shell first
-  // and fall back to the versioned offline index only when the network is down.
+  // Never pin navigations to an old cached shell. The embedded Audio Extractor
+  // has its own same-origin navigation fallback so it cannot overwrite the
+  // cached SubSync2 root document.
   if (event.request.mode === 'navigate') {
+    const audioExtractorNavigation =
+      url.pathname.endsWith('/audio-extractor/')
+      || url.pathname.endsWith('/audio-extractor/index.html');
+    const fallback = audioExtractorNavigation
+      ? AUDIO_EXTRACTOR_INDEX
+      : OFFLINE_INDEX;
     event.respondWith(
       fetch(event.request, { cache: 'no-store' })
-        .then(response => cacheSuccessful(OFFLINE_INDEX, response))
-        .catch(() => caches.match(OFFLINE_INDEX))
+        .then(response => cacheSuccessful(fallback, response))
+        .catch(() => caches.match(fallback))
     );
     return;
   }
