@@ -28,6 +28,10 @@ assert.deepStrictEqual(makeDialogueWindowGuide(context, 2400)(window, [500, 530]
 const duplicateOnly = {...context, subtitleEvents: Array(100).fill(context.subtitleEvents[0])};
 assert.deepStrictEqual(makeDialogueWindowGuide(duplicateOnly, 2400)(window, [400, 700]), window,
   'stacked identical timings cannot manufacture extra independent cues');
+const dense = {...context, subtitleEvents: Array.from({length: 65}, (_, i) =>
+  ({start: 597 + i * 0.01, end: 599 + i * 0.01}))};
+assert.deepStrictEqual(makeDialogueWindowGuide(dense, 2400)(window, [400, 700]), window,
+  'pathological local density falls back with bounded phone computation');
 
 // End-to-end planner shape: broad evidence + sparse old windows, with denser
 // fresh subtitle cues nearby. No media, recognized words or user text stored.

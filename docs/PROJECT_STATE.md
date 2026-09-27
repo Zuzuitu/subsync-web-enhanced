@@ -38,7 +38,8 @@ The new sampling hint therefore makes only a bounded rescue adjustment:
   up to 60 s locally within each unused gap and the same title quarter/third;
 - score independent timed cues, not subtitle text or word count, with a
   worst-case +/-2 s offset margin; move only for >=2 cue-equivalents and
-  >=25% improvement. Identical timing duplicates count once.
+  >=25% improvement. Identical timing duplicates count once; neighborhoods
+  with more than 64 distinct cues use the old window to bound phone work.
 
 This provisional evidence guides *sampling only*: native thresholds, Save,
 export formula, 240+120 s normal budget and canonical-only late reserve do not

@@ -50,6 +50,9 @@ function makeDialogueWindowGuide(context, duration) {
     if (high < low) return window;
     const nearby = intervals.filter(([start, end]) =>
       end > low - OFFSET_MARGIN_SECONDS && start < high + length + OFFSET_MARGIN_SECONDS);
+    // Pathological stacked/very dense subtitles must not make this optional
+    // local search expensive on phones. Fall back without changing the plan.
+    if (nearby.length > 64) return window;
     // One complete subtitle cue contributes at most one vote. Evaluate the
     // worst score under +/-2 s offset uncertainty instead of trusting the fit.
     const score = start => {
