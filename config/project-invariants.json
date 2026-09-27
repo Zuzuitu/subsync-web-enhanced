@@ -90,6 +90,43 @@
       "dictionaryPackageCount": 217,
       "noSilentRegression": true,
       "fullPerLanguageE2EStillRequiredBeforeClaimingUniversalBehavioralParity": true
+    },
+    "audioExtractor": {
+      "integratedAsSubSync2Tab": true,
+      "localBrowserProcessingOnly": true,
+      "inputContainers": [
+        "MKV",
+        "MP4",
+        "M4V"
+      ],
+      "outputModes": {
+        "compactMp3": {
+          "channels": 1,
+          "sampleRateHz": 16000,
+          "bitrate": 64000
+        },
+        "originalMka": {
+          "streamCopyRequired": true,
+          "noReencode": true
+        }
+      },
+      "largeFileStrategy": {
+        "inputAsFileBlob": true,
+        "preferOpfsStreamingOutput": true,
+        "memoryFallbackAllowed": true
+      },
+      "nestedPwaForbidden": true,
+      "reuseSubSync2ServiceWorker": true,
+      "mediaUploadForbidden": true,
+      "runtime": {
+        "provider": "Mediabunny",
+        "version": "1.60.0",
+        "officialReleaseAssetsOnly": true,
+        "vendoredIntoPwaAtBuild": true,
+        "sha256VerificationRequired": true,
+        "thirdPartyCdnRequiredAtRuntime": false,
+        "oneCoreInstanceForAllExtensions": true
+      }
     }
   },
   "evidence": {
@@ -177,6 +214,21 @@
         "specialTokenBoundary": "token_id_at_or_above_whisper_token_eot",
         "regressionRequired": true,
         "mustNotAlterCanonicalThresholds": true
+      }
+    },
+    "audioExtractorTab": {
+      "required": true,
+      "mustExposeMp3AndMka": true,
+      "mustKeepSeparateOfflineNavigationFallback": true,
+      "mustNotRegisterNestedServiceWorker": true,
+      "realBrowserExtractionE2E": {
+        "required": true,
+        "browsers": [
+          "Chromium",
+          "iPhone-like WebKit"
+        ],
+        "verifyOriginalMkaStreamCopy": true,
+        "verifyMp3Mono16kHz": true
       }
     }
   },

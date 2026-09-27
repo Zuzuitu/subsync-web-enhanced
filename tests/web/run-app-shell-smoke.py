@@ -26,6 +26,13 @@ required_files = [
     "scripts/subsync.js",
     "scripts/extractor.wasm",
     "scripts/correlator.wasm",
+    "audio-extractor/index.html",
+    "audio-extractor/styles.css",
+    "audio-extractor/app.js",
+    "audio-extractor/vendor/mediabunny.min.mjs",
+    "audio-extractor/vendor/mediabunny-mp3-encoder.min.js",
+    "audio-extractor/vendor/mediabunny-ac3.min.js",
+    "audio-extractor/vendor/mediabunny-dts.min.js",
     "assets/data/speech-eng.zip",
     "assets/data/dict-eng-rum.zip",
 ]
@@ -46,15 +53,20 @@ if sha256(DIST / "assets/data/dict-eng-rum.zip") != CFG["dictionaryEnglishRomani
 
 build_manifest = json.loads((DIST / "build-manifest.json").read_text(encoding="utf-8"))
 build_hash = build_manifest["buildHash"]
+audio_runtime = build_manifest.get("audioExtractorRuntime") or {}
+if audio_runtime.get("version") != "1.60.0" or len(audio_runtime.get("files", [])) != 4:
+    raise SystemExit(f"Unexpected staged Audio Extractor runtime manifest: {audio_runtime}")
 bootstrap_page = build_manifest.get("bootstrapPage")
 if bootstrap_page != f"build-{build_hash}.html":
     raise SystemExit(f"Unexpected PWA bootstrap page: {bootstrap_page}")
 if not (DIST / bootstrap_page).is_file():
     raise SystemExit(f"Missing staged PWA bootstrap page: {bootstrap_page}")
 index_text = (DIST / "index.html").read_text(encoding="utf-8")
+audio_index_text = (DIST / "audio-extractor" / "index.html").read_text(encoding="utf-8")
+audio_app_text = (DIST / "audio-extractor" / "app.js").read_text(encoding="utf-8")
 sw_text = (DIST / "sw.js").read_text(encoding="utf-8")
 
-if "__BUILD_HASH__" in index_text or "__BUILD_HASH__" in sw_text:
+if "__BUILD_HASH__" in index_text or "__BUILD_HASH__" in audio_index_text or "__BUILD_HASH__" in sw_text:
     raise SystemExit("Staged PWA still contains unresolved build hash placeholders")
 for expected in (
     f"./app.css?{build_hash}",
@@ -68,6 +80,33 @@ if "event.request.mode === 'navigate'" not in sw_text:
     raise SystemExit("Service worker must use a dedicated navigation update strategy")
 if "build-manifest.json" not in sw_text or "cache: 'no-store'" not in sw_text:
     raise SystemExit("Service worker must bypass shell cache for build manifest checks")
+for expected in (
+    f"./styles.css?{build_hash}",
+    f"./app.js?{build_hash}",
+):
+    if expected not in audio_index_text:
+        raise SystemExit(f"Staged Audio Extractor is missing build-versioned reference: {expected}")
+
+if 'rel="manifest"' in audio_index_text or "serviceWorker.register" in audio_index_text:
+    raise SystemExit("Embedded Audio Extractor must use the parent SubSync2 PWA shell")
+for expected in (
+    "./vendor/mediabunny.min.mjs",
+    "./vendor/mediabunny-mp3-encoder.min.js",
+    "./vendor/mediabunny-ac3.min.js",
+    "./vendor/mediabunny-dts.min.js",
+):
+    if expected not in audio_app_text:
+        raise SystemExit(f"Audio Extractor is missing vendored runtime dependency: {expected}")
+if "cdn.jsdelivr.net" in audio_app_text:
+    raise SystemExit("Audio Extractor must not depend on jsDelivr at runtime")
+for runtime_file in audio_runtime.get("files", []):
+    relative = runtime_file.get("filename")
+    expected_sha = runtime_file.get("sha256")
+    if not relative or not expected_sha:
+        raise SystemExit(f"Malformed staged Audio Extractor runtime record: {runtime_file}")
+    staged = DIST / relative
+    if sha256(staged) != expected_sha:
+        raise SystemExit(f"Staged Audio Extractor runtime hash mismatch: {relative}")
 
 
 class QuietHandler(http.server.SimpleHTTPRequestHandler):
@@ -133,6 +172,23 @@ try:
         if not bundle_src or not bundle_src.endswith("?" + build_hash):
             raise SystemExit(f"Browser bundle is not versioned with build hash: {bundle_src}")
 
+        sync_tab = page.locator("#subsync_tab_sync")
+        audio_tab = page.locator("#subsync_tab_audio")
+        if sync_tab.get_attribute("aria-selected") != "true":
+            raise SystemExit("Synchronization tab should be active on the default route")
+        audio_tab.click()
+        page.wait_for_selector("iframe.audio_extractor_frame", timeout=30_000)
+        if "tab=audio" not in page.url:
+            raise SystemExit(f"Audio Extractor tab did not update browser history: {page.url}")
+        if audio_tab.get_attribute("aria-selected") != "true":
+            raise SystemExit("Audio Extractor tab did not become active")
+        sync_tab.click()
+        page.wait_for_selector("#subsync_app", timeout=30_000)
+        if "tab=audio" in page.url:
+            raise SystemExit(f"Synchronization tab did not restore the default route: {page.url}")
+        if "Subtitle" not in page.locator("#subsync_app").inner_text():
+            raise SystemExit("Synchronization tab did not restore the input screen")
+
         manifest_ok = page.evaluate(
             "() => fetch('./manifest.webmanifest').then(r => r.ok)"
         )
@@ -151,6 +207,24 @@ try:
         )
         if not service_worker or ("?" + build_hash) not in service_worker:
             raise SystemExit(f"Service worker is not bound to current build: {service_worker}")
+
+        audio_page = browser.new_page()
+        audio_console, audio_runtime, audio_failed = page_errors(audio_page)
+        audio_page.goto(url + "?tab=audio", wait_until="load")
+        audio_page.wait_for_selector("iframe.audio_extractor_frame", timeout=30_000)
+        audio_frame = audio_page.frame_locator("iframe.audio_extractor_frame")
+        audio_frame.locator("#fileInput").wait_for(state="attached", timeout=30_000)
+        audio_title = audio_frame.locator("h1").first.inner_text()
+        if audio_title != "Audio Extractor":
+            raise SystemExit(f"Unexpected Audio Extractor title: {audio_title!r}")
+        modes = audio_frame.locator('input[name="mode"]')
+        mode_values = [modes.nth(i).get_attribute("value") for i in range(modes.count())]
+        if mode_values != ["mp3", "mka"]:
+            raise SystemExit(f"Audio Extractor output modes mismatch: {mode_values}")
+        audio_iframe_src = audio_page.locator("iframe.audio_extractor_frame").get_attribute("src")
+        if audio_iframe_src != "./audio-extractor/index.html":
+            raise SystemExit(f"Unexpected Audio Extractor iframe source: {audio_iframe_src}")
+        audio_page.close()
 
         # Reproduce the pre-fix installed-PWA failure mode on an isolated origin:
         # first install a legacy cache-first worker, then publish the current
@@ -251,9 +325,14 @@ self.addEventListener('fetch', event => {
                 "bootstrapBundleSrc": recovered_bundle,
                 "normalNavigationBuildHash": normal_hash,
             },
-            "consoleErrors": console_errors + recovery_console,
-            "pageErrors": runtime_errors + recovery_runtime,
-            "httpFailures": failed + recovery_failed,
+            "audioExtractorTab": {
+                "title": audio_title,
+                "modes": mode_values,
+                "iframeSrc": audio_iframe_src,
+            },
+            "consoleErrors": console_errors + audio_console + recovery_console,
+            "pageErrors": runtime_errors + audio_runtime + recovery_runtime,
+            "httpFailures": failed + audio_failed + recovery_failed,
             "uiText": text,
         }
 

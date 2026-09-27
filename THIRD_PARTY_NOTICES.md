@@ -76,3 +76,21 @@ regression fixtures are CI-only test dependencies. They are not shipped in
 the SubSync2 PWA. Their pinned source/model metadata and dataset-license
 metadata are recorded in the repository configuration and fixture preparation
 scripts.
+
+## Mediabunny browser media toolkit
+
+The optional SubSync2 Audio Extractor tab uses the official Mediabunny v1.60.0
+release bundles for the core runtime plus MP3 encoder, AC-3/E-AC-3 and DTS
+extensions. During the SubSync2 build these exact release assets are downloaded
+from the upstream GitHub release, verified against repository-pinned SHA-256
+digests, and staged into the PWA. The user's browser therefore does not need a
+third-party CDN while extracting audio.
+
+These packages are published by the Mediabunny project under the Mozilla Public
+License 2.0 (MPL-2.0). SubSync2 does not modify their distributed source; it
+uses their documented browser bundle APIs. The MP3 extension includes its LAME
+WASM encoder, while the AC-3/E-AC-3 and DTS extensions include browser-side
+codec implementations/WASM as described by upstream documentation.
+
+Mediabunny project: https://github.com/Vanilagy/mediabunny
+MPL-2.0: https://mozilla.org/MPL/2.0/

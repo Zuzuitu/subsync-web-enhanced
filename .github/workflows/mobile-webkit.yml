@@ -16,6 +16,7 @@ on:
       - "tests/fixtures/prepare-piper-fixture-voice.py"
       - "tests/fixtures/generate-en-ro-e2e.py"
       - "config/english-romanian-assets.json"
+      - "config/audio-extractor-runtime.json"
       - ".github/workflows/mobile-webkit.yml"
   pull_request:
     branches:
@@ -136,6 +137,12 @@ jobs:
       - name: Install Playwright WebKit
         run: python3 -m playwright install --with-deps webkit
 
+      - name: Exercise Audio Extractor MP3 and MKA with iPhone-like WebKit
+        run: >-
+          python3 tests/web/run-audio-extractor-e2e.py
+          --browser webkit
+          --input tests/generated/en-ro-e2e/reference-english.mkv
+
       - name: Exercise primary workflow with iPhone-like WebKit
         run: python3 tests/web/run-mobile-webkit.py
 
@@ -147,5 +154,6 @@ jobs:
           path: |
             tests/generated/mobile-webkit-primary-workflow.json
             tests/generated/mobile-webkit-output.srt
+            tests/generated/audio-extractor-e2e/webkit.json
           if-no-files-found: warn
           retention-days: 7

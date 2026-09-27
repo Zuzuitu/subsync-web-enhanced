@@ -100,6 +100,31 @@ try:
         }""")
         diagnostics["serviceWorkerReady"] = sw_ready
 
+        audio_page = context.new_page()
+        audio_page.on("console", lambda msg: diagnostics["consoleErrors"].append(msg.text) if msg.type == "error" else None)
+        audio_page.on("pageerror", lambda exc: diagnostics["pageErrors"].append(str(exc)))
+        audio_page.on("response", lambda response: diagnostics["httpFailures"].append({
+            "status": response.status,
+            "url": response.url,
+        }) if response.status >= 400 else None)
+        audio_page.goto(url + "?tab=audio", wait_until="load")
+        audio_page.wait_for_selector("iframe.audio_extractor_frame", timeout=30_000)
+        audio_frame = audio_page.frame_locator("iframe.audio_extractor_frame")
+        audio_frame.locator("#fileInput").wait_for(state="attached", timeout=30_000)
+        audio_title = audio_frame.locator("h1").first.inner_text()
+        modes = audio_frame.locator('input[name="mode"]')
+        mode_values = [modes.nth(i).get_attribute("value") for i in range(modes.count())]
+        if audio_title != "Audio Extractor" or mode_values != ["mp3", "mka"]:
+            raise SystemExit(
+                f"WebKit Audio Extractor tab mismatch: title={audio_title!r}, modes={mode_values}"
+            )
+        diagnostics["audioExtractorTab"] = {
+            "title": audio_title,
+            "modes": mode_values,
+            "iframeSrc": audio_page.locator("iframe.audio_extractor_frame").get_attribute("src"),
+        }
+        audio_page.close()
+
         sub_input = page.locator('input[name="streams-group-sub-file"]')
         ref_input = page.locator('input[name="streams-group-ref-file"]')
 

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ro">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101828">
+  <meta name="description" content="Extrage local audio din MKV/MP4 fără upload.">
+  <link rel="stylesheet" href="./styles.css?__BUILD_HASH__">
+  <title>SubSync2 Audio Extractor</title>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">SUBSYNC2 · LOCAL TOOL</p>
+        <h1>Audio Extractor</h1>
+        <p class="subtitle">MKV / MP4 → MP3 sau MKA, direct pe iPhone.</p>
+      </div>
+      <span class="privacy-pill">100% local</span>
+    </section>
+
+    <section class="card privacy-card">
+      <strong>Procesare locală</strong>
+      <span>Fișierul video nu este uploadat. Este citit direct din Files/iCloud ca File/Blob.</span>
+    </section>
+
+    <section class="card drop-card">
+      <input id="fileInput" type="file" accept=".mkv,.mp4,.m4v,video/x-matroska,video/mp4" hidden>
+      <button id="pickBtn" class="dropzone" type="button">
+        <span class="drop-icon">＋</span>
+        <strong>Alege MKV / MP4</strong>
+        <span>Din Fișiere, iCloud Drive sau „Pe iPhone-ul meu”</span>
+      </button>
+      <div id="fileMeta" class="file-meta hidden"></div>
+    </section>
+
+    <section id="tracksCard" class="card hidden">
+      <div class="section-title-row">
+        <div><p class="eyebrow">PISTE AUDIO</p><h2>Alege pista</h2></div>
+        <button id="changeFileBtn" type="button" class="ghost-btn">Alt fișier</button>
+      </div>
+      <div id="trackList" class="track-list"></div>
+    </section>
+
+    <section id="modeCard" class="card hidden">
+      <p class="eyebrow">FORMAT IEȘIRE</p>
+      <div class="mode-grid">
+        <label class="mode-card selected">
+          <input type="radio" name="mode" value="mp3" checked>
+          <span class="mode-title">MP3 compact</span>
+          <span class="mode-desc">Pentru SubSync2 · mono 16 kHz · 64 kbps</span>
+          <span class="mode-badge">fișier mic</span>
+        </label>
+        <label class="mode-card">
+          <input type="radio" name="mode" value="mka">
+          <span class="mode-title">Original MKA</span>
+          <span class="mode-desc">Fără recodare · păstrează pista audio originală</span>
+          <span class="mode-badge">calitate originală</span>
+        </label>
+      </div>
+      <div id="compatibility" class="compatibility hidden"></div>
+    </section>
+
+    <section id="actionCard" class="card hidden">
+      <div class="action-row">
+        <button id="extractBtn" class="primary-btn" type="button">Extrage audio</button>
+        <button id="cancelBtn" class="ghost-btn hidden" type="button">Oprește</button>
+      </div>
+      <div id="progressWrap" class="progress-wrap hidden">
+        <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
+        <div class="progress-meta"><span id="statusText">Pregătire…</span><span id="progressPct">0%</span></div>
+      </div>
+      <div id="resultActions" class="result-actions hidden">
+        <button id="shareBtn" class="primary-btn" type="button">Salvează / Partajează</button>
+        <button id="downloadBtn" class="ghost-btn" type="button">Descarcă</button>
+        <button id="resetBtn" class="ghost-btn" type="button">Alege alt fișier</button>
+      </div>
+      <p class="notice">Pe iPhone rezultatul este scris progresiv în OPFS când browserul permite. La final folosește „Salvează / Partajează” → Save to Files.</p>
+    </section>
+
+    <section class="card info-card">
+      <div><strong>MKA original:</strong> remux bitstream-preserving, fără recodare.</div>
+      <div><strong>MP3 compact:</strong> mono 16 kHz / 64 kbps; AC-3/E-AC-3 și DTS folosesc decodoare WASM locale.</div>
+      <div><strong>Fișiere mari:</strong> inputul este citit ca File/Blob, fără upload și fără copiere integrală în RAM.</div>
+    </section>
+  </main>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+  <script type="module" src="./app.js?__BUILD_HASH__"></script>
+</body>
+</html>
