@@ -352,6 +352,17 @@ export default class Synchronizer {
               prioritizeCoverage: coverageRecovery,
               evidenceStart: coverageEvidenceStart,
               evidenceEnd: coverageEvidenceEnd,
+              subtitleEvents: this.subtitles.events,
+              dialogueEvidence: {
+                sameLanguage: Boolean(this.romanianContextAnchors),
+                subtitlesComplete: this.gotAllSubs,
+                correlated: Boolean(rawStats.correlated || (this.status && this.status.correlated)),
+                formula: rawStats.formula,
+                points: rawStats.points,
+                factor: rawStats.factor,
+                maxDistance: rawStats.maxDistance,
+                coverage: convergence.candidateProbeCoverageRatio,
+              },
             }
           );
           this.romanianScan.rescueStrategy = canonicalCoverageDeficit

@@ -1,5 +1,7 @@
 'use strict';
 
+const { makeDialogueWindowGuide } = require('./romanian-dialogue-windows.js');
+
 const WINDOW_SECONDS = 15;
 const PRIMARY_WINDOWS = 16;
 const RESCUE_WINDOW_SECONDS = 30;
@@ -134,6 +136,7 @@ function makeGapCandidate(
   const center = (start + end) / 2;
   return {
     window: [start, end],
+    gap: gap.slice(),
     score: leftPriority + rightPriority,
     pointGain: leftEvidence.pointGain + rightEvidence.pointGain,
     words: leftEvidence.words + rightEvidence.words,
@@ -395,13 +398,19 @@ function makeRescueWindows(
     return [];
   }
 
-  const selected = selectRescueLocations(
+  let selected = selectRescueLocations(
     duration,
     primaryWindows,
     primarySummaries,
     context
   );
   if (!selected.length) return [];
+
+  const guide = makeDialogueWindowGuide(context, duration);
+  if (guide) selected = selected.map(candidate => ({
+    ...candidate,
+    window: guide(candidate.window, candidate.gap),
+  }));
 
   // Keep the strongest location as a full 30 s discovery probe. Reserve the
   // second-strongest location for two 15 s confirmation boundaries. This keeps

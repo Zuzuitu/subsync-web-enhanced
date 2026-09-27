@@ -287,3 +287,4 @@ for (const [start, end] of mediumRescue) {
 }
 
 console.log('Romanian rescue discovery/confirmation planner: OK');
+require('./romanian-dialogue-windows.js');
