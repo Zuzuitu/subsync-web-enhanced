@@ -12,6 +12,7 @@ PUBLIC = WEB / "public"
 DIST = WEB / "dist"
 CONFIG = ROOT / "config" / "english-romanian-assets.json"
 ROMANIAN_ASR_CONFIG = ROOT / "config" / "romanian-asr.json"
+AUDIO_EXTRACTOR_RUNTIME_CONFIG = ROOT / "config" / "audio-extractor-runtime.json"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--hash", required=True)
@@ -20,6 +21,7 @@ args = parser.parse_args()
 
 cfg = json.loads(CONFIG.read_text(encoding="utf-8"))
 romanian_asr = json.loads(ROMANIAN_ASR_CONFIG.read_text(encoding="utf-8"))
+audio_extractor_runtime = json.loads(AUDIO_EXTRACTOR_RUNTIME_CONFIG.read_text(encoding="utf-8"))
 cache_dir = ROOT / args.asset_cache
 
 if DIST.exists():
@@ -99,6 +101,49 @@ materialized = [
     materialize(romanian_asr["model"]),
 ]
 
+audio_runtime_out = DIST / "audio-extractor" / "vendor"
+audio_runtime_out.mkdir(parents=True, exist_ok=True)
+
+def materialize_audio_runtime(asset):
+    destination = audio_runtime_out / asset["name"]
+    request = urllib.request.Request(
+        asset["url"],
+        headers={"User-Agent": "SubSync2-Audio-Extractor-Build"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=240) as response, destination.open("wb") as output:
+            shutil.copyfileobj(response, output)
+    except (OSError, TimeoutError) as exc:
+        if destination.exists():
+            destination.unlink()
+        raise SystemExit(
+            f"Unable to materialize Audio Extractor runtime {asset['name']}: "
+            f"{type(exc).__name__}: {exc}"
+        )
+
+    digest = hashlib.sha256(destination.read_bytes()).hexdigest()
+    if digest != asset["sha256"]:
+        destination.unlink(missing_ok=True)
+        raise SystemExit(
+            f"SHA-256 mismatch for Audio Extractor runtime {asset['name']}: "
+            f"{digest} != {asset['sha256']}"
+        )
+    if destination.stat().st_size != asset["bytes"]:
+        raise SystemExit(
+            f"Byte-size mismatch for Audio Extractor runtime {asset['name']}: "
+            f"{destination.stat().st_size} != {asset['bytes']}"
+        )
+    return {
+        "filename": f"audio-extractor/vendor/{asset['name']}",
+        "sha256": digest,
+        "bytes": destination.stat().st_size,
+    }
+
+audio_runtime_materialized = [
+    materialize_audio_runtime(asset)
+    for asset in audio_extractor_runtime["files"]
+]
+
 index_path = DIST / "index.html"
 index = index_path.read_text(encoding="utf-8").replace("__BUILD_HASH__", args.hash)
 if "__BUILD_HASH__" in index:
@@ -173,6 +218,10 @@ manifest = {
     "buildHash": args.hash,
     "bootstrapPage": bootstrap_name,
     "assets": materialized,
+    "audioExtractorRuntime": {
+        "version": audio_extractor_runtime["version"],
+        "files": audio_runtime_materialized,
+    },
     "files": sorted(
         str(path.relative_to(DIST)).replace("\\", "/")
         for path in DIST.rglob("*")
