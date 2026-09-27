@@ -395,3 +395,59 @@ noscript {
   .audio_extractor_frame { min-height: 1050px; }
   .app_card:has(.audio_extractor_screen) { padding: 12px 8px; }
 }
+
+
+.tool_tabs {
+  display: inline-flex;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(16, 24, 40, .78);
+}
+
+.tool_tab {
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 10px;
+  color: var(--muted);
+  background: transparent;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.tool_tab.active {
+  color: #052e24;
+  background: var(--accent);
+}
+
+.audio_extractor_screen {
+  width: 100%;
+}
+
+.audio_extractor_frame {
+  display: block;
+  width: 100%;
+  height: 760px;
+  border: 0;
+  background: transparent;
+}
+
+@media (max-width: 620px) {
+  .tool_tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+
+  .tool_tab {
+    width: 100%;
+    padding-inline: 8px;
+  }
+
+  .audio_extractor_frame {
+    height: 840px;
+  }
+}
