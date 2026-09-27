@@ -13,6 +13,119 @@ Repository truth overrides chat memory. Before material changes, read in this or
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
 
+## 2026-09-27 — Session handoff checkpoint: Whisper fix + Audio Extractor + iOS MKV picker
+
+This checkpoint captures the exact end-of-session repository state so a new chat
+can continue from repository truth instead of reconstructing decisions from
+conversation memory.
+
+Repository/runtime state at checkpoint creation:
+- current product `main`: `89c6a688e67e333392d056a73c06198ad27ee8b8`;
+- PR #60 merged earlier as `2cca78a6e57d831935a310fe71aa855902fe0bcb`;
+- PR #70 (Audio Extractor integration) merged as
+  `d3b2f73197d42bbd2b16aea990d604c88436de61`;
+- PR #71 (iOS Files/MKV picker compatibility) merged as
+  `89c6a688e67e333392d056a73c06198ad27ee8b8`;
+- PR #70 Pages deploy run `36320024145`: SUCCESS;
+- PR #71 Pages deploy run `36323514504`: IN PROGRESS when this checkpoint
+  commit was first written; update this line to SUCCESS only after GitHub Pages
+  confirms completion on the exact `89c6a688...` head.
+
+PR #60 closed a confirmed Romanian Whisper lexical-input defect:
+- pinned whisper.cpp v1.5.4 special/timestamp tokens are identified by token ID;
+- SubSync2 now rejects any token with
+  `id >= whisper_token_eot()` before it can mutate lexical text, duration,
+  timestamp or probability;
+- retained deterministic evidence had shown 34/161 usable Romanian Whisper words
+  contaminated by `[_TT_*]` / `[_BEG_]` fragments;
+- canonical thresholds, sampling budgets, midpoint semantics and Save gates were
+  not weakened;
+- controlled Romanian E2E on the fixed candidate reached about 213 ms start MAE,
+  246 ms p95 and 250 ms max on the known +8 s fixture, with zero leaked special
+  tokens in Chromium and iPhone-like WebKit.
+
+PR #70 added Audio Extractor as a first-class SubSync2 PWA tool:
+- one installed SubSync2 PWA, one root manifest and one root service worker;
+- top-level Synchronize / Audio Extractor tabs;
+- `?tab=audio` deep-link with history navigation and no full page reload;
+- extractor runs in a same-origin isolated view so conversion state does not
+  interfere with Synchronizer/Whisper lifetime;
+- selected MKV/MP4/M4V is read locally as browser File/Blob; no media upload;
+- MP3 compact output is fixed at mono 16 kHz / 64 kbps;
+- Original MKA is forced stream-copy with no recoding;
+- OPFS streaming output is preferred on iOS, with in-memory fallback;
+- Share Sheet / Save to Files and ordinary download paths are retained;
+- Mediabunny 1.60.0 core + MP3/AC3/DTS extensions are vendored at build time
+  from pinned official release assets, with exact byte-size and SHA-256
+  verification; there is no jsDelivr dependency at runtime;
+- vendored runtime files are part of the authoritative build manifest and are
+  precached by the existing SubSync2 service worker.
+
+Real Audio Extractor browser evidence from PR #70:
+- Chromium E2E: MKA + MP3 extraction PASS;
+- iPhone-like WebKit E2E: MKA + MP3 extraction PASS;
+- WebKit fixture output MKA: AAC audio only, 569,976 bytes;
+- WebKit fixture output MP3: MP3 mono 16 kHz, 616,788 bytes;
+- zero console, page or HTTP errors in the WebKit extractor test;
+- Large-file Browser Stress, Mobile WebKit, Romanian Identical Input Study,
+  governance CI and authoritative Legacy WebAssembly Build were all green on
+  the final PR #70 head before merge.
+
+Physical iPhone/Chrome evidence immediately after PR #70 exposed a separate
+native file-picker issue:
+- a 2.6 GB Goofy MKV appeared greyed out in iOS Files before SubSync2 received
+  any File object;
+- therefore the 2.6 GB size was not the demonstrated cause of the greyed state;
+- root cause in the PWA was the restrictive HTML input
+  `accept=".mkv,.mp4,.m4v,video/x-matroska,video/mp4"`;
+- iOS document-picker UTI/MIME mapping can still disable Matroska despite that
+  list;
+- PR #71 removes the `accept` attribute entirely and keeps actual format
+  validation after selection in Mediabunny `input.canRead()`;
+- unsupported files still fail locally; privacy and supported extraction
+  behavior are unchanged;
+- a JS regression now fails if an `accept=` restriction is reintroduced on
+  the Audio Extractor file input;
+- PR #71 pre-merge gates all passed: CI, Mobile WebKit Compatibility,
+  Large-file Browser Stress and Legacy WebAssembly Build.
+
+Physical validation status:
+- PR #71 fixes the demonstrated iOS picker restriction, but selection of the
+  exact 2.6 GB Goofy MKV on a physical iPhone is NOT yet claimed as verified;
+- after the `89c6a688...` Pages deploy is confirmed live, the next physical
+  action is to open `?tab=audio`, select that same Goofy MKV and confirm that
+  it is no longer greyed out;
+- if selectable, choose the Romanian audio track and prefer Original MKA when
+  collecting source-faithful evidence for synchronization analysis; compact MP3
+  is useful for transport but can alter ASR behavior through transcoding.
+
+Synchronization state that must remain separate from the extractor work:
+- canonical thresholds remain locked: minPointsNo=20, minCorrelation=0.9999,
+  maxPointDist=2, minWordProb=0.3, minWordLen=5, minWordsSim=0.6;
+- Smallfoot has already physically validated the retained-point robust precision
+  path on iPhone with ~128.7 ms cue-start MAE, 176 ms p95 and 183 ms maximum
+  against the user's preferred original SRT;
+- the different-title Goofy run on deployed `d370204` remained inconclusive:
+  21 probes, 944 s, 149 recognized words, 20 retained candidate buckets,
+  max distance 2.768 s, no canonical Save;
+- Goofy therefore remains an evidence/sampling problem, not a reason to weaken
+  canonical thresholds or inject a title-specific/fixed offset;
+- bounded subtitle-guided rescue may guide sampling only under its existing
+  guards; it must never alter the canonical acceptance formula or Save policy.
+
+Mandatory continuation rules:
+- repository truth wins over this checkpoint if newer commits exist;
+- before material changes read PROJECT_STATE -> project-invariants -> AGENTS ->
+  relevant implementation, then verify current main SHA;
+- do not mix unrelated repositories or projects into SubSync2;
+- no paid service without explicit approval;
+- no media-upload backend workaround;
+- keep GPLv3/upstream sc0ty attribution;
+- material product changes use branch -> PR -> CI -> merge -> canonical Pages
+  deploy -> physical-test preparation;
+- never claim a physical result that was not observed on the exact deployed
+  runtime.
+
 ## 2026-09-27 — iOS MKV picker compatibility
 
 Physical iPhone/Chrome evidence showed a 2.6 GB MKV greyed out in the native
