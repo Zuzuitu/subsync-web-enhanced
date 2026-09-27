@@ -104,3 +104,16 @@ document.querySelectorAll('input[name="mode"]').forEach(r=>r.addEventListener('c
 extractBtn.addEventListener('click',extract);shareBtn.addEventListener('click',shareResult);downloadBtn.addEventListener('click',downloadResult);
 cancelBtn.addEventListener('click',async()=>{if(!activeConversion)return;cancelBtn.disabled=true;statusText.textContent='Oprire…';try{await activeConversion.cancel()}catch(_){}finally{cancelBtn.disabled=false}});
 window.addEventListener('beforeunload',e=>{if(!activeConversion)return;e.preventDefault();e.returnValue=''});
+
+
+function publishEmbeddedHeight() {
+  if (window.parent === window) return;
+  window.parent.postMessage({
+    type: 'subsync2-audio-extractor-height',
+    height: Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)
+  }, window.location.origin);
+}
+if ('ResizeObserver' in window) {
+  new ResizeObserver(() => publishEmbeddedHeight()).observe(document.body);
+}
+window.addEventListener('load', publishEmbeddedHeight);
