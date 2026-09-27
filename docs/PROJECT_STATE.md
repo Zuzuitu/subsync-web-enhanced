@@ -19,17 +19,27 @@ This checkpoint captures the exact end-of-session repository state so a new chat
 can continue from repository truth instead of reconstructing decisions from
 conversation memory.
 
-Repository/runtime state at checkpoint creation:
-- current product `main`: `89c6a688e67e333392d056a73c06198ad27ee8b8`;
+Repository/runtime state at final session closeout:
+- current repository `main` before this final checkpoint PR:
+  `f1f57fc5fffffa0eaa3b3cdd82057c1db0b9ea4f` (docs-only handoff checkpoint);
+- current deployed product runtime:
+  `89c6a688e67e333392d056a73c06198ad27ee8b8`;
 - PR #60 merged earlier as `2cca78a6e57d831935a310fe71aa855902fe0bcb`;
 - PR #70 (Audio Extractor integration) merged as
   `d3b2f73197d42bbd2b16aea990d604c88436de61`;
 - PR #71 (iOS Files/MKV picker compatibility) merged as
   `89c6a688e67e333392d056a73c06198ad27ee8b8`;
 - PR #70 Pages deploy run `36320024145`: SUCCESS;
-- PR #71 Pages deploy run `36323514504`: IN PROGRESS when this checkpoint
-  commit was first written; update this line to SUCCESS only after GitHub Pages
-  confirms completion on the exact `89c6a688...` head.
+- PR #71 Pages deploy run `36323514504`: SUCCESS on attempt 3, exact head
+  `89c6a688e67e333392d056a73c06198ad27ee8b8`;
+- deploy branch `deploy/pages-preview` points to the same product runtime
+  `89c6a688e67e333392d056a73c06198ad27ee8b8`;
+- public PWA root:
+  `https://zuzuitu.github.io/subsync-web-enhanced/`;
+- direct Audio Extractor route:
+  `https://zuzuitu.github.io/subsync-web-enhanced/?tab=audio`;
+- exact build-specific validation URL:
+  `https://zuzuitu.github.io/subsync-web-enhanced/build-89c6a688e67e333392d056a73c06198ad27ee8b8.html`.
 
 PR #60 closed a confirmed Romanian Whisper lexical-input defect:
 - pinned whisper.cpp v1.5.4 special/timestamp tokens are identified by token ID;
@@ -90,14 +100,20 @@ native file-picker issue:
   Large-file Browser Stress and Legacy WebAssembly Build.
 
 Physical validation status:
-- PR #71 fixes the demonstrated iOS picker restriction, but selection of the
-  exact 2.6 GB Goofy MKV on a physical iPhone is NOT yet claimed as verified;
-- after the `89c6a688...` Pages deploy is confirmed live, the next physical
-  action is to open `?tab=audio`, select that same Goofy MKV and confirm that
-  it is no longer greyed out;
+- PR #71 is merged and its exact runtime `89c6a688...` is now confirmed live
+  on GitHub Pages;
+- selection of the exact 2.6 GB Goofy MKV on a physical iPhone is still NOT
+  claimed as verified until the user repeats the picker test on that deployed
+  runtime;
+- next physical action: open the exact build-specific page or `?tab=audio`,
+  select that same Goofy MKV and confirm that it is no longer greyed out;
 - if selectable, choose the Romanian audio track and prefer Original MKA when
   collecting source-faithful evidence for synchronization analysis; compact MP3
-  is useful for transport but can alter ASR behavior through transcoding.
+  is useful for transport but can alter ASR behavior through transcoding;
+- if the file is still greyed out on the exact `89c6a688...` build, do not
+  attribute it to the 2.6 GB size without new evidence: capture the picker
+  behavior and investigate an iOS Files/provider restriction separately from
+  the HTML input filter.
 
 Synchronization state that must remain separate from the extractor work:
 - canonical thresholds remain locked: minPointsNo=20, minCorrelation=0.9999,
