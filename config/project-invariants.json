@@ -117,7 +117,16 @@
       },
       "nestedPwaForbidden": true,
       "reuseSubSync2ServiceWorker": true,
-      "mediaUploadForbidden": true
+      "mediaUploadForbidden": true,
+      "runtime": {
+        "provider": "Mediabunny",
+        "version": "1.60.0",
+        "officialReleaseAssetsOnly": true,
+        "vendoredIntoPwaAtBuild": true,
+        "sha256VerificationRequired": true,
+        "thirdPartyCdnRequiredAtRuntime": false,
+        "oneCoreInstanceForAllExtensions": true
+      }
     }
   },
   "evidence": {
@@ -211,7 +220,16 @@
       "required": true,
       "mustExposeMp3AndMka": true,
       "mustKeepSeparateOfflineNavigationFallback": true,
-      "mustNotRegisterNestedServiceWorker": true
+      "mustNotRegisterNestedServiceWorker": true,
+      "realBrowserExtractionE2E": {
+        "required": true,
+        "browsers": [
+          "Chromium",
+          "iPhone-like WebKit"
+        ],
+        "verifyOriginalMkaStreamCopy": true,
+        "verifyMp3Mono16kHz": true
+      }
     }
   },
   "deployment": {
