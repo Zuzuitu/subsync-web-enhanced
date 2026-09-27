@@ -1,9 +1,11 @@
-const MEDIABUNNY_URL='https://cdn.jsdelivr.net/npm/mediabunny@1.60.0/+esm';
-const MP3_ENCODER_URL='https://cdn.jsdelivr.net/npm/@mediabunny/mp3-encoder@1.60.0/+esm';
-const AC3_URL='https://cdn.jsdelivr.net/npm/@mediabunny/ac3@1.60.0/+esm';
-const DTS_URL='https://cdn.jsdelivr.net/npm/@mediabunny/dts@1.60.0/+esm';
+const RUNTIME_VERSION='1.60.0';
+const MEDIABUNNY_URL='./vendor/mediabunny.min.mjs?v='+RUNTIME_VERSION;
+const MP3_ENCODER_URL='./vendor/mediabunny-mp3-encoder.min.js?v='+RUNTIME_VERSION;
+const AC3_URL='./vendor/mediabunny-ac3.min.js?v='+RUNTIME_VERSION;
+const DTS_URL='./vendor/mediabunny-dts.min.js?v='+RUNTIME_VERSION;
 
 let mb=null,input=null,sourceFile=null,audioTracks=[],primaryAudio=null,activeConversion=null,result=null,toastTimer=null,compatibilityToken=0;
+const loadedScripts=new Map();
 const extensions={mp3:false,ac3:false,dts:false};
 const $=id=>document.getElementById(id);
 const fileInput=$('fileInput'),pickBtn=$('pickBtn'),changeFileBtn=$('changeFileBtn'),fileMeta=$('fileMeta'),tracksCard=$('tracksCard'),trackList=$('trackList'),modeCard=$('modeCard'),actionCard=$('actionCard'),compatibility=$('compatibility'),extractBtn=$('extractBtn'),cancelBtn=$('cancelBtn'),progressWrap=$('progressWrap'),progressBar=$('progressBar'),progressPct=$('progressPct'),statusText=$('statusText'),resultActions=$('resultActions'),shareBtn=$('shareBtn'),downloadBtn=$('downloadBtn'),resetBtn=$('resetBtn'),toast=$('toast');
@@ -16,14 +18,42 @@ function escapeHtml(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;',
 function showToast(m,e=false){clearTimeout(toastTimer);toast.textContent=m;toast.classList.remove('hidden','error');if(e)toast.classList.add('error');toastTimer=setTimeout(()=>toast.classList.add('hidden'),6000)}
 function readableError(err){if(err?.name==='ConversionCanceledError'||err?.name==='AbortError')return'Procesarea a fost oprită.';const m=err?.message||String(err||'Eroare necunoscută');return /memory|allocation|out of memory/i.test(m)?'iOS nu mai are suficientă memorie disponibilă. Închide aplicațiile grele și încearcă din nou.':m}
 async function safeCall(fn,fallback=null){try{return await fn()}catch(_){return fallback}}
-async function loadEngine(){if(!mb)mb=await import(MEDIABUNNY_URL);return mb}
-async function ensureMp3Encoder(){if(extensions.mp3)return;const ext=await import(MP3_ENCODER_URL);ext.registerMp3Encoder();extensions.mp3=true}
+function loadClassicRuntime(url,globalName){
+  if(globalThis[globalName])return Promise.resolve(globalThis[globalName]);
+  if(loadedScripts.has(url))return loadedScripts.get(url);
+  const pending=new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    script.src=url;
+    script.async=true;
+    script.onload=()=>globalThis[globalName]?resolve(globalThis[globalName]):reject(new Error('Runtime '+globalName+' did not initialize.'));
+    script.onerror=()=>reject(new Error('Nu am putut încărca runtime-ul local '+globalName+'.'));
+    document.head.appendChild(script);
+  });
+  loadedScripts.set(url,pending);
+  return pending;
+}
+async function loadEngine(){
+  if(!mb){
+    mb=await import(MEDIABUNNY_URL);
+    // Official extension bundles use the documented global-script integration.
+    // Expose this exact module instance so every extension registers against it.
+    globalThis.Mediabunny=mb;
+  }
+  return mb;
+}
+async function ensureMp3Encoder(){
+  if(extensions.mp3)return;
+  await loadEngine();
+  const ext=await loadClassicRuntime(MP3_ENCODER_URL,'MediabunnyMp3Encoder');
+  ext.registerMp3Encoder();
+  extensions.mp3=true;
+}
 async function ensureDecoder(track){
   const codec=String(await safeCall(()=>track.getCodec(),'')||'').toLowerCase();
   const internal=String(await safeCall(()=>track.getInternalCodecId(),'')||'').toLowerCase();
   const key=`${codec} ${internal}`;
-  if((key.includes('ac3')||key.includes('eac3')||key.includes('e-ac-3'))&&!extensions.ac3){const ext=await import(AC3_URL);ext.registerAc3Decoder();extensions.ac3=true}
-  if(key.includes('dts')&&!extensions.dts){const ext=await import(DTS_URL);ext.registerDtsDecoder();extensions.dts=true}
+  if((key.includes('ac3')||key.includes('eac3')||key.includes('e-ac-3'))&&!extensions.ac3){await loadEngine();const ext=await loadClassicRuntime(AC3_URL,'MediabunnyAc3');ext.registerAc3Decoder();extensions.ac3=true}
+  if(key.includes('dts')&&!extensions.dts){await loadEngine();const ext=await loadClassicRuntime(DTS_URL,'MediabunnyDts');ext.registerDtsDecoder();extensions.dts=true}
   if(!await safeCall(()=>track.canDecode(),false))throw new Error(`Pista ${codec||internal||'cu codec necunoscut'} nu poate fi decodată pe acest iPhone pentru MP3. Poți încerca „Original MKA”.`);
 }
 async function disposeInput(){compatibilityToken++;try{input?.dispose?.()}catch(_){}input=null;sourceFile=null;audioTracks=[];primaryAudio=null}
