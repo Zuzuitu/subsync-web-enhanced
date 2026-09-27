@@ -89,16 +89,24 @@ for expected in (
 
 if 'rel="manifest"' in audio_index_text or "serviceWorker.register" in audio_index_text:
     raise SystemExit("Embedded Audio Extractor must use the parent SubSync2 PWA shell")
-for pin in (
-    "mediabunny@1.60.0",
-    "@mediabunny/mp3-encoder@1.60.0",
-    "@mediabunny/ac3@1.60.0",
-    "@mediabunny/dts@1.60.0",
+for expected in (
+    "./vendor/mediabunny.min.mjs",
+    "./vendor/mediabunny-mp3-encoder.min.js",
+    "./vendor/mediabunny-ac3.min.js",
+    "./vendor/mediabunny-dts.min.js",
 ):
-    if pin not in audio_app_text:
-        raise SystemExit(f"Audio Extractor is missing pinned runtime dependency: {pin}")
-if "cdn.jsdelivr.net" not in sw_text:
-    raise SystemExit("SubSync2 service worker must cache pinned Audio Extractor modules after first use")
+    if expected not in audio_app_text:
+        raise SystemExit(f"Audio Extractor is missing vendored runtime dependency: {expected}")
+if "cdn.jsdelivr.net" in audio_app_text:
+    raise SystemExit("Audio Extractor must not depend on jsDelivr at runtime")
+for runtime_file in audio_runtime.get("files", []):
+    relative = runtime_file.get("filename")
+    expected_sha = runtime_file.get("sha256")
+    if not relative or not expected_sha:
+        raise SystemExit(f"Malformed staged Audio Extractor runtime record: {runtime_file}")
+    staged = DIST / relative
+    if sha256(staged) != expected_sha:
+        raise SystemExit(f"Staged Audio Extractor runtime hash mismatch: {relative}")
 
 
 class QuietHandler(http.server.SimpleHTTPRequestHandler):
