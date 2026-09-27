@@ -126,6 +126,12 @@
         "sha256VerificationRequired": true,
         "thirdPartyCdnRequiredAtRuntime": false,
         "oneCoreInstanceForAllExtensions": true
+      },
+      "iosFilePicker": {
+        "mustNotRestrictWithHtmlAcceptAttribute": true,
+        "validateSelectedFileAfterSelection": true,
+        "validationMechanism": "Mediabunny input.canRead()",
+        "physicalLargeMkvSelectionRequiresPhysicalIPhoneEvidence": true
       }
     }
   },
