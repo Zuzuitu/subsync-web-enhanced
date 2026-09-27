@@ -15,6 +15,17 @@ async function main() {
   Router.init(document.getElementById('main_content'), id);
   Overlay.init(document.getElementById(id));
 
+  const tab = new URLSearchParams(window.location.search).get('tab') === 'audio'
+    ? 'audio'
+    : 'sync';
+  document.querySelectorAll('[data-subsync2-tab]').forEach(link => {
+    link.classList.toggle('active', link.dataset.subsync2Tab === tab);
+  });
+  if (tab === 'audio') {
+    Router.update('audio');
+    return;
+  }
+
   const spinner = Overlay.showSpinner();
   const supportedTech = await checkSupportedTech();
   spinner.hide();
