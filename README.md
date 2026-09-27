@@ -16,6 +16,11 @@ The primary **English audio + Romanian subtitles** workflow and the genuine
 in cloud CI. The Romanian path keeps media processing local in the browser and
 does not require shared WebAssembly memory or a media-upload backend.
 
+The same PWA also includes an **Audio Extractor** tab for local MKV/MP4/M4V
+audio extraction on iPhone/iPad: compact MP3 (mono 16 kHz / 64 kbps) or
+bitstream-preserving original MKA. The selected media remains local to the
+browser; no upload backend is used.
+
 See:
 - `docs/PROJECT_STATE.md` — canonical human-readable checkpoint
 - `config/project-invariants.json` — machine-readable project rules
