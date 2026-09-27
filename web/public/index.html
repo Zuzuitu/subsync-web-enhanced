@@ -52,18 +52,9 @@
       <span class="local_badge">Local processing</span>
     </header>
 
-    <nav class="app_tabs" aria-label="SubSync2 tools">
-      <a data-subsync2-tab="sync" href="./?tab=sync">Synchronize</a>
-      <a data-subsync2-tab="audio" href="./?tab=audio">Audio Extractor</a>
-    </nav>
-
-    <nav class="tool_tabs" role="tablist" aria-label="SubSync2 tools">
-      <button id="subsync_tab_sync" class="tool_tab active" type="button" role="tab" aria-selected="true">
-        Synchronizare
-      </button>
-      <button id="subsync_tab_audio" class="tool_tab" type="button" role="tab" aria-selected="false">
-        Audio Extractor
-      </button>
+    <nav class="app_tabs" role="tablist" aria-label="SubSync2 tools">
+      <a id="subsync_tab_sync" class="active" data-subsync2-tab="sync" role="tab" aria-selected="true" href="./?tab=sync">Synchronize</a>
+      <a id="subsync_tab_audio" data-subsync2-tab="audio" role="tab" aria-selected="false" href="./?tab=audio">Audio Extractor</a>
     </nav>
 
     <main class="app_card" id="main_content" aria-live="polite"></main>
