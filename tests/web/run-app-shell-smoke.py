@@ -29,6 +29,10 @@ required_files = [
     "audio-extractor/index.html",
     "audio-extractor/styles.css",
     "audio-extractor/app.js",
+    "audio-extractor/vendor/mediabunny.min.mjs",
+    "audio-extractor/vendor/mediabunny-mp3-encoder.min.js",
+    "audio-extractor/vendor/mediabunny-ac3.min.js",
+    "audio-extractor/vendor/mediabunny-dts.min.js",
     "assets/data/speech-eng.zip",
     "assets/data/dict-eng-rum.zip",
 ]
@@ -49,6 +53,9 @@ if sha256(DIST / "assets/data/dict-eng-rum.zip") != CFG["dictionaryEnglishRomani
 
 build_manifest = json.loads((DIST / "build-manifest.json").read_text(encoding="utf-8"))
 build_hash = build_manifest["buildHash"]
+audio_runtime = build_manifest.get("audioExtractorRuntime") or {}
+if audio_runtime.get("version") != "1.60.0" or len(audio_runtime.get("files", [])) != 4:
+    raise SystemExit(f"Unexpected staged Audio Extractor runtime manifest: {audio_runtime}")
 bootstrap_page = build_manifest.get("bootstrapPage")
 if bootstrap_page != f"build-{build_hash}.html":
     raise SystemExit(f"Unexpected PWA bootstrap page: {bootstrap_page}")
