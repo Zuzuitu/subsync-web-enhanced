@@ -310,6 +310,9 @@ jobs:
       - name: Exercise staged PWA shell
         run: python3 tests/web/run-app-shell-smoke.py
 
+      - name: Exercise Audio Extractor MP3 and MKA in Chromium
+        run: python3 tests/web/run-audio-extractor-e2e.py --browser chromium
+
       - name: Exercise language asset progress and cache management
         run: python3 tests/web/run-language-cache-ux.py
 
@@ -417,6 +420,7 @@ jobs:
             tests/generated/web-upstream-assets-smoke.json
             tests/generated/web-primary-workflow.json
             tests/generated/web-primary-workflow-output.srt
+            tests/generated/audio-extractor-e2e/chromium.json
             tests/generated/romanian-audio-e2e/chromium-romanian-audio.json
             tests/generated/romanian-audio-e2e/chromium-output.rum.srt
             tests/generated/romanian-audio-e2e/chromium-output.rum-diagnostics.json
