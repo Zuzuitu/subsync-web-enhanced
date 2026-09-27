@@ -16,6 +16,7 @@ on:
       - "tests/fixtures/prepare-piper-fixture-voice.py"
       - "tests/fixtures/generate-en-ro-e2e.py"
       - "config/english-romanian-assets.json"
+      - "config/audio-extractor-runtime.json"
       - ".github/workflows/mobile-webkit.yml"
   pull_request:
     branches:
