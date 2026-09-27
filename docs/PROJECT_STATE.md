@@ -13,6 +13,16 @@ Repository truth overrides chat memory. Before material changes, read in this or
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
 
+## 2026-09-27 — iOS MKV picker compatibility
+
+Physical iPhone/Chrome evidence showed a 2.6 GB MKV greyed out in the native
+Files picker before SubSync2 could inspect it. The cause is the HTML `accept`
+filter: iOS document-picker type mapping can reject Matroska even when `.mkv`
+and `video/x-matroska` are listed. The Audio Extractor therefore leaves the
+file input unrestricted and validates the selected file with Mediabunny after
+selection. This does not relax extraction support or upload privacy; unsupported
+files still fail locally in `input.canRead()`.
+
 ## 2026-09-27 — Audio Extractor tab integration
 
 A user-provided iPhone-first local audio extractor is being integrated into the
