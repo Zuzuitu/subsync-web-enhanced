@@ -156,6 +156,21 @@
         "packageId": "media.alexlab.subsync2.dev",
         "publicTestKeyOnly": true,
         "productionOrPlaySigningWithTestKeyForbidden": true
+      },
+      "remoteControl": {
+        "dpadNavigationRequired": true,
+        "selectableCardsMustBeFocusable": true,
+        "enterOrCenterActivatesFocusedControl": true,
+        "visibleFocusIndicatorRequired": true,
+        "mouseRequiredForbidden": true
+      },
+      "outputSave": {
+        "browserBlobDownloadAloneIsInsufficient": true,
+        "nativeAndroidDocumentSaveRequired": true,
+        "mechanism": "ACTION_CREATE_DOCUMENT + chunked JavascriptInterface stream",
+        "mediaUploadForbidden": true,
+        "boundedChunkMemoryRequired": true,
+        "iphoneShareSheetBehaviorMustRemainIndependent": true
       }
     }
   },
@@ -268,10 +283,12 @@
       "verifyStages": [
         "launcher",
         "runtime marker",
+        "D-pad navigation without mouse",
         "native file picker",
         "File/Blob acquisition",
         "synchronization or extractor stage",
-        "save/export"
+        "native output save/export",
+        "saved file readability"
       ]
     }
   },
