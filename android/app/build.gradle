@@ -1,0 +1,59 @@
+plugins {
+    id 'com.android.application'
+}
+
+import java.util.Base64
+
+def runtimeUrl = providers.gradleProperty("SUBSYNC2_URL")
+        .orElse("https://zuzuitu.github.io/subsync-web-enhanced/")
+        .get()
+def escapedRuntimeUrl = runtimeUrl
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+
+def devKeystore = rootProject.file("signing/subsync2-dev.keystore")
+def devKeystoreB64 = rootProject.file("signing/subsync2-dev.keystore.b64")
+if (!devKeystore.exists() && devKeystoreB64.exists()) {
+    devKeystore.parentFile.mkdirs()
+    devKeystore.bytes = Base64.decoder.decode(devKeystoreB64.text.trim())
+}
+
+android {
+    namespace 'media.alexlab.subsync2'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'media.alexlab.subsync2.dev'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '0.1.0-dev'
+
+        buildConfigField 'String', 'SUBSYNC2_URL', "\"\${escapedRuntimeUrl}\""
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    signingConfigs {
+        dev {
+            storeFile devKeystore
+            storePassword 'subsync2-dev'
+            keyAlias 'subsync2-dev'
+            keyPassword 'subsync2-dev'
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.dev
+            debuggable true
+        }
+    }
+
+    lint {
+        abortOnError true
+        checkReleaseBuilds false
+    }
+}
