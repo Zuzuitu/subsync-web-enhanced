@@ -7,7 +7,7 @@ const DTS_URL='./vendor/mediabunny-dts.min.js?v='+RUNTIME_VERSION;
 let mb=null,input=null,sourceFile=null,audioTracks=[],primaryAudio=null,activeConversion=null,result=null,toastTimer=null,compatibilityToken=0;
 const loadedScripts=new Map();
 const extensions={mp3:false,ac3:false,dts:false};
-const IS_ANDROID_SHELL=/\\bSubSync2Android\\//.test(navigator.userAgent);
+const IS_ANDROID_SHELL=/\bSubSync2Android\//.test(navigator.userAgent);
 let pendingNativeSaveSession=null,nativeSaveBusy=false;
 const $=id=>document.getElementById(id);
 const fileInput=$('fileInput'),pickBtn=$('pickBtn'),changeFileBtn=$('changeFileBtn'),fileMeta=$('fileMeta'),tracksCard=$('tracksCard'),trackList=$('trackList'),modeCard=$('modeCard'),actionCard=$('actionCard'),compatibility=$('compatibility'),extractBtn=$('extractBtn'),cancelBtn=$('cancelBtn'),progressWrap=$('progressWrap'),progressBar=$('progressBar'),progressPct=$('progressPct'),statusText=$('statusText'),resultActions=$('resultActions'),shareBtn=$('shareBtn'),downloadBtn=$('downloadBtn'),resetBtn=$('resetBtn'),toast=$('toast');
