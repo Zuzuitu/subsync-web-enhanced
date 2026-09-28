@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-27
+LAST_UPDATED: 2026-09-28
 
 ## Canonical status
 
@@ -12,6 +12,36 @@ Repository truth overrides chat memory. Before material changes, read in this or
 4. relevant current implementation
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
+
+## 2026-09-28 — Android TV remote + native save follow-up
+
+Physical NVIDIA Shield test of Android 0.1.1-dev confirmed that the corrected
+shell now launches SubSync2 successfully. The same test exposed two separate
+Android TV UX/runtime gaps:
+- MP3 conversion is visibly slower than on the user's iPhone; Original MKA
+  stream-copy is substantially faster. The source MKV was on an external HDD,
+  so no CPU-vs-I/O root cause is claimed yet;
+- the Audio Extractor was not usable with the Shield remote for output-mode
+  selection: the visual mode/track cards wrapped hidden radio inputs but were
+  not themselves focusable and had no deterministic D-pad navigation;
+- browser-only `navigator.share` / `blob:` download did not produce a usable
+  save action in the Android WebView shell because no native output handler
+  existed.
+
+Implementation direction:
+- Android-shell detection remains scoped by the `SubSync2Android/` user-agent
+  marker; iPhone/browser behavior is not replaced;
+- selectable mode/track cards become focusable only in the Android shell;
+- D-pad arrows use deterministic spatial focus navigation and OK/Enter
+  activates the focused card/control with a TV-visible focus ring;
+- Android output uses a native `ACTION_CREATE_DOCUMENT` destination picker;
+- the already-local result File is streamed from WebView to the chosen Android
+  content URI in bounded 256 KiB chunks through a narrow JavascriptInterface;
+- no backend upload, cloud conversion or paid service is introduced;
+- Android 0.2.0-dev / versionCode 3 is the first build carrying this path.
+
+Physical acceptance still requires a new Shield run proving remote-only
+selection plus a saved MKA/MP3 that can be opened from the chosen destination.
 
 ## 2026-09-28 — Android runtime URL interpolation fix
 
