@@ -35,7 +35,18 @@ assert hashlib.sha256(decoded).hexdigest() == "243221de8f1d0b1777855843e442ddde7
 print("Android shell invariants: PASS")
 
 # Physical Shield regression: the Gradle placeholder must be interpolated, never escaped.
-assert "versionCode 2" in gradle
-assert "versionName '0.1.1-dev'" in gradle
+assert "versionCode 3" in gradle
+assert "versionName '0.2.0-dev'" in gradle
 assert "\\${escapedRuntimeUrl}" not in gradle
 assert "https://zuzuitu.github.io/subsync-web-enhanced/" in gradle
+
+# Android TV native save must use the system document provider rather than blob: downloads.
+assert 'addJavascriptInterface(new SubSyncAndroidBridge(), "SubSyncAndroid")' in activity
+assert "Intent.ACTION_CREATE_DOCUMENT" in activity
+assert "@JavascriptInterface" in activity
+assert "requestSave" in activity
+assert "writeSaveChunk" in activity
+assert "finishSave" in activity
+assert "abortSave" in activity
+assert "Base64.decode" in activity
+assert "openOutputStream" in activity
