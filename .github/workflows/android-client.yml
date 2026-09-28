@@ -63,14 +63,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          short_sha="\${GITHUB_SHA::7}"
-          cp android/app/build/outputs/apk/debug/app-debug.apk "dist/SubSync2-Android-dev-\${short_sha}.apk"
+          short_sha="${GITHUB_SHA::7}"
+          cp android/app/build/outputs/apk/debug/app-debug.apk "dist/SubSync2-Android-dev-${short_sha}.apk"
           sha256sum "dist/SubSync2-Android-dev-\${short_sha}.apk" | tee "dist/SubSync2-Android-dev-\${short_sha}.apk.sha256"
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
-          name: subsync2-android-dev-\${{ github.sha }}
+          name: subsync2-android-dev-${{ github.sha }}
           path: dist/
           if-no-files-found: error
           retention-days: 30
