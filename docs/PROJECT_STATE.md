@@ -13,6 +13,31 @@ Repository truth overrides chat memory. Before material changes, read in this or
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
 
+## 2026-09-28 — Android runtime URL interpolation fix
+
+Physical NVIDIA Shield evidence from the first sideload APK showed the app
+launching into Android WebView but failing before SubSync2 loaded. The rendered
+error URL contained the literal string `${escapedRuntimeUrl}` and WebView reported
+`ERR_CLEARTEXT_NOT_PERMITTED`.
+
+Confirmed root cause in `android/app/build.gradle`:
+- the BuildConfig field escaped the Groovy interpolation marker;
+- the generated Android constant therefore contained placeholder text instead
+  of the canonical HTTPS GitHub Pages URL.
+
+Fix:
+- generate `BuildConfig.SUBSYNC2_URL` from the actual interpolated HTTPS URL;
+- bump the sideload client to versionCode 2 / versionName 0.1.1-dev so it can
+  update the existing Shield installation;
+- add a static regression that rejects the escaped placeholder form;
+- after Gradle compilation, CI inspects generated BuildConfig and fails unless
+  the canonical HTTPS runtime URL is present and the literal placeholder is absent.
+
+This changes only Android native-shell bootstrapping. The deployed SubSync2 PWA,
+synchronization algorithm, thresholds, media privacy model and iPhone runtime are
+unchanged. A new physical Shield retest is required before claiming successful
+Android launch into the PWA.
+
 ## 2026-09-28 — First-party Android / NVIDIA Shield client
 
 Product priority now includes Android/Shield as a first-class physical client,
