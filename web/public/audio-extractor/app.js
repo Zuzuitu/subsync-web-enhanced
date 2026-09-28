@@ -175,6 +175,13 @@ function prepareAndroidTvControls(){
   shareBtn.textContent='Salvează fișierul';
   downloadBtn.classList.add('hidden');
 }
+function ensureAndroidTvFocus(){
+  if(!IS_ANDROID_SHELL)return;
+  const active=document.activeElement;
+  if(active&&active!==document.body&&active!==document.documentElement)return;
+  const first=tvFocusableElements()[0];
+  if(first){first.focus();first.scrollIntoView({block:'nearest',inline:'nearest'})}
+}
 function tvFocusableElements(){
   return Array.from(document.querySelectorAll('button,.mode-card[tabindex],.track-option[tabindex]')).filter(el=>{
     if(el.classList.contains('hidden')||el.closest('.hidden'))return false;
@@ -233,3 +240,5 @@ if ('ResizeObserver' in window) {
 window.addEventListener('load', publishEmbeddedHeight);
 
 prepareAndroidTvControls();
+window.addEventListener('focus',()=>setTimeout(ensureAndroidTvFocus,0));
+if(document.hasFocus())setTimeout(ensureAndroidTvFocus,0);
