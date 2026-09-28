@@ -5,8 +5,10 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Base64;
 import android.view.View;
 import android.view.WindowManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -15,13 +17,26 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
 
+import org.json.JSONObject;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.UUID;
+
 public final class MainActivity extends Activity {
     private static final int FILE_CHOOSER_REQUEST = 9001;
+    private static final int NATIVE_SAVE_REQUEST = 9002;
     private static final String ALLOWED_HOST = "zuzuitu.github.io";
     private static final String ALLOWED_PATH_PREFIX = "/subsync-web-enhanced/";
 
+    private final Object nativeSaveLock = new Object();
+
     private WebView webView;
     private ValueCallback<Uri[]> pendingFileCallback;
+    private String pendingNativeSaveSession;
+    private String activeNativeSaveSession;
+    private Uri activeNativeSaveUri;
+    private OutputStream activeNativeSaveStream;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,6 +69,7 @@ public final class MainActivity extends Activity {
             WebView.setWebContentsDebuggingEnabled(true);
         }
 
+        webView.addJavascriptInterface(new SubSyncAndroidBridge(), "SubSyncAndroid");
         webView.setWebViewClient(new SubSyncWebViewClient());
         webView.setWebChromeClient(new SubSyncWebChromeClient());
 
@@ -121,8 +137,134 @@ public final class MainActivity extends Activity {
         }
     }
 
+    private void launchNativeSave(String sessionId, String suggestedName, String mimeType) {
+        abortNativeSaveInternal(false);
+        pendingNativeSaveSession = sessionId;
+
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType(
+                mimeType == null || mimeType.trim().isEmpty()
+                        ? "application/octet-stream"
+                        : mimeType
+        );
+        intent.putExtra(
+                Intent.EXTRA_TITLE,
+                suggestedName == null || suggestedName.trim().isEmpty()
+                        ? "SubSync2-audio"
+                        : suggestedName
+        );
+        intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+
+        try {
+            startActivityForResult(intent, NATIVE_SAVE_REQUEST);
+        } catch (ActivityNotFoundException error) {
+            pendingNativeSaveSession = null;
+            postNativeSaveEvent("subsync2-native-save-error", sessionId,
+                    "Nu am găsit selectorul Android pentru salvare.");
+        }
+    }
+
+    private void prepareNativeSaveTarget(int resultCode, Intent data) {
+        String sessionId = pendingNativeSaveSession;
+        pendingNativeSaveSession = null;
+        if (sessionId == null) {
+            return;
+        }
+
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) {
+            postNativeSaveEvent("subsync2-native-save-cancelled", sessionId, null);
+            return;
+        }
+
+        Uri uri = data.getData();
+        try {
+            int flags = data.getFlags() & (
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                            | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            );
+            if ((flags & Intent.FLAG_GRANT_WRITE_URI_PERMISSION) != 0) {
+                try {
+                    getContentResolver().takePersistableUriPermission(uri, flags);
+                } catch (SecurityException ignored) {
+                    // Some providers only grant the transient permission; that is enough for this save.
+                }
+            }
+
+            OutputStream stream = getContentResolver().openOutputStream(uri, "wt");
+            if (stream == null) {
+                throw new IOException("Android nu a deschis destinația pentru scriere.");
+            }
+
+            synchronized (nativeSaveLock) {
+                activeNativeSaveSession = sessionId;
+                activeNativeSaveUri = uri;
+                activeNativeSaveStream = stream;
+            }
+            postNativeSaveEvent("subsync2-native-save-ready", sessionId, null);
+        } catch (Exception error) {
+            postNativeSaveEvent(
+                    "subsync2-native-save-error",
+                    sessionId,
+                    error.getMessage() == null ? "Nu am putut deschide fișierul pentru salvare." : error.getMessage()
+            );
+        }
+    }
+
+    private void postNativeSaveEvent(String type, String sessionId, String message) {
+        if (webView == null) {
+            return;
+        }
+
+        String payload = "{"
+                + "\"type\":" + JSONObject.quote(type)
+                + ",\"sessionId\":" + JSONObject.quote(sessionId)
+                + (message == null ? "" : ",\"message\":" + JSONObject.quote(message))
+                + "}";
+
+        String script = "(function(m){"
+                + "function send(w){try{w.postMessage(m,'*');"
+                + "for(var i=0;i<w.frames.length;i++){send(w.frames[i]);}}catch(e){}}"
+                + "send(window);"
+                + "})(" + payload + ");";
+
+        runOnUiThread(() -> {
+            if (webView != null) {
+                webView.evaluateJavascript(script, null);
+            }
+        });
+    }
+
+    private void abortNativeSaveInternal(boolean deletePartial) {
+        Uri uri;
+        synchronized (nativeSaveLock) {
+            uri = activeNativeSaveUri;
+            if (activeNativeSaveStream != null) {
+                try {
+                    activeNativeSaveStream.close();
+                } catch (IOException ignored) {
+                }
+            }
+            activeNativeSaveStream = null;
+            activeNativeSaveSession = null;
+            activeNativeSaveUri = null;
+        }
+        if (deletePartial && uri != null) {
+            try {
+                getContentResolver().delete(uri, null, null);
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == NATIVE_SAVE_REQUEST) {
+            prepareNativeSaveTarget(resultCode, data);
+            return;
+        }
+
         if (requestCode != FILE_CHOOSER_REQUEST) {
             super.onActivityResult(requestCode, resultCode, data);
             return;
@@ -172,14 +314,79 @@ public final class MainActivity extends Activity {
             pendingFileCallback.onReceiveValue(null);
             pendingFileCallback = null;
         }
+        abortNativeSaveInternal(false);
         if (webView != null) {
             webView.stopLoading();
+            webView.removeJavascriptInterface("SubSyncAndroid");
             webView.setWebChromeClient(null);
             webView.setWebViewClient(null);
             webView.destroy();
             webView = null;
         }
         super.onDestroy();
+    }
+
+    private final class SubSyncAndroidBridge {
+        @JavascriptInterface
+        public String requestSave(String suggestedName, String mimeType) {
+            String sessionId = UUID.randomUUID().toString();
+            runOnUiThread(() -> launchNativeSave(sessionId, suggestedName, mimeType));
+            return sessionId;
+        }
+
+        @JavascriptInterface
+        public boolean writeSaveChunk(String sessionId, String base64Chunk) {
+            synchronized (nativeSaveLock) {
+                if (activeNativeSaveStream == null
+                        || activeNativeSaveSession == null
+                        || !activeNativeSaveSession.equals(sessionId)) {
+                    return false;
+                }
+                try {
+                    byte[] bytes = Base64.decode(base64Chunk, Base64.DEFAULT);
+                    activeNativeSaveStream.write(bytes);
+                    return true;
+                } catch (Exception error) {
+                    postNativeSaveEvent(
+                            "subsync2-native-save-error",
+                            sessionId,
+                            error.getMessage() == null ? "Scrierea fișierului Android a eșuat." : error.getMessage()
+                    );
+                    return false;
+                }
+            }
+        }
+
+        @JavascriptInterface
+        public boolean finishSave(String sessionId) {
+            synchronized (nativeSaveLock) {
+                if (activeNativeSaveStream == null
+                        || activeNativeSaveSession == null
+                        || !activeNativeSaveSession.equals(sessionId)) {
+                    return false;
+                }
+                try {
+                    activeNativeSaveStream.flush();
+                    activeNativeSaveStream.close();
+                    activeNativeSaveStream = null;
+                    activeNativeSaveSession = null;
+                    activeNativeSaveUri = null;
+                    return true;
+                } catch (IOException error) {
+                    return false;
+                }
+            }
+        }
+
+        @JavascriptInterface
+        public void abortSave(String sessionId) {
+            synchronized (nativeSaveLock) {
+                if (activeNativeSaveSession == null || !activeNativeSaveSession.equals(sessionId)) {
+                    return;
+                }
+            }
+            abortNativeSaveInternal(true);
+        }
     }
 
     private final class SubSyncWebChromeClient extends WebChromeClient {
