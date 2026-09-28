@@ -38,19 +38,15 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Verify preinstalled Android SDK
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -n "${ANDROID_HOME:-}"
-          command -v sdkmanager
-          sdkmanager --version
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ""
 
       - name: Install pinned Android platform
         shell: bash
         run: |
           set -euo pipefail
-          yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Set up Gradle
