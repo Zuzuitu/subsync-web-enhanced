@@ -58,6 +58,18 @@ jobs:
         working-directory: android
         run: gradle --no-daemon :app:assembleDebug
 
+      - name: Verify generated runtime URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          generated="$(find android/app/build/generated -type f \( -name BuildConfig.java -o -name BuildConfig.kt \) | head -n 1)"
+          test -n "$generated"
+          grep -F 'https://zuzuitu.github.io/subsync-web-enhanced/' "$generated"
+          if grep -F '${escapedRuntimeUrl}' "$generated"; then
+            echo "Literal Gradle placeholder leaked into generated BuildConfig"
+            exit 1
+          fi
+
       - name: Prepare APK artifact
         shell: bash
         run: |

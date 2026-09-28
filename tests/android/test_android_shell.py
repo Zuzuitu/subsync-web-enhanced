@@ -33,3 +33,9 @@ decoded = base64.b64decode(key_b64, validate=True)
 assert hashlib.sha256(decoded).hexdigest() == "243221de8f1d0b1777855843e442ddde74b4b9ad3bab70f8777b6051916c7c5f"
 
 print("Android shell invariants: PASS")
+
+# Physical Shield regression: the Gradle placeholder must be interpolated, never escaped.
+assert "versionCode 2" in gradle
+assert "versionName '0.1.1-dev'" in gradle
+assert "\\${escapedRuntimeUrl}" not in gradle
+assert "https://zuzuitu.github.io/subsync-web-enhanced/" in gradle
