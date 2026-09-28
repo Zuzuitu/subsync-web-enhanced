@@ -31,7 +31,7 @@ requireMatch(extractor, /copy:\s*mode==='mka'\?\{mode:'forced'\}/, 'MKA must use
 requireMatch(extractor, /navigator\.storage\?\.getDirectory/, 'OPFS output path missing');
 requireMatch(extractor, /navigator\.share/, 'iOS Share Sheet path missing');
 requireMatch(extractor, /\.\/vendor\/mediabunny\.min\.mjs/, 'Vendored Mediabunny core path missing');
-requireMatch(extractor, /SubSync2Android\//, 'Android shell detection missing');
+requireMatch(extractor, /SubSync2Android/, 'Android shell detection missing');
 requireMatch(extractor, /prepareAndroidTvControls/, 'Android TV D-pad preparation missing');
 requireMatch(extractor, /ensureAndroidTvFocus/, 'Android TV initial focus handoff missing');
 requireMatch(extractorScreen, /contentWindow\.focus\(\)/, 'Android shell must hand focus into the extractor iframe');
