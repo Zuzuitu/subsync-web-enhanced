@@ -133,6 +133,30 @@
         "validationMechanism": "Mediabunny input.canRead()",
         "physicalLargeMkvSelectionRequiresPhysicalIPhoneEvidence": true
       }
+    },
+    "androidClient": {
+      "firstPartyShell": true,
+      "primaryTarget": "NVIDIA Shield / Android",
+      "runtimeSource": "same canonical deployed SubSync2 PWA",
+      "algorithmForkForbidden": true,
+      "audioExtractorForkForbidden": true,
+      "webRuntimeChangesRequireApkRebuild": false,
+      "nativeShellChangesRequireApkRebuild": true,
+      "localMediaProcessingOnly": true,
+      "mediaUploadForbidden": true,
+      "filePicker": {
+        "mechanism": "Android ACTION_OPEN_DOCUMENT",
+        "mimeFilter": "*/*",
+        "mustNotRestrictMkvByExtensionOrMime": true,
+        "selectedFileStillValidatedByWebRuntime": true
+      },
+      "physicalAndroidClaimRequiresPhysicalDeviceEvidence": true,
+      "androidPassDoesNotSubstituteForPhysicalIPhoneWebKit": true,
+      "developmentSigning": {
+        "packageId": "media.alexlab.subsync2.dev",
+        "publicTestKeyOnly": true,
+        "productionOrPlaySigningWithTestKeyForbidden": true
+      }
     }
   },
   "evidence": {
@@ -236,6 +260,19 @@
         "verifyOriginalMkaStreamCopy": true,
         "verifyMp3Mono16kHz": true
       }
+    },
+    "androidClient": {
+      "ciBuildRequired": true,
+      "staticArchitectureRegressionRequired": true,
+      "physicalNvidiaShieldRequiredBeforeShieldCompatibilityClaim": true,
+      "verifyStages": [
+        "launcher",
+        "runtime marker",
+        "native file picker",
+        "File/Blob acquisition",
+        "synchronization or extractor stage",
+        "save/export"
+      ]
     }
   },
   "deployment": {

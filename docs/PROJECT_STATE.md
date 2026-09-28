@@ -13,6 +13,42 @@ Repository truth overrides chat memory. Before material changes, read in this or
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
 
+## 2026-09-28 — First-party Android / NVIDIA Shield client
+
+Product priority now includes Android/Shield as a first-class physical client,
+without creating a second synchronization implementation.
+
+Architecture decision:
+- add a small native Android WebView shell in this repository;
+- the shell loads the same canonical deployed SubSync2 PWA runtime used by web/iOS;
+- synchronization logic, Romanian Whisper, correlation thresholds and Audio
+  Extractor remain owned by the existing web runtime;
+- ordinary SubSync2 runtime changes therefore reach Android through the same
+  deliberate Pages deployment and do not require an APK rebuild;
+- only native-shell changes require a new APK;
+- Android media selection uses Storage Access Framework ACTION_OPEN_DOCUMENT
+  with */* so MKV is not filtered out by MIME/extension metadata;
+- selected media remains local on the Android device and still enters the same
+  File/Blob + container-validation path; no media upload backend is introduced;
+- the app exposes a LEANBACK_LAUNCHER entry and does not require a touchscreen,
+  making NVIDIA Shield a supported physical-test target;
+- the shell keeps the screen awake while open to avoid TV sleep during long jobs.
+
+Testing/evidence boundary:
+- Android uses Chromium/WebView and is not evidence for iPhone/WebKit behavior;
+- physical Shield/Android and physical iPhone remain separate gates;
+- before claiming Shield compatibility, verify launcher, exact runtime marker,
+  native picker, File/Blob acquisition, synchronization/extractor stage and
+  Save/export on the actual device;
+- the first Android CI artifact is a sideload-only development package,
+  media.alexlab.subsync2.dev;
+- its repository-visible test key exists only to keep successive CI APKs
+  update-compatible; it is forbidden for Play Store/production signing.
+
+The Android shell may be pointed at an exact build-specific SubSync2 URL at
+build time for deterministic physical tests. That URL override is test plumbing
+only and must never influence synchronization formulas or thresholds.
+
 ## 2026-09-27 — Session handoff checkpoint: Whisper fix + Audio Extractor + iOS MKV picker
 
 This checkpoint captures the exact end-of-session repository state so a new chat

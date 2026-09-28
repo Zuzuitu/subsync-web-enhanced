@@ -1,0 +1,76 @@
+name: Android Client
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "android/**"
+      - "tests/android/**"
+      - "config/project-invariants.json"
+      - "docs/PROJECT_STATE.md"
+      - ".github/workflows/android-client.yml"
+  push:
+    branches: [main]
+    paths:
+      - "android/**"
+      - "tests/android/**"
+      - ".github/workflows/android-client.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify Android shell invariants
+        run: python3 tests/android/test_android_shell.py
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ""
+
+      - name: Install pinned Android platform
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Build installable development APK
+        working-directory: android
+        run: gradle --no-daemon :app:assembleDebug
+
+      - name: Prepare APK artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          short_sha="${GITHUB_SHA::7}"
+          cp android/app/build/outputs/apk/debug/app-debug.apk "dist/SubSync2-Android-dev-${short_sha}.apk"
+          sha256sum "dist/SubSync2-Android-dev-${short_sha}.apk" | tee "dist/SubSync2-Android-dev-\${short_sha}.apk.sha256"
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: subsync2-android-dev-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
