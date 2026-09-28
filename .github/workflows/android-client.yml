@@ -65,7 +65,7 @@ jobs:
           mkdir -p dist
           short_sha="${GITHUB_SHA::7}"
           cp android/app/build/outputs/apk/debug/app-debug.apk "dist/SubSync2-Android-dev-${short_sha}.apk"
-          sha256sum "dist/SubSync2-Android-dev-\${short_sha}.apk" | tee "dist/SubSync2-Android-dev-\${short_sha}.apk.sha256"
+          sha256sum "dist/SubSync2-Android-dev-${short_sha}.apk" | tee "dist/SubSync2-Android-dev-\${short_sha}.apk.sha256"
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
