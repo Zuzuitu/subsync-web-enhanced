@@ -7,6 +7,8 @@ const DTS_URL='./vendor/mediabunny-dts.min.js?v='+RUNTIME_VERSION;
 let mb=null,input=null,sourceFile=null,audioTracks=[],primaryAudio=null,activeConversion=null,result=null,toastTimer=null,compatibilityToken=0;
 const loadedScripts=new Map();
 const extensions={mp3:false,ac3:false,dts:false};
+const IS_ANDROID_SHELL=/\\bSubSync2Android\\//.test(navigator.userAgent);
+let pendingNativeSaveSession=null,nativeSaveBusy=false;
 const $=id=>document.getElementById(id);
 const fileInput=$('fileInput'),pickBtn=$('pickBtn'),changeFileBtn=$('changeFileBtn'),fileMeta=$('fileMeta'),tracksCard=$('tracksCard'),trackList=$('trackList'),modeCard=$('modeCard'),actionCard=$('actionCard'),compatibility=$('compatibility'),extractBtn=$('extractBtn'),cancelBtn=$('cancelBtn'),progressWrap=$('progressWrap'),progressBar=$('progressBar'),progressPct=$('progressPct'),statusText=$('statusText'),resultActions=$('resultActions'),shareBtn=$('shareBtn'),downloadBtn=$('downloadBtn'),resetBtn=$('resetBtn'),toast=$('toast');
 
@@ -16,7 +18,7 @@ function safeName(n){return String(n||'audio').replace(/[\\/:*?"<>|\u0000-\u001f
 function baseName(n){return safeName(n).replace(/\.[^/.]+$/,'')}
 function escapeHtml(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
 function showToast(m,e=false){clearTimeout(toastTimer);toast.textContent=m;toast.classList.remove('hidden','error');if(e)toast.classList.add('error');toastTimer=setTimeout(()=>toast.classList.add('hidden'),6000)}
-function readableError(err){if(err?.name==='ConversionCanceledError'||err?.name==='AbortError')return'Procesarea a fost oprită.';const m=err?.message||String(err||'Eroare necunoscută');return /memory|allocation|out of memory/i.test(m)?'iOS nu mai are suficientă memorie disponibilă. Închide aplicațiile grele și încearcă din nou.':m}
+function readableError(err){if(err?.name==='ConversionCanceledError'||err?.name==='AbortError')return'Procesarea a fost oprită.';const m=err?.message||String(err||'Eroare necunoscută');return /memory|allocation|out of memory/i.test(m)?'Dispozitivul nu mai are suficientă memorie disponibilă. Închide aplicațiile grele și încearcă din nou.':m}
 async function safeCall(fn,fallback=null){try{return await fn()}catch(_){return fallback}}
 function loadClassicRuntime(url,globalName){
   if(globalThis[globalName])return Promise.resolve(globalThis[globalName]);
@@ -80,9 +82,9 @@ async function renderTracks(){
     const isPrimary=primaryAudio&&track.id===primaryAudio.id,checked=isPrimary||(!primaryAudio&&i===0),language=lang&&lang!=='und'?String(lang).toUpperCase():'limbă necunoscută',title=name||`Pista audio ${track.number||i+1}`,flags=[];
     if(disposition?.default)flags.push('default');if(disposition?.commentary)flags.push('comentariu');
     const detail=[codec||internal||'codec necunoscut',language,Number.isFinite(channels)?`${channels} ch`:null,Number.isFinite(rate)?`${Math.round(rate/100)/10} kHz`:null,...flags].filter(Boolean).join(' • ');
-    cards.push(`<label class="track-option"><input type="radio" name="audioTrack" value="${i}" ${checked?'checked':''}><div class="track-body"><div class="track-title">${escapeHtml(title)} ${isPrimary?'<span class="primary-tag">principală</span>':''}</div><div class="track-detail">${escapeHtml(detail)}</div></div></label>`);
+    cards.push(`<label class="track-option"${IS_ANDROID_SHELL?' tabindex="0"':''}><input type="radio" name="audioTrack" value="${i}" ${checked?'checked':''}><div class="track-body"><div class="track-title">${escapeHtml(title)} ${isPrimary?'<span class="primary-tag">principală</span>':''}</div><div class="track-detail">${escapeHtml(detail)}</div></div></label>`);
   }
-  trackList.innerHTML=cards.join('');trackList.querySelectorAll('input[name="audioTrack"]').forEach(el=>el.addEventListener('change',updateCompatibility));
+  trackList.innerHTML=cards.join('');trackList.querySelectorAll('input[name="audioTrack"]').forEach(el=>el.addEventListener('change',updateCompatibility));prepareAndroidTvControls();
 }
 function selectedTrack(){const r=document.querySelector('input[name="audioTrack"]:checked');return r?audioTracks[Number(r.value)]:null}
 function selectedMode(){return document.querySelector('input[name="mode"]:checked')?.value||'mp3'}
@@ -122,8 +124,90 @@ async function extract(){
     await conversion.execute();activeConversion=null;setProgress(1,'Fișier pregătit');await finalizeResult(dest,output,name,mime);showToast(`Gata: ${name} • ${bytes(result.file.size)}`);
   }catch(err){activeConversion=null;if(dest?.opfs&&dest.root&&dest.entryName){try{await dest.root.removeEntry(dest.entryName)}catch(_){}}showToast(readableError(err),true)}finally{setBusy(false);if(!result)await updateCompatibility()}
 }
-async function shareResult(){if(!result?.file)return;try{const p={files:[result.file],title:result.name};if(navigator.share&&(!navigator.canShare||navigator.canShare(p))){await navigator.share(p);return}downloadResult();showToast('Share Sheet nu este disponibil; am pornit descărcarea.')}catch(err){if(err?.name!=='AbortError')showToast(readableError(err),true)}}
-function downloadResult(){if(!result?.file)return;const url=URL.createObjectURL(result.file),a=document.createElement('a');a.href=url;a.download=result.name;a.rel='noopener';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)}
+function hasNativeAndroidSave(){return IS_ANDROID_SHELL&&typeof globalThis.SubSyncAndroid?.requestSave==='function'&&typeof globalThis.SubSyncAndroid?.writeSaveChunk==='function'&&typeof globalThis.SubSyncAndroid?.finishSave==='function'}
+function setNativeSaveBusy(b){nativeSaveBusy=b;shareBtn.disabled=b;downloadBtn.disabled=b;resetBtn.disabled=b;changeFileBtn.disabled=b;pickBtn.disabled=b}
+function blobToBase64(blob){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>{const s=String(reader.result||''),i=s.indexOf(',');resolve(i>=0?s.slice(i+1):s)};reader.onerror=()=>reject(reader.error||new Error('Nu am putut citi rezultatul pentru salvare.'));reader.readAsDataURL(blob)})}
+async function streamResultToAndroid(sessionId){
+  if(!result?.file||!hasNativeAndroidSave())return;
+  const file=result.file,chunkSize=256*1024,total=file.size;
+  try{
+    setNativeSaveBusy(true);setProgress(0,'Salvez pe Android…');
+    for(let offset=0;offset<total;offset+=chunkSize){
+      const end=Math.min(total,offset+chunkSize),encoded=await blobToBase64(file.slice(offset,end));
+      if(!globalThis.SubSyncAndroid.writeSaveChunk(sessionId,encoded))throw new Error('Android nu a putut scrie rezultatul.');
+      setProgress(total?end/total:1,`Salvez pe Android • ${Math.round((total?end/total:1)*100)}%`);
+    }
+    if(!globalThis.SubSyncAndroid.finishSave(sessionId))throw new Error('Android nu a putut finaliza fișierul.');
+    pendingNativeSaveSession=null;setProgress(1,'Fișier salvat');showToast(`Salvat: ${result.name}`);
+  }catch(err){
+    try{globalThis.SubSyncAndroid.abortSave?.(sessionId)}catch(_){}
+    pendingNativeSaveSession=null;showToast(readableError(err),true);
+  }finally{setNativeSaveBusy(false)}
+}
+function requestNativeSave(){
+  if(!result?.file||nativeSaveBusy||!hasNativeAndroidSave())return false;
+  try{
+    setNativeSaveBusy(true);
+    pendingNativeSaveSession=globalThis.SubSyncAndroid.requestSave(result.name,result.mime);
+    if(!pendingNativeSaveSession)throw new Error('Android nu a pornit selectorul de salvare.');
+    statusText.textContent='Alege unde salvezi fișierul…';
+    return true;
+  }catch(err){
+    pendingNativeSaveSession=null;setNativeSaveBusy(false);showToast(readableError(err),true);return false;
+  }
+}
+async function shareResult(){if(!result?.file)return;if(hasNativeAndroidSave()){requestNativeSave();return}try{const p={files:[result.file],title:result.name};if(navigator.share&&(!navigator.canShare||navigator.canShare(p))){await navigator.share(p);return}downloadResult();showToast('Share Sheet nu este disponibil; am pornit descărcarea.')}catch(err){if(err?.name!=='AbortError')showToast(readableError(err),true)}}
+function downloadResult(){if(!result?.file)return;if(hasNativeAndroidSave()){requestNativeSave();return}const url=URL.createObjectURL(result.file),a=document.createElement('a');a.href=url;a.download=result.name;a.rel='noopener';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)}
+
+window.addEventListener('message',event=>{
+  if(event.origin!==window.location.origin)return;
+  const data=event.data;
+  if(!data||data.sessionId!==pendingNativeSaveSession)return;
+  if(data.type==='subsync2-native-save-ready'){streamResultToAndroid(data.sessionId);return}
+  if(data.type==='subsync2-native-save-cancelled'){pendingNativeSaveSession=null;setNativeSaveBusy(false);showToast('Salvarea a fost anulată.');return}
+  if(data.type==='subsync2-native-save-error'){pendingNativeSaveSession=null;setNativeSaveBusy(false);showToast(data.message||'Salvarea Android a eșuat.',true)}
+});
+
+function prepareAndroidTvControls(){
+  if(!IS_ANDROID_SHELL)return;
+  document.body.classList.add('android-tv');
+  document.querySelectorAll('.mode-card,.track-option').forEach(el=>{el.tabIndex=0});
+  shareBtn.textContent='Salvează fișierul';
+  downloadBtn.classList.add('hidden');
+}
+function tvFocusableElements(){
+  return Array.from(document.querySelectorAll('button,.mode-card[tabindex],.track-option[tabindex]')).filter(el=>{
+    if(el.classList.contains('hidden')||el.closest('.hidden'))return false;
+    if(el.matches('button')&&el.disabled)return false;
+    const radio=el.matches('.mode-card,.track-option')?el.querySelector('input[type="radio"]'):null;
+    if(radio?.disabled)return false;
+    return el.getClientRects().length>0;
+  });
+}
+function moveAndroidTvFocus(key){
+  const items=tvFocusableElements();if(!items.length)return;
+  const active=document.activeElement;
+  if(!items.includes(active)){items[0].focus();items[0].scrollIntoView({block:'nearest',inline:'nearest'});return}
+  const a=active.getBoundingClientRect(),ax=a.left+a.width/2,ay=a.top+a.height/2;
+  let best=null,bestScore=Infinity;
+  for(const el of items){
+    if(el===active)continue;
+    const r=el.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2,dx=x-ax,dy=y-ay;
+    let primary,cross;
+    if(key==='ArrowRight'){if(dx<=4)continue;primary=dx;cross=Math.abs(dy)}
+    else if(key==='ArrowLeft'){if(dx>=-4)continue;primary=-dx;cross=Math.abs(dy)}
+    else if(key==='ArrowDown'){if(dy<=4)continue;primary=dy;cross=Math.abs(dx)}
+    else{if(dy>=-4)continue;primary=-dy;cross=Math.abs(dx)}
+    const score=primary+cross*2.25;
+    if(score<bestScore){bestScore=score;best=el}
+  }
+  if(best){best.focus();best.scrollIntoView({block:'nearest',inline:'nearest'})}
+}
+document.addEventListener('keydown',event=>{
+  if(!IS_ANDROID_SHELL)return;
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.key)){event.preventDefault();moveAndroidTvFocus(event.key);return}
+  if((event.key==='Enter'||event.key===' ')&&document.activeElement?.matches('.mode-card,.track-option')){event.preventDefault();document.activeElement.click()}
+});
 
 pickBtn.addEventListener('click',()=>fileInput.click());changeFileBtn.addEventListener('click',()=>resetAll(true));resetBtn.addEventListener('click',()=>resetAll(true));
 fileInput.addEventListener('change',()=>{const f=fileInput.files?.[0];fileInput.value='';if(f)analyze(f)});
@@ -147,3 +231,5 @@ if ('ResizeObserver' in window) {
   new ResizeObserver(() => publishEmbeddedHeight()).observe(document.body);
 }
 window.addEventListener('load', publishEmbeddedHeight);
+
+prepareAndroidTvControls();
