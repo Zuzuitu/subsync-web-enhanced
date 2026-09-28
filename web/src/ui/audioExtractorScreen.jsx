@@ -21,5 +21,18 @@ export default class AudioExtractorScreen {
       }
     };
     window.addEventListener('message', this.onMessage);
+
+    this.isAndroidShell = /\bSubSync2Android\//.test(navigator.userAgent);
+    if (this.isAndroidShell) {
+      this.frame.tabIndex = 0;
+      this.frame.addEventListener('load', () => {
+        this.frame.focus();
+        try {
+          this.frame.contentWindow.focus();
+        } catch (_) {
+          // Same-origin by construction; keep the iframe itself focused as fallback.
+        }
+      });
+    }
   }
 }

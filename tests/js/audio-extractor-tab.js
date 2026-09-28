@@ -10,6 +10,7 @@ const index = read('web/public/index.html');
 const router = read('web/src/router.js');
 const main = read('web/src/main.js');
 const extractor = read('web/public/audio-extractor/app.js');
+const extractorScreen = read('web/src/ui/audioExtractorScreen.jsx');
 const extractorHtml = read('web/public/audio-extractor/index.html');
 const runtime = JSON.parse(read('config/audio-extractor-runtime.json'));
 const sw = read('web/public/sw.js.in');
@@ -30,6 +31,14 @@ requireMatch(extractor, /copy:\s*mode==='mka'\?\{mode:'forced'\}/, 'MKA must use
 requireMatch(extractor, /navigator\.storage\?\.getDirectory/, 'OPFS output path missing');
 requireMatch(extractor, /navigator\.share/, 'iOS Share Sheet path missing');
 requireMatch(extractor, /\.\/vendor\/mediabunny\.min\.mjs/, 'Vendored Mediabunny core path missing');
+requireMatch(extractor, /SubSync2Android/, 'Android shell detection missing');
+requireMatch(extractor, /prepareAndroidTvControls/, 'Android TV D-pad preparation missing');
+requireMatch(extractor, /ensureAndroidTvFocus/, 'Android TV initial focus handoff missing');
+requireMatch(extractorScreen, /contentWindow\.focus\(\)/, 'Android shell must hand focus into the extractor iframe');
+requireMatch(extractor, /moveAndroidTvFocus/, 'Android TV directional focus navigation missing');
+requireMatch(extractor, /SubSyncAndroid\.requestSave/, 'Android native save request missing');
+requireMatch(extractor, /SubSyncAndroid\.writeSaveChunk/, 'Android native chunked save path missing');
+requireMatch(extractor, /subsync2-native-save-ready/, 'Android native save callback missing');
 if (/cdn\.jsdelivr\.net/.test(extractor)) {
   throw new Error('Audio Extractor must not depend on jsDelivr at runtime');
 }

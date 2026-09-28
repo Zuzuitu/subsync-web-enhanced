@@ -59,3 +59,19 @@ Shield/Android pass, test the generated APK on the actual device and record:
 7. any WebView/codec/storage failure with its exact stage.
 
 An Android PASS does not substitute for the separate physical iPhone/WebKit gate.
+
+
+## Android TV remote and native save
+
+The Shield client must be usable with the standard D-pad/OK remote without a
+mouse helper. In Android-shell mode, Audio Extractor cards participate in
+directional focus navigation and expose a visible TV focus state.
+
+Browser blob downloads are not the Android TV export contract. The shell exposes
+a narrow `SubSyncAndroid` bridge: the web runtime asks Android to open
+`ACTION_CREATE_DOCUMENT`, then streams the already-local output File to the
+selected content URI in bounded chunks. No media is uploaded and no server-side
+conversion is introduced.
+
+This path is physically validated only after the actual Shield can select the
+mode, start extraction and save/open the resulting file using the remote.
