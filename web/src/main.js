@@ -6,6 +6,7 @@ import settings from './settings.js';
 import { version } from '../version.json';
 import Logger from './logger.js';
 const logger = Logger.logger.get();
+const IS_ANDROID_SHELL = /\bSubSync2Android\//.test(navigator.userAgent);
 
 function requestedRoute() {
   return new URLSearchParams(window.location.search).get('tab') === 'audio'
@@ -35,6 +36,12 @@ function updateUrl(route, replace = false) {
 }
 
 async function main() {
+  document.documentElement.classList.toggle('android-shell', IS_ANDROID_SHELL);
+  if (IS_ANDROID_SHELL) {
+    const localBadge = document.querySelector('.local_badge');
+    if (localBadge) localBadge.textContent = 'Android TV · local';
+  }
+
   settings.load();
   setTranslation(settings.lang);
 
