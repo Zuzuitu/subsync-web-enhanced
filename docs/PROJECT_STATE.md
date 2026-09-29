@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-28
+LAST_UPDATED: 2026-09-29
 
 ## Canonical status
 
@@ -12,6 +12,29 @@ Repository truth overrides chat memory. Before material changes, read in this or
 4. relevant current implementation
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
+
+## 2026-09-29 — Android TV living-room visual refresh
+
+After the remote/navigation and native-save path was deployed successfully on
+runtime `6ca39479d9292a98dd975b93f385e97975c37e5b`, the Shield shell received a
+visual-only TV refinement without changing synchronization or extraction
+semantics:
+
+- the parent PWA now marks the first-party Android shell with an
+  `android-shell` class derived from the existing `SubSync2Android/`
+  user-agent marker;
+- Android TV uses a wider living-room layout, larger tab targets and explicit
+  high-contrast focus treatment;
+- Audio Extractor uses a TV-specific hero, larger file target, two-column audio
+  track layout where space allows, larger output cards/buttons and stronger
+  selected/focus states;
+- Android-only copy names the shell as Android TV and calls out HDD/USB/local
+  storage, while browser/iPhone copy remains compact;
+- no media path, codec setting, synchronization threshold, save policy,
+  privacy rule or paid service changed.
+
+This visual layer still requires physical Shield review; automated browser
+checks cannot prove subjective readability or couch-distance ergonomics.
 
 ## 2026-09-28 — Android TV remote + native save follow-up
 
