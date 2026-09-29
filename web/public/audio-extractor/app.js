@@ -56,7 +56,7 @@ async function ensureDecoder(track){
   const key=`${codec} ${internal}`;
   if((key.includes('ac3')||key.includes('eac3')||key.includes('e-ac-3'))&&!extensions.ac3){await loadEngine();const ext=await loadClassicRuntime(AC3_URL,'MediabunnyAc3');ext.registerAc3Decoder();extensions.ac3=true}
   if(key.includes('dts')&&!extensions.dts){await loadEngine();const ext=await loadClassicRuntime(DTS_URL,'MediabunnyDts');ext.registerDtsDecoder();extensions.dts=true}
-  if(!await safeCall(()=>track.canDecode(),false))throw new Error(`Pista ${codec||internal||'cu codec necunoscut'} nu poate fi decodată pe acest iPhone pentru MP3. Poți încerca „Original MKA”.`);
+  if(!await safeCall(()=>track.canDecode(),false))throw new Error(`Pista ${codec||internal||'cu codec necunoscut'} nu poate fi decodată pe acest dispozitiv pentru MP3. Poți încerca „Original MKA”.`);
 }
 async function disposeInput(){compatibilityToken++;try{input?.dispose?.()}catch(_){}input=null;sourceFile=null;audioTracks=[];primaryAudio=null}
 async function cleanupResult(){if(!result)return;const old=result;result=null;resultActions.classList.add('hidden');try{if(old.opfs&&old.root&&old.entryName)await old.root.removeEntry(old.entryName)}catch(_){}}
@@ -172,7 +172,13 @@ function prepareAndroidTvControls(){
   if(!IS_ANDROID_SHELL)return;
   document.body.classList.add('android-tv');
   document.querySelectorAll('.mode-card,.track-option').forEach(el=>{el.tabIndex=0});
-  shareBtn.textContent='Salvează fișierul';
+  const heroEyebrow=document.querySelector('.hero .eyebrow');
+  const privacyPill=document.querySelector('.privacy-pill');
+  const pickerHint=pickBtn.querySelector('span:last-child');
+  if(heroEyebrow)heroEyebrow.textContent='SUBSYNC2 · ANDROID TV';
+  if(privacyPill)privacyPill.textContent='Android TV · local';
+  if(pickerHint)pickerHint.textContent='HDD extern, USB sau storage local';
+  shareBtn.textContent='Salvează pe dispozitiv';
   downloadBtn.classList.add('hidden');
 }
 function ensureAndroidTvFocus(){

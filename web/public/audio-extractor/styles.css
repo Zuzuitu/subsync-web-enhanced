@@ -30,3 +30,280 @@
   .android-tv .primary-btn,.android-tv .ghost-btn{min-height:56px;font-size:17px}
   .android-tv .track-body{padding:18px}
 }
+
+
+/* Premium Android TV treatment: optimized for 10-foot viewing and remote focus. */
+.android-tv {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(45,212,191,.12), transparent 28rem),
+    radial-gradient(circle at 100% 10%, rgba(59,130,246,.10), transparent 30rem);
+}
+.android-tv .shell {
+  max-width: 1120px;
+  padding: 26px 30px 54px;
+}
+.android-tv .hero {
+  position: relative;
+  overflow: hidden;
+  align-items: center;
+  min-height: 150px;
+  margin: 0 0 18px;
+  padding: 28px 30px;
+  border: 1px solid rgba(148,163,184,.16);
+  border-radius: 26px;
+  background:
+    linear-gradient(120deg, rgba(18,35,55,.96), rgba(12,23,40,.94)),
+    rgba(16,24,40,.94);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.05),
+    0 22px 60px rgba(0,0,0,.20);
+}
+.android-tv .hero::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: linear-gradient(180deg, #6ee7b7, #60a5fa);
+  box-shadow: 0 0 26px rgba(110,231,183,.40);
+}
+.android-tv .hero::after {
+  content: "";
+  position: absolute;
+  width: 280px;
+  height: 280px;
+  right: -110px;
+  top: -150px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(96,165,250,.16), transparent 68%);
+  pointer-events: none;
+}
+.android-tv .hero h1 {
+  font-size: clamp(38px, 4.2vw, 54px);
+  letter-spacing: -.045em;
+}
+.android-tv .hero .subtitle {
+  max-width: 660px;
+  margin-top: 10px;
+  font-size: 16px;
+}
+.android-tv .eyebrow {
+  margin-bottom: 9px;
+  font-size: 12px;
+  letter-spacing: .18em;
+}
+.android-tv .privacy-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border-color: rgba(110,231,183,.26);
+  background: rgba(52,211,153,.09);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+  font-size: 12px;
+  letter-spacing: .02em;
+}
+.android-tv .card {
+  margin: 14px 0;
+  padding: 22px;
+  border-color: rgba(148,163,184,.14);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(18,29,47,.90), rgba(12,22,38,.90));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+}
+.android-tv .privacy-card {
+  position: relative;
+  min-height: 64px;
+  justify-content: center;
+  padding-left: 58px;
+  border-color: rgba(110,231,183,.15);
+  background: linear-gradient(90deg, rgba(52,211,153,.06), rgba(96,165,250,.025));
+}
+.android-tv .privacy-card::before {
+  content: "✓";
+  position: absolute;
+  left: 22px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: #052e24;
+  background: linear-gradient(135deg,#86efac,#67e8f9);
+  font-weight: 950;
+}
+.android-tv .privacy-card strong {
+  font-size: 15px;
+}
+.android-tv .drop-card {
+  padding: 10px;
+  background: rgba(12,22,38,.78);
+}
+.android-tv .dropzone {
+  min-height: 210px;
+  border: 1px solid rgba(110,231,183,.20);
+  border-radius: 18px;
+  background:
+    linear-gradient(145deg, rgba(52,211,153,.045), rgba(96,165,250,.035)),
+    #0b1524;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+}
+.android-tv .drop-icon {
+  width: 62px;
+  height: 62px;
+  margin-bottom: 4px;
+  border: 1px solid rgba(110,231,183,.22);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(110,231,183,.16), rgba(96,165,250,.10));
+  font-size: 34px;
+  box-shadow: 0 12px 30px rgba(0,0,0,.18);
+}
+.android-tv .dropzone strong {
+  font-size: 22px;
+  letter-spacing: -.02em;
+}
+.android-tv .dropzone span:last-child {
+  font-size: 14px;
+}
+.android-tv .section-title-row {
+  margin-bottom: 18px;
+}
+.android-tv .section-title-row h2 {
+  font-size: 25px;
+}
+.android-tv .track-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.android-tv .track-body,
+.android-tv .mode-card {
+  border-color: rgba(148,163,184,.15);
+  background:
+    linear-gradient(180deg, rgba(14,25,42,.96), rgba(10,19,33,.96));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+}
+.android-tv .track-body {
+  min-height: 96px;
+  padding: 20px;
+}
+.android-tv .track-title {
+  font-size: 16px;
+}
+.android-tv .track-detail {
+  margin-top: 9px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.android-tv .mode-grid {
+  gap: 16px;
+}
+.android-tv .mode-card {
+  min-height: 180px;
+  padding: 22px;
+  border-radius: 18px;
+}
+.android-tv .mode-title {
+  font-size: 21px;
+  letter-spacing: -.02em;
+}
+.android-tv .mode-desc {
+  max-width: 420px;
+  font-size: 14px;
+}
+.android-tv .mode-badge {
+  padding: 6px 10px;
+  border: 1px solid rgba(110,231,183,.14);
+}
+.android-tv .track-option input:checked + .track-body,
+.android-tv .mode-card.selected {
+  border-color: rgba(110,231,183,.72);
+  background:
+    linear-gradient(145deg, rgba(52,211,153,.11), rgba(96,165,250,.06)),
+    #0c1727;
+  box-shadow:
+    inset 0 0 0 1px rgba(110,231,183,.35),
+    0 16px 36px rgba(0,0,0,.12);
+}
+.android-tv .primary-btn,
+.android-tv .ghost-btn {
+  min-height: 60px;
+  border-radius: 14px;
+  font-size: 17px;
+  letter-spacing: -.01em;
+}
+.android-tv .primary-btn {
+  background: linear-gradient(135deg, #86efac 0%, #6ee7b7 45%, #67e8f9 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.40),
+    0 12px 28px rgba(52,211,153,.12);
+}
+.android-tv .ghost-btn {
+  border-color: rgba(148,163,184,.20);
+  background: rgba(25,39,62,.86);
+}
+.android-tv .progress-track {
+  height: 10px;
+  background: #07111f;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,.45);
+}
+.android-tv .progress-bar {
+  background: linear-gradient(90deg,#34d399,#67e8f9,#60a5fa);
+  box-shadow: 0 0 18px rgba(103,232,249,.22);
+}
+.android-tv .info-card {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px;
+  background: rgba(9,18,31,.58);
+}
+.android-tv .info-card > div {
+  min-height: 86px;
+  padding: 14px;
+  border: 1px solid rgba(148,163,184,.11);
+  border-radius: 14px;
+  background: rgba(18,31,50,.52);
+}
+.android-tv .notice {
+  margin: 14px 2px 0;
+  text-align: center;
+}
+.android-tv button:focus-visible,
+.android-tv .mode-card:focus,
+.android-tv .track-option:focus .track-body {
+  outline: 3px solid #f8fafc;
+  outline-offset: 5px;
+  box-shadow:
+    0 0 0 8px rgba(110,231,183,.22),
+    0 20px 42px rgba(0,0,0,.22);
+  transform: scale(1.025);
+}
+.android-tv .track-option:focus {
+  outline: none;
+}
+.android-tv button,
+.android-tv .mode-card,
+.android-tv .track-body {
+  transition:
+    transform .14s ease,
+    box-shadow .14s ease,
+    border-color .14s ease,
+    background .14s ease;
+}
+@media (max-width: 900px) {
+  .android-tv .track-list,
+  .android-tv .info-card {
+    grid-template-columns: 1fr;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .android-tv button,
+  .android-tv .mode-card,
+  .android-tv .track-body {
+    transition: none;
+  }
+  .android-tv button:focus-visible,
+  .android-tv .mode-card:focus,
+  .android-tv .track-option:focus .track-body {
+    transform: none;
+  }
+}
