@@ -12,6 +12,8 @@ const main = read('web/src/main.js');
 const extractor = read('web/public/audio-extractor/app.js');
 const extractorScreen = read('web/src/ui/audioExtractorScreen.jsx');
 const extractorHtml = read('web/public/audio-extractor/index.html');
+const appCss = read('web/public/app.css');
+const extractorCss = read('web/public/audio-extractor/styles.css');
 const runtime = JSON.parse(read('config/audio-extractor-runtime.json'));
 const sw = read('web/public/sw.js.in');
 
@@ -19,6 +21,10 @@ requireMatch(index, /data-subsync2-tab="sync"/, 'Synchronize tab missing');
 requireMatch(index, /data-subsync2-tab="audio"/, 'Audio Extractor tab missing');
 requireMatch(router, /audio:\s*AudioExtractorScreen/, 'Audio route missing');
 requireMatch(main, /get\('tab'\) === 'audio'/, 'Audio tab routing missing');
+requireMatch(main, /android-shell/, 'Android shell visual hook missing');
+requireMatch(appCss, /\.android-shell \.app_tabs a:focus-visible/, 'Android TV shell focus styling missing');
+requireMatch(extractorCss, /\.android-tv \.hero/, 'Android TV premium extractor hero styling missing');
+requireMatch(extractorCss, /\.android-tv \.track-list/, 'Android TV track layout styling missing');
 requireMatch(extractorHtml, /value="mp3"/, 'MP3 mode missing');
 requireMatch(extractorHtml, /value="mka"/, 'MKA mode missing');
 if (/id="fileInput"[^>]*\saccept=/.test(extractorHtml)) {
