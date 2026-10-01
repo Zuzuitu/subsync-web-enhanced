@@ -140,11 +140,11 @@ class Extractor {
     }
   }
 
-  startCurrentWindow() {
+  startCurrentWindow(forceSeek = false) {
     this.windowFinished = false;
     const demux = this.pipeline.demux;
     const startTime = this.timeWindow[0] || 0;
-    if (startTime) {
+    if (startTime || forceSeek) {
       demux.seek(startTime);
     }
     demux.start();
@@ -160,7 +160,7 @@ class Extractor {
     this.windowIndex += 1;
     this.timeWindow = this.timeWindows[this.windowIndex];
     this.windowWordCount = 0;
-    this.startCurrentWindow();
+    this.startCurrentWindow(true);
     return true;
   }
 

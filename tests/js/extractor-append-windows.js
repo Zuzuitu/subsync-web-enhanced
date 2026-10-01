@@ -57,8 +57,11 @@ function extractor(windows) {
 
   const eof = extractor([[98, 105]]);
   assert.strictEqual((await eof.run()).done, true);
-  assert.strictEqual(eof.appendTimeWindows([[1, 3]]).resumed, true);
-  assert.strictEqual((await eof.run()).windowCompleted.start, 1);
+  assert.strictEqual(eof.appendTimeWindows([[0, 2]]).resumed, true);
+  const rewind = await eof.run();
+  assert.strictEqual(rewind.windowCompleted.start, 0);
+  assert.strictEqual(rewind.windowCompleted.wordCount, 2,
+    'resuming at time zero must seek back instead of staying at EOF');
 
   const partial = extractor([[1, 5]]);
   assert.strictEqual((await partial.run(0)).done, false);

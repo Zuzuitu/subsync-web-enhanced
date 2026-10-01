@@ -27,6 +27,9 @@ partly decoded window, including its buffered audio and counters. Primary-rescue
 resume and EOF-then-backward-seek behavior remain supported. A deterministic
 test of the actual worker class fails before the fix and passes afterwards,
 covering pending, partial, exhausted, repeated append, EOF and invalid inputs.
+The EOF regression also exposed a zero-time rewind defect: testing the start
+time for truthiness skipped a required seek to `0`. Transitions now explicitly
+seek even to zero; initial opening retains its existing zero-start behavior.
 
 No additional audio budget, ASR context, acceptance threshold or export rule is
 introduced. The fix prevents lost work; it does not guarantee that every title
