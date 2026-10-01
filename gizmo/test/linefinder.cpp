@@ -298,3 +298,34 @@ TEST_CASE("LineFinder")
 		REQUIRE_THAT( mkLineFinder(pts6e2, 0.2, 60.0), IsBestLine(0.2, 60.0, pts6) );
 	}
 }
+
+TEST_CASE("LineFinder spatial index agrees with orthogonal distance")
+{
+	// Synthetic coordinates close to a 60-second spatial-index boundary.
+	// A vertical +/-maxError box is narrower than the accepted perpendicular
+	// band, so the old index could report three members of a four-point line.
+	const vector<Point> positive = {
+		{539.900024414f, 540.050415039f},
+		{1679.90002441f, 1674.48449707f},
+		{1319.90002441f, 1320.55102539f},
+		{4139.89990234f, 4129.578125f},
+	};
+	// Negative coordinates must use floor, just like insertion, rather than
+	// integer truncation toward zero when choosing the first quadrant.
+	const vector<Point> negative = {
+		{3592.223145f, 3581.451660f},
+		{9.318806648f, -5.967305183f},
+		{695.1157227f, 674.7419434f},
+		{478.1167908f, 458.8322449f},
+	};
+	for (const auto &points : {positive, negative})
+	{
+		LineFinder finder(2.0f, 1800.0f);
+		for (const auto &point : points)
+		{
+			finder.addPoint(point);
+			REQUIRE(finder.getAlignedPointsNo() == finder.getBestLine()
+				.countPointsInLine(finder.getPoints(), 4.0f));
+		}
+	}
+}
