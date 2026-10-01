@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-29
+LAST_UPDATED: 2026-10-02
 
 ## Canonical status
 
@@ -12,6 +12,29 @@ Repository truth overrides chat memory. Before material changes, read in this or
 4. relevant current implementation
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
+
+## 2026-10-02 — LineFinder spatial-index distance consistency
+
+Private multi-title investigation exposed an independently reproducible math
+defect, not yet established as the cause of the real-title synchronization
+failures. LineFinder accepts points by perpendicular distance, but searched
+quadrants using a narrower vertical `+/-maxError` band. A synthetic all-positive
+four-point fixture produced an internal count of three while the exact distance
+predicate counted four. Negative quadrant lookup also truncated toward zero,
+unlike insertion, which uses floor.
+
+The quadrant search now uses the vertical radius
+`maxError * sqrt(1 + slope * slope)` and floor on both bounds. The final exact
+distance predicate, correlation thresholds, fit/pruning semantics, Romanian
+sampling budgets and Save policy are unchanged. Synthetic regression coverage
+includes positive boundary coordinates and negative coordinates. Before the
+fix the new test failed with `3 == 4`; after the fix the native suite passed
+495 assertions in 11 cases.
+
+This is not a claim that all Romanian titles now synchronize, nor physical
+iPhone evidence. Real media, subtitle text and recognition transcripts remain
+private and must not be committed. Broader sampling experiments are separate
+from this focused correction and must pass the real-title matrix before release.
 
 ## 2026-09-29 — Android TV living-room visual refresh
 

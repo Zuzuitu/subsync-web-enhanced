@@ -81,6 +81,10 @@ bool LineFinder::isBestLine(const Line &line)
 		return false;
 
 	const float maxErrorSqr = m_maxError * m_maxError;
+	// Membership below uses perpendicular distance. At a fixed x its band
+	// has vertical radius maxError * sqrt(1 + a*a), not maxError. The index
+	// must conservatively cover that same band before exact distance checks.
+	const float verticalError = m_maxError * sqrt(1.0f + line.a * line.a);
 	size_t pointsNo = 1;
 
 	for (const auto &col : m_quadrants)
@@ -89,8 +93,8 @@ bool LineFinder::isBestLine(const Line &line)
 
 		const float y1 = line.getY(qx * QUADRANT_LEN);
 		const float y2 = line.getY((qx + 1) * QUADRANT_LEN);
-		const int qy1 = (y1 - m_maxError) / QUADRANT_LEN;
-		const int qy2 = (y2 + m_maxError) / QUADRANT_LEN;
+		const int qy1 = floor((y1 - verticalError) / QUADRANT_LEN);
+		const int qy2 = floor((y2 + verticalError) / QUADRANT_LEN);
 
 		const auto &row = col.second;
 		auto it = row.lower_bound(qy1);
