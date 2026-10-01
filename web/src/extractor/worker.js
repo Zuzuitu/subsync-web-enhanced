@@ -141,6 +141,7 @@ class Extractor {
   }
 
   startCurrentWindow() {
+    this.windowFinished = false;
     const demux = this.pipeline.demux;
     const startTime = this.timeWindow[0] || 0;
     if (startTime) {
@@ -159,11 +160,7 @@ class Extractor {
     this.windowIndex += 1;
     this.timeWindow = this.timeWindows[this.windowIndex];
     this.windowWordCount = 0;
-    const startTime = this.timeWindow[0] || 0;
-    if (startTime) {
-      demux.seek(startTime);
-    }
-    demux.start();
+    this.startCurrentWindow();
     return true;
   }
 
@@ -181,23 +178,11 @@ class Extractor {
 
     this.timeWindows.push(...extra);
 
-    // This is called after the last primary window has returned its boundary
-    // status. Resume from the first newly appended rescue window without
-    // rebuilding the pipeline or Whisper context.
-    let resumed = false;
-    if (this.windowIndex + 1 < this.timeWindows.length) {
-      const demux = this.pipeline.demux;
-      demux.stop();
-      this.windowIndex += 1;
-      this.timeWindow = this.timeWindows[this.windowIndex];
-      this.windowWordCount = 0;
-      const startTime = this.timeWindow[0] || 0;
-      if (startTime) {
-        demux.seek(startTime);
-      }
-      demux.start();
-      resumed = true;
-    }
+    // Rescue can resume an exhausted scan. Late confirmation can also be
+    // appended while run() has already advanced into a pending window.
+    // In that case leave the decoder, buffered audio and current index alone:
+    // advancing again would silently skip that existing scheduled window.
+    const resumed = Boolean(this.windowFinished && this.advanceTimeWindow());
 
     return {
       added: extra.length,
@@ -238,6 +223,7 @@ class Extractor {
           if (this.romanianSpeechRec) {
             this.romanianSpeechRec.discontinuity();
           }
+          this.windowFinished = true;
           status.windowCompleted = this.currentWindowSummary();
           if (this.advanceTimeWindow()) {
             status.done = false;
@@ -253,6 +239,7 @@ class Extractor {
           // Demux::step() flushes and emits a discontinuity at EOF. Sparse
           // probes may intentionally visit the end before earlier regions, so
           // EOF is only the end of the current probe, not necessarily the scan.
+          this.windowFinished = true;
           status.windowCompleted = this.currentWindowSummary();
           if (this.advanceTimeWindow()) {
             status.done = false;
@@ -299,6 +286,7 @@ class Extractor {
       this.windowIndex = undefined;
       this.romanianSpeechRec = undefined;
       this.windowWordCount = undefined;
+      this.windowFinished = undefined;
       Gizmo.instance.FS.unmount('/work');
     }
   }
