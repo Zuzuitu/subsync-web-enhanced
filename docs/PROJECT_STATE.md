@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-09-29
+LAST_UPDATED: 2026-10-02
 
 ## Canonical status
 
@@ -12,6 +12,29 @@ Repository truth overrides chat memory. Before material changes, read in this or
 4. relevant current implementation
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
+
+## 2026-10-02 — Preserve queued audio when appending confirmation probes
+
+A private browser experiment ended inconclusively after 23 of 24 scheduled
+probes. The trace showed that appending the late reserve before the final rescue
+probe completed skipped that rescue probe: `run()` had already advanced to it,
+then `appendTimeWindows()` advanced a second time. This is a scheduling defect,
+not evidence that canonical thresholds should be relaxed.
+
+The extractor now explicitly tracks whether the current window has finished.
+Appending only seeks/resumes an exhausted window; it preserves a pending or
+partly decoded window, including its buffered audio and counters. Primary-rescue
+resume and EOF-then-backward-seek behavior remain supported. A deterministic
+test of the actual worker class fails before the fix and passes afterwards,
+covering pending, partial, exhausted, repeated append, EOF and invalid inputs.
+The EOF regression also exposed a zero-time rewind defect: testing the start
+time for truthiness skipped a required seek to `0`. Transitions now explicitly
+seek even to zero; initial opening retains its existing zero-start behavior.
+
+No additional audio budget, ASR context, acceptance threshold or export rule is
+introduced. The fix prevents lost work; it does not guarantee that every title
+will pass the independent convergence and precision checks. No private media
+or transcript is included in the repository.
 
 ## 2026-09-29 — Android TV living-room visual refresh
 
