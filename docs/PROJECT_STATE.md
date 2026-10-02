@@ -15,6 +15,16 @@ Do not rely on a checkpoint-pinned `main` SHA without reading the repository at 
 
 ## 2026-10-02 — Preserve queued audio when appending confirmation probes
 
+Follow-up: PR80 passed all five head workflows and merged as e6cbe257.
+The deliberate deployment rebuild 36939089499 failed the Romanian WebKit
+step before the first probe: `call_indirect to a null table entry`, during
+reference read. Deployment was skipped; the live PWA was not updated.
+The test previously raised on inconclusive status before saving console/RPC
+evidence. It now captures terminal evidence before acceptance assertions and
+on timeout; generated input MKV/SRT is retained with the CI diagnostics to
+allow an identical-input reproduction. No acceptance gates are changed and
+no private user media is included. The WebKit root cause is still unresolved.
+
 A private browser experiment ended inconclusively after 23 of 24 scheduled
 probes. The trace showed that appending the late reserve before the final rescue
 probe completed skipped that rescue probe: `run()` had already advanced to it,

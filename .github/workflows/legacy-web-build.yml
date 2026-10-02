@@ -432,5 +432,9 @@ jobs:
             tests/generated/romanian-audio-e2e/piper-fixture.json
             tests/generated/romanian-audio-e2e/piper-info.json
             tests/generated/romanian-audio-e2e/piper-http.log
+            tests/generated/romanian-audio-e2e/*-terminal-evidence.json
+            tests/generated/romanian-audio-e2e/*-terminal-diagnostics.json
+            tests/generated/romanian-audio-e2e/reference-romanian.mkv
+            tests/generated/romanian-audio-e2e/target.rum.srt
           if-no-files-found: warn
           retention-days: 7
