@@ -40,10 +40,12 @@ accepted offsets near the known +10 s shift for all five titles:
 - Toy Story II: -9.938 s;
 - Boss Baby: -9.844 s.
 
-PR #82 has passed CI, Mobile WebKit, Large-file Browser Stress and the full
-Legacy WebAssembly Build on head 2c9109a9649e0fb936e7a02b2e407c538767407c.
-It is not deployed until the merge and a deliberate Pages deployment are
-verified. No private media or transcript is included in the repository.
+PR #82 passed CI, Mobile WebKit, Large-file Browser Stress, Android Client
+and the full Legacy WebAssembly Build. It was squash-merged in
+`e50c81c30e97e2c2f335d46437a9872ce603a899`, and the deliberate
+`deploy/pages-preview` ref now points to the same merge commit. The Pages
+workflow/public runtime still requires direct post-deploy verification before
+being called live. No private media or transcript is included in the repository.
 
 
 ## 2026-10-02 — Preserve queued audio when appending confirmation probes
