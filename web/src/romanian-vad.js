@@ -31,12 +31,25 @@ function normaliseSamples(samples) {
 }
 
 function subtitleOccupancy(events, time) {
-  for (const event of events || []) {
+  const list = events || [];
+  let low = 0;
+  let high = list.length;
+  // Subtitle events arrive chronologically. Find the last cue beginning at
+  // or before the requested time, then inspect only that cue and any directly
+  // overlapping cue. This avoids scanning hundreds of cues for every offset.
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    const start = Number(list[middle] && list[middle].start);
+    if (finite(start) && start <= time) low = middle + 1;
+    else high = middle;
+  }
+  for (let index = Math.max(0, low - 1); index >= 0; index--) {
+    const event = list[index];
     const start = Number(event && event.start);
     const end = Number(event && event.end);
-    if (finite(start) && finite(end) && time >= start && time <= end) {
-      return 1;
-    }
+    if (!finite(start) || !finite(end)) continue;
+    if (start <= time && time <= end) return 1;
+    if (end < time - 0.001) break;
   }
   return 0;
 }
@@ -78,11 +91,25 @@ function searchOffset(samples, events, center, radius, step, factor = 1) {
 
 function pickOffset(samples, events, hint = null) {
   const center = finite(hint && hint.b) ? Number(hint.b) : 0;
-  const radius = finite(hint && hint.b)
+  const hasHint = finite(hint && hint.b);
+  const radius = hasHint
     ? Math.min(DEFAULT_SEARCH_RADIUS_SECONDS, Math.max(20, Math.abs(center) * 0.25 + 20))
     : DEFAULT_SEARCH_LIMIT_SECONDS;
   const coarseStep = radius >= 300 ? 4 : INITIAL_SEARCH_STEP_SECONDS;
-  const coarse = searchOffset(samples, events, center, radius, coarseStep);
+  let coarse = searchOffset(samples, events, center, radius, coarseStep);
+  if (hasHint && !(hint && hint.noGlobal)) {
+    // A provisional lexical line can be a local false positive. A cheap,
+    // coarse global pass keeps VAD from inheriting that mistake while the
+    // local pass preserves precision when the hint is already trustworthy.
+    const global = searchOffset(
+      samples,
+      events,
+      0,
+      DEFAULT_SEARCH_LIMIT_SECONDS,
+      8
+    );
+    if (global && (!coarse || global.score > coarse.score)) coarse = global;
+  }
   if (!coarse || !finite(coarse.offset)) return null;
   const refined = searchOffset(
     samples,
@@ -113,7 +140,7 @@ function estimateRomanianVadCorrection(activity, events, duration, hint = null) 
   for (let third = 0; third < 3; third++) {
     const part = thirdSamples(samples, duration, third);
     if (part.length < MIN_THIRD_SAMPLES) continue;
-    const estimate = pickOffset(part, events, { b: global.offset });
+    const estimate = pickOffset(part, events, { b: global.offset, noGlobal: true });
     if (estimate && finite(estimate.offset) && finite(estimate.score)) {
       thirds.push({ third, samples: part.length, ...estimate });
     }
@@ -171,6 +198,7 @@ module.exports = {
   correlationScore,
   estimateRomanianVadCorrection,
   isReliableRomanianVad,
+  pickOffset,
   normaliseSamples,
   subtitleOccupancy,
 };
