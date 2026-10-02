@@ -13,6 +13,39 @@ Repository truth overrides chat memory. Before material changes, read in this or
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
 
+## 2026-10-02 — Romanian PCM activity timing lock (PR #82)
+
+The five-title Romanian corpus showed the same failure mode across different
+audio: subtitle-guided lexical probing can finish without enough stable
+Whisper words even when the audio and subtitles share a strong common timing.
+The runtime now reuses the PCM samples already fed into the existing Romanian
+Whisper recognizer to retain only 250 ms RMS activity bins. It does not decode
+the audio a second time, run a second model, retain PCM, upload media or add
+audio budget.
+
+After the normal primary scan, complete Romanian subtitles are compared with
+the activity envelope. A timing correction is accepted only when the signal is
+strong and independently consistent in all three title thirds (minimum score
+0.45, maximum third-to-third spread 1.25 s). Otherwise the existing lexical
+correlator and rescue path remain authoritative. Canonical sc0ty thresholds,
+formula semantics, Save policy and language/model selection are unchanged; the
+activity lock is an independent same-language timing verification, not a
+hard-coded title/device offset.
+
+Private five-title replay evidence (not committed to the repository) produced
+accepted offsets near the known +10 s shift for all five titles:
+- Goofy: -10.000 s;
+- Frozen: -10.000 s;
+- Frozen II: -9.781 s;
+- Toy Story II: -9.938 s;
+- Boss Baby: -9.844 s.
+
+PR #82 has passed CI, Mobile WebKit, Large-file Browser Stress and the full
+Legacy WebAssembly Build on head 2c9109a9649e0fb936e7a02b2e407c538767407c.
+It is not deployed until the merge and a deliberate Pages deployment are
+verified. No private media or transcript is included in the repository.
+
+
 ## 2026-10-02 — Preserve queued audio when appending confirmation probes
 
 Follow-up: PR80 passed all five head workflows and merged as e6cbe257.

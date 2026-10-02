@@ -199,6 +199,9 @@ class Extractor {
         ? this.pipeline.demux.getDuration()
         : this.timeWindow[1],
       wordCount: this.windowWordCount,
+      activity: this.romanianSpeechRec
+        ? this.romanianSpeechRec.drainActivity()
+        : [],
     };
   }
 

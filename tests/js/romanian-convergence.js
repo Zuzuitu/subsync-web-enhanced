@@ -191,6 +191,20 @@ assert.strictEqual(state.stableCorrelatedWindows, 3);
 assert(state.probeCoverageRatio >= MIN_PROBE_COVERAGE_RATIO);
 assert.strictEqual(state.verified, true);
 
+const vadTracker = new RomanianConvergenceTracker(duration, 21, { primaryWindows: 16 });
+state = vadTracker.acceptVadCorrection({
+  offset: -10,
+  factor: 1,
+  score: 0.7,
+  spread: 0.25,
+  sampleCount: 240,
+  thirdCount: 3,
+});
+assert.strictEqual(state.verified, true);
+assert.strictEqual(state.lexicalVerified, false);
+assert.strictEqual(state.vadVerified, true);
+assert.strictEqual(state.verificationSource, 'romanian-vad');
+
 const noGain = new RomanianConvergenceTracker(1000, 16);
 state = noGain.observe(
   { start: 0, end: 15 },

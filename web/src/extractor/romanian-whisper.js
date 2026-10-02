@@ -63,6 +63,7 @@ export default class RomanianSpeechRecognition {
     this.module = module;
     this.recognizer = new module.RomanianWhisperRecognition();
     this.listeners = [];
+    this.activity = [];
     this.recognizer.setWordsCallback(word => {
       for (const listener of this.listeners) {
         listener(word);
@@ -110,6 +111,26 @@ export default class RomanianSpeechRecognition {
 
   connectPcmSink(sink) {
     sink.setFeedCallback((samples, startTime) => {
+      // The PCM is already decoded for Whisper. Keep a very small local
+      // energy trace alongside it so Romanian timing can use speech occupancy
+      // as an independent signal. This does not add a decoder pass or retain
+      // audio samples.
+      const binSamples = Math.max(1, Math.round(16000 * 0.25));
+      for (let offset = 0; offset < samples.length; offset += binSamples) {
+        const end = Math.min(samples.length, offset + binSamples);
+        let energy = 0;
+        for (let index = offset; index < end; index++) {
+          const value = Number(samples[index]) || 0;
+          energy += value * value;
+        }
+        const count = end - offset;
+        if (count > 0) {
+          this.activity.push({
+            time: Number(startTime) + (offset + count / 2) / 16000,
+            energy: Math.sqrt(energy / count),
+          });
+        }
+      }
       this.recognizer.feed(samples, startTime);
     });
     sink.setFlushCallback(() => {
@@ -124,8 +145,15 @@ export default class RomanianSpeechRecognition {
     this.recognizer.discontinuity();
   }
 
+  drainActivity() {
+    const activity = this.activity;
+    this.activity = [];
+    return activity;
+  }
+
   delete() {
     this.listeners = [];
+    this.activity = [];
     if (this.recognizer) {
       this.recognizer.delete();
       this.recognizer = null;
