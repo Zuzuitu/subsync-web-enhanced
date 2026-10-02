@@ -103,6 +103,9 @@ function diagnosticReport(status, review, environment) {
     canonicalFormula: numbers(status.canonicalFormula, ['a', 'b']),
     evidence: numbers(diagnostics, ['subtitles', 'subWords', 'refWords',
       'romanianSubContextAnchors', 'romanianRefContextAnchors']),
+    romanianVad: numbers(diagnostics.romanianVad, [
+      'offset', 'factor', 'score', 'sampleCount', 'thirdCount', 'spread', 'accepted',
+    ]),
     convergence: numbers(diagnostics.romanianConvergence, [
       'verified', 'completedWindows', 'totalWindows', 'primaryWindows',
       'rescueWindowsTotal', 'rescueWindowsCompleted',
