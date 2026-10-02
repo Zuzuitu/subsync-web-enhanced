@@ -21,6 +21,10 @@ const {
 } = require('./romanian-convergence.js');
 const { RomanianContextAnchorStream, normalizeRomanianCorrelationWord } = require('./romanian-context-anchors.js');
 const { selectRomanianPrecisionRefinement } = require('./romanian-precision.js');
+const {
+  estimateRomanianVadCorrection,
+  isReliableRomanianVad,
+} = require('./romanian-vad.js');
 const { selectCanonicalStatus } = require('./correlation-status.js');
 const logger = Logger.logger.get('[Synchronizer]');
 
@@ -72,6 +76,7 @@ export default class Synchronizer {
       romanianSubContextAnchors: 0,
       romanianRefContextAnchors: 0,
       precision: null,
+      romanianVad: null,
     };
 
     try {
@@ -125,6 +130,7 @@ export default class Synchronizer {
             primaryWindows: romanianPrimaryWindows,
             primarySummaries: [],
             windowSummaries: [],
+            activitySamples: [],
             scheduledWindows: romanianPrimaryWindows.map(window => window.slice()),
             rescueAdded: false,
             lateConfirmationAdded: false,
@@ -261,6 +267,10 @@ export default class Synchronizer {
           rawStats
         );
         if (windowSummary) {
+          if (Array.isArray(windowSummary.activity)) {
+            this.romanianScan.activitySamples.push(...windowSummary.activity);
+            delete windowSummary.activity;
+          }
           windowSummary.candidatePointGain = convergence.candidatePointGain || 0;
           windowSummary.candidatePoints = convergence.lastPoints || 0;
           windowSummary.candidateSpan = convergence.candidateProbeCoverageRatio || 0;
@@ -272,6 +282,58 @@ export default class Synchronizer {
             < this.romanianScan.primaryWindows.length
           ) {
             this.romanianScan.primarySummaries.push(windowSummary);
+          }
+        }
+
+        // Once the evenly distributed primary scan is complete, estimate a
+        // coarse audio/subtitle offset from the independent PCM activity
+        // trace. Strong, consistent three-third evidence can finish this
+        // same-language Romanian path; otherwise it only guides the existing
+        // rescue windows and the lexical correlator remains authoritative.
+        if (
+          this.romanianScan
+          && !this.romanianScan.vadCorrection
+          && convergence.completedWindows === this.romanianScan.primaryWindows.length
+          && this.gotAllSubs
+        ) {
+          const vadCorrection = estimateRomanianVadCorrection(
+            this.romanianScan.activitySamples,
+            this.subtitles.events,
+            this.romanianScan.duration,
+            rawStats && rawStats.formula
+          );
+          this.romanianScan.vadCorrection = vadCorrection;
+          if (vadCorrection) {
+            this.diagnostics.romanianVad = {
+              offset: vadCorrection.offset,
+              factor: vadCorrection.factor,
+              score: vadCorrection.score,
+              sampleCount: vadCorrection.sampleCount,
+              thirdCount: vadCorrection.thirdCount,
+              spread: vadCorrection.spread,
+              accepted: isReliableRomanianVad(vadCorrection),
+            };
+            if (isReliableRomanianVad(vadCorrection)) {
+              convergence = this.romanianConvergence.acceptVadCorrection(vadCorrection);
+              this.status = {
+                ...this.status,
+                correlated: true,
+                subReady: this.gotAllSubs,
+                correlationSource: 'romanian-vad',
+                vadVerified: true,
+                factor: vadCorrection.factor,
+                maxDistance: 0,
+                formula: {
+                  a: vadCorrection.factor,
+                  b: vadCorrection.offset,
+                },
+                canonicalFormula: {
+                  a: vadCorrection.factor,
+                  b: vadCorrection.offset,
+                },
+              };
+              this.diagnostics.romanianConvergence = convergence;
+            }
           }
         }
         this.diagnostics.romanianConvergence = convergence;
@@ -357,7 +419,12 @@ export default class Synchronizer {
                 sameLanguage: Boolean(this.romanianContextAnchors),
                 subtitlesComplete: this.gotAllSubs,
                 correlated: Boolean(rawStats.correlated || (this.status && this.status.correlated)),
-                formula: rawStats.formula,
+                formula: this.romanianScan.vadCorrection
+                  ? {
+                    a: this.romanianScan.vadCorrection.factor,
+                    b: this.romanianScan.vadCorrection.offset,
+                  }
+                  : rawStats.formula,
                 points: rawStats.points,
                 factor: rawStats.factor,
                 maxDistance: rawStats.maxDistance,
@@ -465,7 +532,7 @@ export default class Synchronizer {
   }
 
   applyRomanianPrecisionRefinement() {
-    if (this.status && this.status.canonicalFormula) {
+    if (this.status && (this.status.canonicalFormula || this.status.vadVerified)) {
       return false;
     }
 
@@ -605,6 +672,9 @@ export default class Synchronizer {
         subtitles: this.diagnostics.subtitles,
         romanianSubContextAnchors: this.diagnostics.romanianSubContextAnchors,
         romanianRefContextAnchors: this.diagnostics.romanianRefContextAnchors,
+        romanianVad: this.diagnostics.romanianVad
+          ? { ...this.diagnostics.romanianVad }
+          : null,
         romanianConvergence: this.diagnostics.romanianConvergence
           ? { ...this.diagnostics.romanianConvergence }
           : null,

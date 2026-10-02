@@ -126,6 +126,22 @@ class RomanianConvergenceTracker {
     this.candidateEvidenceStart = null;
     this.candidateEvidenceEnd = null;
     this.history = [];
+    this.vadVerified = false;
+    this.vadCorrection = null;
+  }
+
+  acceptVadCorrection(correction) {
+    if (!correction) return this.getStatus();
+    this.vadVerified = true;
+    this.vadCorrection = {
+      offset: Number(correction.offset),
+      factor: Number(correction.factor),
+      score: Number(correction.score),
+      spread: Number(correction.spread),
+      sampleCount: Number(correction.sampleCount),
+      thirdCount: Number(correction.thirdCount),
+    };
+    return this.getStatus();
   }
 
   observe(window, words, stats) {
@@ -264,10 +280,11 @@ class RomanianConvergenceTracker {
   }
 
   getStatus() {
-    const verified = (
+    const lexicalVerified = (
       this.stableCorrelatedWindows >= this.requiredStableWindows
       && this.probeCoverageRatio >= this.minProbeCoverageRatio
     );
+    const verified = lexicalVerified || this.vadVerified;
 
     const afterPrimaryTotal = Math.max(0, this.totalWindows - this.primaryWindows);
     const afterPrimaryCompleted = Math.max(0, this.completedWindows - this.primaryWindows);
@@ -293,6 +310,9 @@ class RomanianConvergenceTracker {
       informativeWindows: this.informativeWindows,
       stableCorrelatedWindows: this.stableCorrelatedWindows,
       probeCoverageRatio: this.probeCoverageRatio,
+      lexicalVerified,
+      vadVerified: this.vadVerified,
+      verificationSource: this.vadVerified ? 'romanian-vad' : lexicalVerified ? 'lexical' : null,
       evidenceStart: this.evidenceStart,
       evidenceEnd: this.evidenceEnd,
       lastFormulaDeltaSeconds: this.lastFormulaDeltaSeconds,
