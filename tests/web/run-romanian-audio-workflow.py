@@ -237,6 +237,27 @@ try:
                 if response.status >= 400 else None
         ))
 
+        def retain_terminal_evidence(app_text):
+            # Save before assertions: failed synchronization and precision gates
+            # otherwise discard the exact RPC/console evidence needed to debug.
+            details = {
+                "browser": args.browser, "appText": app_text,
+                "consoleMessages": console_messages, "consoleErrors": console_errors,
+                "pageErrors": page_errors, "httpFailures": http_failures,
+                "responses": responses,
+            }
+            try:
+                details["correlationTrace"] = page.evaluate("window.__correlationTrace || null")
+                report_button = page.get_by_role("button", name="Download diagnostic report", exact=True)
+                if report_button.count() and report_button.is_enabled():
+                    with page.expect_download(timeout=10_000) as downloaded:
+                        report_button.click()
+                    downloaded.value.save_as(str(FIXTURE_DIR / f"{args.browser}-terminal-diagnostics.json"))
+            except Exception as exc:
+                details["captureError"] = str(exc)
+            (FIXTURE_DIR / f"{args.browser}-terminal-evidence.json").write_text(
+                json.dumps(details, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
         fixture = json.loads((FIXTURE_DIR / "fixture.json").read_text(encoding="utf-8"))
         cue_count = len(fixture.get("phrases", []))
         if fixture.get("sparseRegression"):
@@ -325,6 +346,7 @@ try:
                 timeout=600_000,
             )
         except PlaywrightTimeoutError:
+            retain_terminal_evidence(page.locator("#subsync_app").inner_text())
             timeout_details = {
                 "status": "timeout",
                 "browser": args.browser,
@@ -346,6 +368,7 @@ try:
             raise
 
         app_text = page.locator("#subsync_app").inner_text()
+        retain_terminal_evidence(app_text)
         if page.evaluate("window.__roPrematureSaveEnabled"):
             raise SystemExit(
                 "Romanian Save subtitles became enabled before adaptive lock verification"
