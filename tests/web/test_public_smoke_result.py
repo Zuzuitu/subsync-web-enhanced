@@ -12,6 +12,8 @@ class PublicSmokeResultTest(unittest.TestCase):
     def test_voice_diagnostic_accepts_only_allowlisted_numeric_evidence(self):
         validate_voice_diagnostic({})
         validate_voice_diagnostic({"offset": -10.2, "score": .6, "accepted": True})
+        validate_voice_diagnostic({"attempted": True, "available": False,
+                                  "loadFailed": True, "windows": 16, "sampleCount": 0})
         for bad in ({"text": "private"}, {"score": "private"}, {"score": float("nan")},
                     {"score": True}, {"accepted": 1}, [1, 2]):
             with self.subTest(value=bad), self.assertRaises(SystemExit):

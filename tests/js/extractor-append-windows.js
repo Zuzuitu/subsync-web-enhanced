@@ -31,7 +31,9 @@ function extractor(windows) {
 (async () => {
   const voiced = extractor([[1, 3], [10, 12]]);
   let completeVoice;
-  voiced.romanianSpeechRec = { discontinuity() {}, drainActivity: (start, end) => {
+  voiced.romanianSpeechRec = { discontinuity() {},
+    getVoiceStatus: () => ({ available: true, sampleCount: 1 }),
+    drainActivity: (start, end) => {
     assert.strictEqual(start, 1);
     assert.strictEqual(end, 3);
     return new Promise(resolve => { completeVoice = resolve; });
@@ -42,6 +44,7 @@ function extractor(windows) {
   completeVoice([{ time: 1.125, energy: .8 }]);
   const voiceResult = await voiceRun;
   assert.strictEqual(voiceResult.windowCompleted.activity[0].time, 1.125);
+  assert.strictEqual(voiceResult.windowCompleted.voiceStatus.available, true);
   assert.strictEqual(voiced.windowIndex, 1);
 
   const pending = extractor([[1, 3], [10, 12]]);
