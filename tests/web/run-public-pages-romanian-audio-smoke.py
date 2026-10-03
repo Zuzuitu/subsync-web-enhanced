@@ -10,7 +10,7 @@ from pathlib import Path
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError, sync_playwright
 
 from srt_timing import measure_srt_timing
-from public_smoke_result import write_public_smoke_result
+from public_smoke_result import write_public_smoke_result, validate_voice_diagnostic
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tests" / "fixtures"))
@@ -363,7 +363,7 @@ with sync_playwright() as p:
         "schemaVersion", "application", "runtime", "browser", "elapsedSeconds", "outcome",
         "privacy", "interpretation", "saveEligible", "correlation", "formula",
         "canonicalFormula", "evidence", "convergence", "probeHistory", "precision",
-        "errorCount", "timingReview",
+        "errorCount", "timingReview", "romanianVad",
     }
     unexpected_report_keys = set(report) - allowed_report_keys
     if unexpected_report_keys:
@@ -372,6 +372,7 @@ with sync_playwright() as p:
             + ", ".join(sorted(unexpected_report_keys))
         )
     reject_private_report_keys(report)
+    validate_voice_diagnostic(report.get("romanianVad", {}))
     if not report.get("saveEligible") or not report.get("convergence", {}).get("verified"):
         raise SystemExit("Public Pages diagnostic report lost verified Save state")
     if report.get("evidence", {}).get("refWords") != reference_words:

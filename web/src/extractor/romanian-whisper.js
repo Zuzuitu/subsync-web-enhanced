@@ -1,6 +1,8 @@
 import settings from '../settings.js';
 import version from '../../version.json';
 import Logger from '../logger.js';
+import NeuralVad from './neural-vad.js';
+import vadConfig from '../../../config/neural-vad.json';
 
 const logger = Logger.logger.get('[RomanianWhisper]');
 let modulePromise;
@@ -56,6 +58,11 @@ export default class RomanianSpeechRecognition {
     }
     logger.log('runtime', info);
     recognition.recognizer.loadModel(modelBytes);
+    try {
+      recognition.vad = await NeuralVad.create(`${settings.url}scripts/vad/${vadConfig.directory}/`);
+    } catch (error) {
+      logger.warn('Voice timing unavailable; retaining lexical verification', String(error));
+    }
     return recognition;
   }
 
@@ -63,7 +70,6 @@ export default class RomanianSpeechRecognition {
     this.module = module;
     this.recognizer = new module.RomanianWhisperRecognition();
     this.listeners = [];
-    this.activity = [];
     this.recognizer.setWordsCallback(word => {
       for (const listener of this.listeners) {
         listener(word);
@@ -111,26 +117,7 @@ export default class RomanianSpeechRecognition {
 
   connectPcmSink(sink) {
     sink.setFeedCallback((samples, startTime) => {
-      // The PCM is already decoded for Whisper. Keep a very small local
-      // energy trace alongside it so Romanian timing can use speech occupancy
-      // as an independent signal. This does not add a decoder pass or retain
-      // audio samples.
-      const binSamples = Math.max(1, Math.round(16000 * 0.25));
-      for (let offset = 0; offset < samples.length; offset += binSamples) {
-        const end = Math.min(samples.length, offset + binSamples);
-        let energy = 0;
-        for (let index = offset; index < end; index++) {
-          const value = Number(samples[index]) || 0;
-          energy += value * value;
-        }
-        const count = end - offset;
-        if (count > 0) {
-          this.activity.push({
-            time: Number(startTime) + (offset + count / 2) / 16000,
-            energy: Math.sqrt(energy / count),
-          });
-        }
-      }
+      if (this.vad) this.vad.push(samples, Number(startTime));
       this.recognizer.feed(samples, startTime);
     });
     sink.setFlushCallback(() => {
@@ -145,15 +132,23 @@ export default class RomanianSpeechRecognition {
     this.recognizer.discontinuity();
   }
 
-  drainActivity() {
-    const activity = this.activity;
-    this.activity = [];
-    return activity;
+  async drainActivity(start, end) {
+    if (!this.vad) return [];
+    const detector = this.vad;
+    try {
+      return await detector.drain(start, end);
+    } catch (error) {
+      logger.warn('Voice timing failed; retaining lexical verification', String(error));
+      detector.delete();
+      if (this.vad === detector) this.vad = null;
+      return [];
+    }
   }
 
   delete() {
+    if (this.vad) this.vad.delete();
+    this.vad = null;
     this.listeners = [];
-    this.activity = [];
     if (this.recognizer) {
       this.recognizer.delete();
       this.recognizer = null;

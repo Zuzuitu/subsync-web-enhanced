@@ -29,6 +29,21 @@ function extractor(windows) {
 }
 
 (async () => {
+  const voiced = extractor([[1, 3], [10, 12]]);
+  let completeVoice;
+  voiced.romanianSpeechRec = { discontinuity() {}, drainActivity: (start, end) => {
+    assert.strictEqual(start, 1);
+    assert.strictEqual(end, 3);
+    return new Promise(resolve => { completeVoice = resolve; });
+  } };
+  const voiceRun = voiced.run();
+  assert.strictEqual(voiced.windowIndex, 0,
+    'must wait for asynchronous voice evidence before advancing the decoder');
+  completeVoice([{ time: 1.125, energy: .8 }]);
+  const voiceResult = await voiceRun;
+  assert.strictEqual(voiceResult.windowCompleted.activity[0].time, 1.125);
+  assert.strictEqual(voiced.windowIndex, 1);
+
   const pending = extractor([[1, 3], [10, 12]]);
   const first = await pending.run();
   assert.strictEqual(first.done, false);

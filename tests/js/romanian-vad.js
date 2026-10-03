@@ -4,6 +4,8 @@ const {
   correlationScore,
   estimateRomanianVadCorrection,
   isReliableRomanianVad,
+  occupancyIntervals,
+  subtitleOccupancy,
 } = require('../../web/src/romanian-vad.js');
 
 const events = [
@@ -27,4 +29,17 @@ assert(estimate.thirdCount === 3);
 assert(isReliableRomanianVad(estimate));
 assert(!isReliableRomanianVad({ ...estimate, score: 0.1 }));
 assert(!isReliableRomanianVad({ ...estimate, spread: 2 }));
+for (const shift of [-90, -2.5, 0, 47, 700]) {
+  const shiftedEvents = events.map(event => ({ start: event.start + shift, end: event.end + shift }));
+  const shiftedEstimate = estimateRomanianVadCorrection(activity, shiftedEvents, 96);
+  assert(isReliableRomanianVad(shiftedEstimate), `shift ${shift} must be recoverable`);
+  assert(Math.abs(shiftedEstimate.offset + 10 + shift) < .2,
+    'offset search must not depend on the private corpus having a +10-second shift');
+}
+const nested = occupancyIntervals([{ start: 5, end: 6 }, { start: 1, end: 10 }, { start: 4, end: 7 }]);
+assert.equal(subtitleOccupancy(nested, 9), 1, 'nested cues must not hide their outer cue');
+assert.equal(subtitleOccupancy(nested, 11), 0);
+assert.equal(estimateRomanianVadCorrection(activity.map(x => ({ ...x, energy: 0 })), events, 96), null);
+const differentOffsets = activity.map(x => ({ ...x, time: x.time + (x.time > 64 ? 5 : 0) }));
+assert(!isReliableRomanianVad(estimateRomanianVadCorrection(differentOffsets, events, 101)), 'inconsistent thirds must not export');
 console.log('Romanian VAD timing evidence: OK');

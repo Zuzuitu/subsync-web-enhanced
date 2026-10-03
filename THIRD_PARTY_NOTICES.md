@@ -94,3 +94,14 @@ codec implementations/WASM as described by upstream documentation.
 
 Mediabunny project: https://github.com/Vanilagy/mediabunny
 MPL-2.0: https://mozilla.org/MPL/2.0/
+# Local voice activity detector
+
+Silero VAD (MIT) is pinned to commit
+`1e261b036686cd0017d500ee96acd1c4ba572a9d` of
+https://github.com/snakers4/silero-vad. ONNX Runtime Web 1.20.1 (MIT)
+is pinned to release commit `5c1b7ccbff7e5141c1da7a9d963d660e5741c319`
+of https://github.com/microsoft/onnxruntime.
+The build verifies the model, runtime archive, runtime files and license notices
+against `config/neural-vad.json`. Both upstream licenses and ONNX Runtime's
+third-party notices are distributed beside the assets in `scripts/vad/`.
+Inference runs locally in the existing worker; no media is sent to these projects.

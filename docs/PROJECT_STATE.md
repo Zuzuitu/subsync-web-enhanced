@@ -1,6 +1,6 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-10-02
+LAST_UPDATED: 2026-10-03
 
 ## Canonical status
 
@@ -13,7 +13,60 @@ Repository truth overrides chat memory. Before material changes, read in this or
 
 Do not rely on a checkpoint-pinned `main` SHA without reading the repository at session start.
 
-## 2026-10-02 — Romanian PCM activity timing lock (PR #82)
+## 2026-10-03 — Correcting PR #82 evidence and speech detector integration
+
+Revalidation found that PR #82's private successful estimator experiment used
+neural speech probabilities, whereas the shipped implementation used raw PCM
+RMS. Those are different signals. The five successful offsets below therefore
+DO NOT validate the PR #82 runtime. Actual Chromium replay of its CI artifact
+completed only three of five private titles; two ended without export. The
+three exported start MAEs were approximately 472, 208 and 137 ms. No physical
+iPhone or universal-title claim follows from these tests.
+
+The `fix/neural-voice-timing` candidate replaces RMS with local Silero VAD,
+pinned by upstream commit and model SHA-256, running in single-thread ONNX
+Runtime Web 1.20.1. Exact runtime hashes and upstream license notices are staged
+by `scripts/stage-neural-vad.py`. Versioned asset directories avoid cache
+collisions; the existing service worker caches them after first use. There is
+no media upload or paid service. A detector load/inference failure disables
+voice evidence and retains the existing lexical path.
+
+PCM is copied from temporary WASM views, clipped to the requested probe and
+bounded to 64 seconds, with fail-closed overflow. Recurrent state resets at
+each probe and each discontinuity. Cancellation waits for an in-flight
+inference before releasing the session. Speech probabilities are aggregated
+into 250 ms bins. The global search uses 1-second steps followed by refinement;
+subtitle occupancy merges overlapping/nested cues once before searching.
+
+Only Romanian audio with Romanian subtitles can use this verification. If
+primary evidence is insufficient and no canonical lexical correlation exists,
+32 independent 3.75-second confirmation windows can use the existing 120-second
+rescue allocation. The normal total remains 360 seconds. Canonical thresholds,
+late-reserve authorization and lexical fallback remain unchanged. Voice evidence
+is re-evaluated after confirmation; it applies an offset only, not drift or cuts.
+Diagnostics retain the actual lexical candidate separately and report the voice
+score, rather than inventing a 100% coefficient or zero lexical residual.
+
+Candidate validation is in progress, not released. Initial integrated Chromium
+candidates exported all five private titles, with start/end MAEs of approximately
+228, 3, 168, 44 and 151 ms, zero page errors, and unchanged cue text except existing
+trailing-whitespace normalization. These runs precede the final regional-search
+and rescue-boundary refinements and must not be reported as the final release
+matrix. The final detector class also passed a full first-title WebKit replay
+(282 ms start/end error, zero page errors) and direct single-thread inference
+tests in Chromium and WebKit. The direct test fails on model/runtime errors;
+lexical fallback cannot hide a broken neural asset package.
+
+Regression coverage includes positive/negative/large offsets, silence,
+inconsistent title thirds, nested cues, bounded buffers, cancellation, decoder
+preroll and asynchronous probe completion. Regional verification uses a fixed
+20-second search radius around the global candidate, so absolute shift size
+does not expand the region into unrelated repeated cues. Full final-source
+five-title replay and release CI are still pending. Original subtitles are
+evaluation-only and are never supplied to the estimator. All media, subtitle
+text and private traces remain outside the repository.
+
+## 2026-10-02 — Romanian PCM activity timing lock (PR #82, evidence corrected above)
 
 The five-title Romanian corpus showed the same failure mode across different
 audio: subtitle-guided lexical probing can finish without enough stable
@@ -32,7 +85,8 @@ formula semantics, Save policy and language/model selection are unchanged; the
 activity lock is an independent same-language timing verification, not a
 hard-coded title/device offset.
 
-Private five-title replay evidence (not committed to the repository) produced
+Historical prototype evidence, subsequently found NOT to test the shipped RMS
+implementation (see correction above), produced
 accepted offsets near the known +10 s shift for all five titles:
 - Goofy: -10.000 s;
 - Frozen: -10.000 s;

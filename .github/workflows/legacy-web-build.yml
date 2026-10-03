@@ -15,12 +15,14 @@ on:
       - "config/test-fixture-pins.json"
       - "config/english-romanian-assets.json"
       - "config/romanian-asr.json"
+      - "config/neural-vad.json"
       - "config/audio-extractor-runtime.json"
       - "config/sc0ty-assets-public-key.pem"
       - "scripts/generate-web-metadata.py"
       - "scripts/mirror-upstream-assets.py"
       - "scripts/prepare-whisper-single-thread.py"
       - "scripts/stage-web-app.py"
+      - "scripts/stage-neural-vad.py"
       - ".github/workflows/legacy-web-build.yml"
       - "tests/wasm/**"
       - "tests/fixtures/**"
@@ -357,6 +359,11 @@ jobs:
 
       - name: Exercise Romanian audio with iPhone-like WebKit
         run: python3 tests/web/run-romanian-audio-workflow.py --browser webkit
+
+      - name: Verify local neural voice runtime without lexical fallback
+        run: |
+          python3 tests/web/run-neural-vad.py --browser chromium
+          python3 tests/web/run-neural-vad.py --browser webkit
 
 
       - name: Upload WebAssembly artifacts

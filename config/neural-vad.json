@@ -1,0 +1,36 @@
+{
+  "directory": "silero-1a153a22-ort-1.20.1",
+  "modelCommit": "1e261b036686cd0017d500ee96acd1c4ba572a9d",
+  "runtimeCommit": "5c1b7ccbff7e5141c1da7a9d963d660e5741c319",
+  "runtimeArchive": {
+    "url": "https://registry.npmjs.org/onnxruntime-web/-/onnxruntime-web-1.20.1.tgz",
+    "sha256": "0a38facf0672dfaaeaf352e8a9f44533732b60b4af93b9dd507fe7c2d2be437b"
+  },
+  "runtimeFiles": {
+    "ort.wasm.min.js": "e66568724f8848e57cc2a56e4bea3a5b86ce3ff81b2da11eac8ed7ab02b27bd4",
+    "ort-wasm-simd-threaded.mjs": "745eb7c0ce6f18a6aa521971b2877babc7ffb27eecb58ab3bc6e5ef4692672e8",
+    "ort-wasm-simd-threaded.wasm": "207d02be4591c156b0a98f024f3d58005b5b04c92274d759fb390338c63559ea"
+  },
+  "files": [
+    {
+      "name": "silero_vad.onnx",
+      "url": "https://raw.githubusercontent.com/snakers4/silero-vad/1e261b036686cd0017d500ee96acd1c4ba572a9d/src/silero_vad/data/silero_vad.onnx",
+      "sha256": "1a153a22f4509e292a94e67d6f9b85e8deb25b4988682b7e174c65279d8788e3"
+    },
+    {
+      "name": "silero-LICENSE",
+      "url": "https://raw.githubusercontent.com/snakers4/silero-vad/1e261b036686cd0017d500ee96acd1c4ba572a9d/LICENSE",
+      "sha256": "2e63e9a38b6e8fc0c7bc37ce174caca1862870856c6daf5697cfb785e925520b"
+    },
+    {
+      "name": "ort-LICENSE",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/5c1b7ccbff7e5141c1da7a9d963d660e5741c319/LICENSE",
+      "sha256": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c"
+    },
+    {
+      "name": "ort-ThirdPartyNotices.txt",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/5c1b7ccbff7e5141c1da7a9d963d660e5741c319/ThirdPartyNotices.txt",
+      "sha256": "cf7342f7ba482ef715ae58f5f497a8d3564fa255164175aea324cd293c5701a0"
+    }
+  ]
+}

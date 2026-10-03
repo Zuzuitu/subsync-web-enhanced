@@ -191,7 +191,7 @@ class Extractor {
     };
   }
 
-  currentWindowSummary() {
+  async currentWindowSummary() {
     return {
       index: this.windowIndex,
       start: this.timeWindow[0] || 0,
@@ -200,7 +200,8 @@ class Extractor {
         : this.timeWindow[1],
       wordCount: this.windowWordCount,
       activity: this.romanianSpeechRec
-        ? this.romanianSpeechRec.drainActivity()
+        ? await this.romanianSpeechRec.drainActivity(this.timeWindow[0] || 0,
+          this.timeWindow[1] == null ? this.pipeline.demux.getDuration() : this.timeWindow[1])
         : [],
     };
   }
@@ -227,7 +228,7 @@ class Extractor {
             this.romanianSpeechRec.discontinuity();
           }
           this.windowFinished = true;
-          status.windowCompleted = this.currentWindowSummary();
+          status.windowCompleted = await this.currentWindowSummary();
           if (this.advanceTimeWindow()) {
             status.done = false;
           } else {
@@ -243,7 +244,7 @@ class Extractor {
           // probes may intentionally visit the end before earlier regions, so
           // EOF is only the end of the current probe, not necessarily the scan.
           this.windowFinished = true;
-          status.windowCompleted = this.currentWindowSummary();
+          status.windowCompleted = await this.currentWindowSummary();
           if (this.advanceTimeWindow()) {
             status.done = false;
           } else {
