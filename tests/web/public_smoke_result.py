@@ -5,6 +5,18 @@ import math
 from pathlib import Path
 
 
+def validate_voice_diagnostic(value):
+    """Allow only the numeric/boolean VAD evidence already emitted by the PWA."""
+    allowed = {"offset", "factor", "score", "sampleCount", "thirdCount", "spread", "accepted"}
+    if not isinstance(value, dict) or set(value) - allowed:
+        raise SystemExit("Unexpected voice diagnostic fields")
+    for key, item in value.items():
+        valid = isinstance(item, bool) if key == "accepted" else (
+            type(item) in (int, float) and math.isfinite(item))
+        if not valid:
+            raise SystemExit("Voice diagnostic must contain only finite numeric evidence and accepted boolean")
+
+
 def write_public_smoke_result(path, details, *, require_fine_timing, failures=()):
     payload = dict(details)
     reasons = list(failures)

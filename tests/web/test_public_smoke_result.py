@@ -5,10 +5,18 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from public_smoke_result import write_public_smoke_result
+from public_smoke_result import write_public_smoke_result, validate_voice_diagnostic
 
 
 class PublicSmokeResultTest(unittest.TestCase):
+    def test_voice_diagnostic_accepts_only_allowlisted_numeric_evidence(self):
+        validate_voice_diagnostic({})
+        validate_voice_diagnostic({"offset": -10.2, "score": .6, "accepted": True})
+        for bad in ({"text": "private"}, {"score": "private"}, {"score": float("nan")},
+                    {"score": True}, {"accepted": 1}, [1, 2]):
+            with self.subTest(value=bad), self.assertRaises(SystemExit):
+                validate_voice_diagnostic(bad)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
