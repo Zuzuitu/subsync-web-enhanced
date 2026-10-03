@@ -106,7 +106,8 @@ function pickOffset(samples, events, hint = null) {
   const center = finite(hint && hint.b) ? Number(hint.b) : 0;
   const hasHint = finite(hint && hint.b);
   const radius = hasHint
-    ? Math.min(DEFAULT_SEARCH_RADIUS_SECONDS, Math.max(20, Math.abs(center) * 0.25 + 20))
+    ? (hint.noGlobal ? 20
+      : Math.min(DEFAULT_SEARCH_RADIUS_SECONDS, Math.max(20, Math.abs(center) * 0.25 + 20)))
     : DEFAULT_SEARCH_LIMIT_SECONDS;
   const coarseStep = radius >= 300 ? INITIAL_SEARCH_STEP_SECONDS : ACTIVITY_BIN_SECONDS;
   let coarse = searchOffset(samples, events, center, radius, coarseStep);
