@@ -360,6 +360,11 @@ jobs:
       - name: Exercise Romanian audio with iPhone-like WebKit
         run: python3 tests/web/run-romanian-audio-workflow.py --browser webkit
 
+      - name: Verify local neural voice runtime without lexical fallback
+        run: |
+          python3 tests/web/run-neural-vad.py --browser chromium
+          python3 tests/web/run-neural-vad.py --browser webkit
+
 
       - name: Upload WebAssembly artifacts
         uses: actions/upload-artifact@v4

@@ -359,7 +359,7 @@ export default class Synchronizer {
           this.romanianScan
           && this.romanianScan.lateConfirmationAdded
           && convergence.verified
-          && needsPrecisionPolish(precisionForPolish)
+          && needsPrecisionPolish(precisionForPolish, convergence)
           && convergence.completedWindows < convergence.totalWindows
         );
 

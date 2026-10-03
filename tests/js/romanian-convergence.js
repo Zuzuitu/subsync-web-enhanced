@@ -20,6 +20,9 @@ assert.strictEqual(MIN_POINT_GAIN, 1);
 assert.strictEqual(REQUIRED_STABLE_CORRELATED_WINDOWS, 3);
 assert.strictEqual(MIN_PROBE_COVERAGE_RATIO, 0.75);
 assert.strictEqual(MAX_FORMULA_DELTA_SECONDS, 0.75);
+assert.strictEqual(needsPrecisionPolish({ beginningBuckets: 10, middleBuckets: 0,
+  endBuckets: 0, buckets: 10 }, { vadVerified: true }), false,
+  'voice verification must finish without letting lexical polish replace its accepted formula');
 assert.strictEqual(MIN_PRECISION_THIRD_SHARE, 0.25);
 
 assert.strictEqual(

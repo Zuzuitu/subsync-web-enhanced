@@ -60,7 +60,10 @@ function needsLateConfirmation(status, canonicalAvailable) {
   );
 }
 
-function needsPrecisionPolish(precision) {
+function needsPrecisionPolish(precision, convergence = null) {
+  // A verified voice offset is already final. Continuing lexical polishing
+  // could replace its formula while retaining the unrelated voice lock.
+  if (convergence && convergence.vadVerified) return false;
   if (!precision || !precision.available) return false;
   const counts = [
     Number(precision.beginningBuckets) || 0,

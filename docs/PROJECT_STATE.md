@@ -47,12 +47,24 @@ is re-evaluated after confirmation; it applies an offset only, not drift or cuts
 Diagnostics retain the actual lexical candidate separately and report the voice
 score, rather than inventing a 100% coefficient or zero lexical residual.
 
-Candidate validation is in progress, not released: a private real-browser
-primary-only candidate exported the first previously failing title with 228 ms
-start/end error against the withheld original, zero page errors, in 295 seconds.
-Full integrated five-title replay and release CI are still pending. Original
-subtitles are evaluation-only and are never supplied to the estimator. All
-media, subtitle text and private traces remain outside the repository.
+Candidate validation is in progress, not released. Initial integrated Chromium
+candidates exported all five private titles, with start/end MAEs of approximately
+228, 3, 168, 44 and 151 ms, zero page errors, and unchanged cue text except existing
+trailing-whitespace normalization. These runs precede the final regional-search
+and rescue-boundary refinements and must not be reported as the final release
+matrix. The final detector class also passed a full first-title WebKit replay
+(282 ms start/end error, zero page errors) and direct single-thread inference
+tests in Chromium and WebKit. The direct test fails on model/runtime errors;
+lexical fallback cannot hide a broken neural asset package.
+
+Regression coverage includes positive/negative/large offsets, silence,
+inconsistent title thirds, nested cues, bounded buffers, cancellation, decoder
+preroll and asynchronous probe completion. Regional verification uses a fixed
+20-second search radius around the global candidate, so absolute shift size
+does not expand the region into unrelated repeated cues. Full final-source
+five-title replay and release CI are still pending. Original subtitles are
+evaluation-only and are never supplied to the estimator. All media, subtitle
+text and private traces remain outside the repository.
 
 ## 2026-10-02 — Romanian PCM activity timing lock (PR #82, evidence corrected above)
 
