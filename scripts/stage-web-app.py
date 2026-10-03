@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import hashlib
+import runpy
 import json
 import shutil
 import urllib.request
@@ -144,6 +145,8 @@ audio_runtime_materialized = [
     for asset in audio_extractor_runtime["files"]
 ]
 
+neural_vad_materialized = runpy.run_path(str(ROOT / "scripts/stage-neural-vad.py"))["stage"](DIST)
+
 index_path = DIST / "index.html"
 index = index_path.read_text(encoding="utf-8").replace("__BUILD_HASH__", args.hash)
 if "__BUILD_HASH__" in index:
@@ -218,6 +221,7 @@ manifest = {
     "buildHash": args.hash,
     "bootstrapPage": bootstrap_name,
     "assets": materialized,
+    "neuralVad": neural_vad_materialized,
     "audioExtractorRuntime": {
         "version": audio_extractor_runtime["version"],
         "files": audio_runtime_materialized,

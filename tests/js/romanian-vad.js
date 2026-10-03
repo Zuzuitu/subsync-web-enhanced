@@ -4,6 +4,8 @@ const {
   correlationScore,
   estimateRomanianVadCorrection,
   isReliableRomanianVad,
+  occupancyIntervals,
+  subtitleOccupancy,
 } = require('../../web/src/romanian-vad.js');
 
 const events = [
@@ -27,4 +29,10 @@ assert(estimate.thirdCount === 3);
 assert(isReliableRomanianVad(estimate));
 assert(!isReliableRomanianVad({ ...estimate, score: 0.1 }));
 assert(!isReliableRomanianVad({ ...estimate, spread: 2 }));
+const nested = occupancyIntervals([{ start: 5, end: 6 }, { start: 1, end: 10 }, { start: 4, end: 7 }]);
+assert.equal(subtitleOccupancy(nested, 9), 1, 'nested cues must not hide their outer cue');
+assert.equal(subtitleOccupancy(nested, 11), 0);
+assert.equal(estimateRomanianVadCorrection(activity.map(x => ({ ...x, energy: 0 })), events, 96), null);
+const differentOffsets = activity.map(x => ({ ...x, time: x.time + (x.time > 64 ? 5 : 0) }));
+assert(!isReliableRomanianVad(estimateRomanianVadCorrection(differentOffsets, events, 101)), 'inconsistent thirds must not export');
 console.log('Romanian VAD timing evidence: OK');

@@ -26,6 +26,7 @@ const {
   isReliableRomanianVad,
 } = require('./romanian-vad.js');
 const { selectCanonicalStatus } = require('./correlation-status.js');
+const { makeVoiceConfirmationWindows } = require('./voice-confirmation-windows.js');
 const logger = Logger.logger.get('[Synchronizer]');
 
 export default class Synchronizer {
@@ -292,8 +293,11 @@ export default class Synchronizer {
         // rescue windows and the lexical correlator remains authoritative.
         if (
           this.romanianScan
-          && !this.romanianScan.vadCorrection
-          && convergence.completedWindows === this.romanianScan.primaryWindows.length
+          && this.romanianContextAnchors
+          && (convergence.completedWindows === this.romanianScan.primaryWindows.length
+            || (this.romanianScan.rescueAdded && convergence.completedWindows
+              === this.romanianScan.primaryWindows.length + convergence.rescueWindowsTotal)
+            || convergence.completedWindows === convergence.totalWindows)
           && this.gotAllSubs
         ) {
           const vadCorrection = estimateRomanianVadCorrection(
@@ -321,16 +325,13 @@ export default class Synchronizer {
                 subReady: this.gotAllSubs,
                 correlationSource: 'romanian-vad',
                 vadVerified: true,
-                factor: vadCorrection.factor,
-                maxDistance: 0,
+                factor: vadCorrection.score,
+                maxDistance: null,
                 formula: {
                   a: vadCorrection.factor,
                   b: vadCorrection.offset,
                 },
-                canonicalFormula: {
-                  a: vadCorrection.factor,
-                  b: vadCorrection.offset,
-                },
+                canonicalFormula: rawStats && rawStats.formula,
               };
               this.diagnostics.romanianConvergence = convergence;
             }
@@ -406,7 +407,13 @@ export default class Synchronizer {
           const coverageEvidenceEnd = canonicalCoverageDeficit
             ? convergence.evidenceEnd
             : convergence.candidateEvidenceEnd;
-          const rescueWindows = makeRescueWindows(
+          const voiceWindows = this.romanianContextAnchors
+            && this.romanianScan.activitySamples.length
+            && !rawStats.correlated
+            ? makeVoiceConfirmationWindows(this.romanianScan.duration,
+              this.romanianScan.scheduledWindows)
+            : [];
+          const rescueWindows = voiceWindows.length ? voiceWindows : makeRescueWindows(
             this.romanianScan.duration,
             this.romanianScan.primaryWindows,
             this.romanianScan.primarySummaries,
@@ -432,7 +439,7 @@ export default class Synchronizer {
               },
             }
           );
-          this.romanianScan.rescueStrategy = canonicalCoverageDeficit
+          this.romanianScan.rescueStrategy = voiceWindows.length ? 'voice-confirmation' : canonicalCoverageDeficit
             ? 'canonical-coverage'
             : candidateCoverageDeficit
               ? 'candidate-coverage'

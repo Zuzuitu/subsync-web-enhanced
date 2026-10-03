@@ -14,6 +14,8 @@ on:
       - "scripts/generate-web-metadata.py"
       - "scripts/mirror-upstream-assets.py"
       - "scripts/stage-web-app.py"
+      - "scripts/stage-neural-vad.py"
+      - "config/neural-vad.json"
       - "tests/web/**"
       - "config/english-romanian-assets.json"
       - "config/sc0ty-assets-public-key.pem"

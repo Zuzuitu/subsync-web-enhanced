@@ -1,9 +1,8 @@
 'use strict';
 
-// Lightweight, local voice-activity evidence collected from the PCM already
-// decoded for Romanian Whisper. It is deliberately a timing aid, not a second
-// speech recognizer: subtitles provide the expected speech occupancy and the
-// PCM energy provides the audio-side signal.
+// Local speech probabilities from PCM already decoded for Romanian Whisper.
+// The historical `energy` field now carries the detector's speech probability;
+// loud music and sound effects must not be treated as detected dialogue.
 const ACTIVITY_BIN_SECONDS = 0.25;
 const INITIAL_SEARCH_STEP_SECONDS = 1;
 const REFINE_SEARCH_STEP_SECONDS = 0.125;
@@ -54,6 +53,20 @@ function subtitleOccupancy(events, time) {
   return 0;
 }
 
+function occupancyIntervals(events) {
+  const sorted = (events || []).filter(event => event
+    && finite(event.start) && finite(event.end) && Number(event.end) > Number(event.start))
+    .map(event => ({ start: Number(event.start), end: Number(event.end) }))
+    .sort((a, b) => a.start - b.start);
+  const merged = [];
+  for (const event of sorted) {
+    const last = merged[merged.length - 1];
+    if (last && event.start <= last.end) last.end = Math.max(last.end, event.end);
+    else merged.push(event);
+  }
+  return merged;
+}
+
 function correlationScore(samples, events, offset, factor = 1) {
   if (!samples.length) return -Infinity;
   const values = samples.map(sample => ({
@@ -95,7 +108,7 @@ function pickOffset(samples, events, hint = null) {
   const radius = hasHint
     ? Math.min(DEFAULT_SEARCH_RADIUS_SECONDS, Math.max(20, Math.abs(center) * 0.25 + 20))
     : DEFAULT_SEARCH_LIMIT_SECONDS;
-  const coarseStep = radius >= 300 ? 4 : INITIAL_SEARCH_STEP_SECONDS;
+  const coarseStep = radius >= 300 ? INITIAL_SEARCH_STEP_SECONDS : ACTIVITY_BIN_SECONDS;
   let coarse = searchOffset(samples, events, center, radius, coarseStep);
   if (hasHint && !(hint && hint.noGlobal)) {
     // A provisional lexical line can be a local false positive. A cheap,
@@ -106,7 +119,7 @@ function pickOffset(samples, events, hint = null) {
       events,
       0,
       DEFAULT_SEARCH_LIMIT_SECONDS,
-      8
+      INITIAL_SEARCH_STEP_SECONDS
     );
     if (global && (!coarse || global.score > coarse.score)) coarse = global;
   }
@@ -130,6 +143,8 @@ function thirdSamples(samples, duration, third) {
 
 function estimateRomanianVadCorrection(activity, events, duration, hint = null) {
   const samples = normaliseSamples(activity);
+  // Normalize once, including nested/unsorted cues, before the many searches.
+  events = occupancyIntervals(events);
   if (!finite(duration) || duration <= 0 || samples.length < MIN_ACTIVITY_SAMPLES) {
     return null;
   }
@@ -155,9 +170,6 @@ function estimateRomanianVadCorrection(activity, events, duration, hint = null) 
     - Math.min(...thirds.map(item => item.offset));
   if (maxResidual > MAX_ACCEPTED_VAD_RESIDUAL_SECONDS) return null;
 
-  // Fit offset(x) = (a - 1) * x + b. The slope is kept conservative: a VAD
-  // onset is less exact than a lexical timestamp, so only the offset is used
-  // unless all three title thirds agree tightly.
   // VAD boundaries are intentionally less precise than lexical timestamps.
   // Use the median third offset as a stable translation and leave slope/drift
   // to the lexical correlator; fitting a slope to three noisy speech regions
@@ -201,4 +213,5 @@ module.exports = {
   pickOffset,
   normaliseSamples,
   subtitleOccupancy,
+  occupancyIntervals,
 };
