@@ -268,6 +268,13 @@ export default class Synchronizer {
           rawStats
         );
         if (windowSummary) {
+          if (windowSummary.voiceStatus) {
+            this.diagnostics.romanianVad = {
+              ...this.diagnostics.romanianVad,
+              ...windowSummary.voiceStatus,
+            };
+            delete windowSummary.voiceStatus;
+          }
           if (Array.isArray(windowSummary.activity)) {
             this.romanianScan.activitySamples.push(...windowSummary.activity);
             delete windowSummary.activity;
@@ -307,8 +314,15 @@ export default class Synchronizer {
             rawStats && rawStats.formula
           );
           this.romanianScan.vadCorrection = vadCorrection;
+          this.diagnostics.romanianVad = {
+            ...this.diagnostics.romanianVad,
+            evaluated: true,
+            candidateFound: Boolean(vadCorrection),
+            accepted: isReliableRomanianVad(vadCorrection),
+          };
           if (vadCorrection) {
             this.diagnostics.romanianVad = {
+              ...this.diagnostics.romanianVad,
               offset: vadCorrection.offset,
               factor: vadCorrection.factor,
               score: vadCorrection.score,

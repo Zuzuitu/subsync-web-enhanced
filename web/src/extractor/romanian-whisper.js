@@ -60,7 +60,9 @@ export default class RomanianSpeechRecognition {
     recognition.recognizer.loadModel(modelBytes);
     try {
       recognition.vad = await NeuralVad.create(`${settings.url}scripts/vad/${vadConfig.directory}/`);
+      recognition.voiceStatus.available = true;
     } catch (error) {
+      recognition.voiceStatus.loadFailed = true;
       logger.warn('Voice timing unavailable; retaining lexical verification', String(error));
     }
     return recognition;
@@ -70,6 +72,8 @@ export default class RomanianSpeechRecognition {
     this.module = module;
     this.recognizer = new module.RomanianWhisperRecognition();
     this.listeners = [];
+    this.voiceStatus = { attempted: true, available: false, loadFailed: false,
+      inferenceFailed: false, windows: 0, emptyWindows: 0, sampleCount: 0 };
     this.recognizer.setWordsCallback(word => {
       for (const listener of this.listeners) {
         listener(word);
@@ -133,16 +137,26 @@ export default class RomanianSpeechRecognition {
   }
 
   async drainActivity(start, end) {
+    this.voiceStatus.windows++;
     if (!this.vad) return [];
     const detector = this.vad;
     try {
-      return await detector.drain(start, end);
+      const samples = await detector.drain(start, end);
+      this.voiceStatus.sampleCount += samples.length;
+      if (!samples.length) this.voiceStatus.emptyWindows++;
+      return samples;
     } catch (error) {
+      this.voiceStatus.available = false;
+      this.voiceStatus.inferenceFailed = true;
       logger.warn('Voice timing failed; retaining lexical verification', String(error));
       detector.delete();
       if (this.vad === detector) this.vad = null;
       return [];
     }
+  }
+
+  getVoiceStatus() {
+    return { ...this.voiceStatus };
   }
 
   delete() {

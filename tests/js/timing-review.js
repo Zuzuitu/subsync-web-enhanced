@@ -77,6 +77,16 @@ const status = {subReady: true, formula, canonicalFormula: {a: 1, b: -15}, point
     errors: [{message: '/private/movie.mkv transcript'}], privateExtra: 'secret'}};
 const env = {runtime: {hash: 'fixture'}, browser: 'test', elapsedSeconds: 1, outcome: 'completed'};
 let report = diagnosticReport(status, review, env);
+status.diagnostics.romanianVad = { attempted: true, available: false,
+  loadFailed: true, inferenceFailed: false, sampleCount: 0, windows: 16,
+  emptyWindows: 0, evaluated: true, candidateFound: false, accepted: false,
+  error: 'private filename', text: 'private transcript' };
+const voiceReport = diagnosticReport(status, review, env).romanianVad;
+assert.strictEqual(voiceReport.loadFailed, true);
+assert.strictEqual(voiceReport.available, false);
+assert.strictEqual(voiceReport.sampleCount, 0);
+assert.strictEqual(voiceReport.error, undefined);
+assert.strictEqual(voiceReport.text, undefined);
 assert.strictEqual(report.saveEligible, false, 'pending adaptive lock stays fail-closed');
 assert.strictEqual(report.errorCount, 1);
 assert.strictEqual(report.evidence.refWords, 161);

@@ -7,11 +7,14 @@ from pathlib import Path
 
 def validate_voice_diagnostic(value):
     """Allow only the numeric/boolean VAD evidence already emitted by the PWA."""
-    allowed = {"offset", "factor", "score", "sampleCount", "thirdCount", "spread", "accepted"}
+    booleans = {"accepted", "attempted", "available", "loadFailed", "inferenceFailed",
+                "evaluated", "candidateFound"}
+    allowed = {"offset", "factor", "score", "sampleCount", "thirdCount", "spread",
+               "windows", "emptyWindows"} | booleans
     if not isinstance(value, dict) or set(value) - allowed:
         raise SystemExit("Unexpected voice diagnostic fields")
     for key, item in value.items():
-        valid = isinstance(item, bool) if key == "accepted" else (
+        valid = isinstance(item, bool) if key in booleans else (
             type(item) in (int, float) and math.isfinite(item))
         if not valid:
             raise SystemExit("Voice diagnostic must contain only finite numeric evidence and accepted boolean")
