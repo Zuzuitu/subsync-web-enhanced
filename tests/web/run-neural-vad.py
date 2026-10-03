@@ -4,6 +4,7 @@ import argparse
 import functools
 import http.server
 import json
+import shutil
 import threading
 from pathlib import Path
 from playwright.sync_api import sync_playwright
@@ -21,7 +22,14 @@ threading.Thread(target=server.serve_forever, daemon=True).start()
 origin = f"http://127.0.0.1:{server.server_port}"
 try:
     with sync_playwright() as playwright:
-        browser = getattr(playwright, args.browser).launch(headless=True)
+        launch = {"headless": True}
+        if args.browser == "chromium":
+            executable = next((path for name in ("google-chrome", "google-chrome-stable",
+                              "chromium", "chromium-browser") if (path := shutil.which(name))), None)
+            if executable:
+                launch["executable_path"] = executable
+            launch["args"] = ["--no-sandbox", "--disable-dev-shm-usage"]
+        browser = getattr(playwright, args.browser).launch(**launch)
         try:
             page = browser.new_page()
             page.goto(origin + "/icon.svg")
