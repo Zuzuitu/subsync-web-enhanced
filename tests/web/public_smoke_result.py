@@ -10,7 +10,7 @@ def validate_voice_diagnostic(value):
     booleans = {"accepted", "attempted", "available", "loadFailed", "inferenceFailed",
                 "evaluated", "candidateFound"}
     allowed = {"offset", "factor", "score", "sampleCount", "thirdCount", "spread",
-               "windows", "emptyWindows"} | booleans
+               "windows", "emptyWindows", "failureStage", "pcmSamples", "overflowWindows"} | booleans
     if not isinstance(value, dict) or set(value) - allowed:
         raise SystemExit("Unexpected voice diagnostic fields")
     for key, item in value.items():

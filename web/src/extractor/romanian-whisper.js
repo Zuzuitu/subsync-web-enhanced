@@ -63,6 +63,7 @@ export default class RomanianSpeechRecognition {
       recognition.voiceStatus.available = true;
     } catch (error) {
       recognition.voiceStatus.loadFailed = true;
+      recognition.voiceStatus.failureStage = error.voiceStage || 4;
       logger.warn('Voice timing unavailable; retaining lexical verification', String(error));
     }
     return recognition;
@@ -73,7 +74,8 @@ export default class RomanianSpeechRecognition {
     this.recognizer = new module.RomanianWhisperRecognition();
     this.listeners = [];
     this.voiceStatus = { attempted: true, available: false, loadFailed: false,
-      inferenceFailed: false, windows: 0, emptyWindows: 0, sampleCount: 0 };
+      inferenceFailed: false, failureStage: 0, windows: 0, emptyWindows: 0,
+      sampleCount: 0, pcmSamples: 0, overflowWindows: 0 };
     this.recognizer.setWordsCallback(word => {
       for (const listener of this.listeners) {
         listener(word);
@@ -140,6 +142,8 @@ export default class RomanianSpeechRecognition {
     this.voiceStatus.windows++;
     if (!this.vad) return [];
     const detector = this.vad;
+    this.voiceStatus.pcmSamples = detector.receivedSamples || 0;
+    this.voiceStatus.overflowWindows = detector.overflowWindows || 0;
     try {
       const samples = await detector.drain(start, end);
       this.voiceStatus.sampleCount += samples.length;
@@ -148,6 +152,7 @@ export default class RomanianSpeechRecognition {
     } catch (error) {
       this.voiceStatus.available = false;
       this.voiceStatus.inferenceFailed = true;
+      this.voiceStatus.failureStage = 5;
       logger.warn('Voice timing failed; retaining lexical verification', String(error));
       detector.delete();
       if (this.vad === detector) this.vad = null;

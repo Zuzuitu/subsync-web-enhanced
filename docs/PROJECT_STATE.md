@@ -21,15 +21,25 @@ withheld Original) was replayed in Chromium 141 against the public PR84 runtime.
 It exported successfully after 48 windows (16 + 32 voice confirmation), 815.639
 seconds, zero page errors, and 364 ms absolute start/end error for all 884 cues.
 Its accepted voice offset was -9.635786533355713, score 0.5977769361523747,
-1440 bins, 3 thirds and spread 0.125 s. This is a baseline result, NOT evidence
-that a new patch fixed the physical failure. WebKit replay is still pending.
-The input duration in the physical report differs slightly from the supplied
-MP3; whether the user selected that MP3 or the original MKV/MKA is not confirmed.
+1440 bins, 3 thirds and spread 0.125 s. WebKit 26 also completed the MP3 replay
+with the same correction and no page errors in 987.443 seconds. These are
+baseline results, NOT evidence that a new patch fixed the physical failure.
+The user subsequently confirmed the failed run used original MKA, not MP3.
+That exact MKA has now been downloaded: 267332722 bytes, AC3 48 kHz 6 channels,
+duration 4746.816 seconds matching the physical report. MKA replay is in progress.
+The first 16 Chromium probes produce 60 VAD bins each and schedule the 32 voice
+confirmation windows; the physical failure's missing voice path has not yet
+been reproduced. Do not treat MP3 success as MKA validation.
 
 Branch `fix/voice-evidence-sixth-title` adds privacy-allowlisted voice lifecycle
 diagnostics (attempted/available/load failure/inference failure, observed windows,
 empty windows and sample count) plus evaluation/candidate status. They travel
 with completed worker windows and do not change formulas, thresholds or budgets.
+Additional numeric stages distinguish runtime script (1), model download (2),
+integrity (3), WASM initialization (4) and inference (5); zero means no failure.
+PCM sample and overflow-window counters distinguish absent input from rejected
+evidence. Invalid model probabilities now explicitly disable voice evidence
+instead of silently producing empty bins. The lexical fallback is preserved.
 Local lifecycle, worker-window and diagnostic privacy regressions pass. This is
 an observability fix only; no physical synchronization fix or release is claimed.
 Private media, subtitles and traces remain outside the repository.

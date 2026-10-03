@@ -107,6 +107,7 @@ function diagnosticReport(status, review, environment) {
       'offset', 'factor', 'score', 'sampleCount', 'thirdCount', 'spread', 'accepted',
       'attempted', 'available', 'loadFailed', 'inferenceFailed', 'windows',
       'emptyWindows', 'evaluated', 'candidateFound',
+      'failureStage', 'pcmSamples', 'overflowWindows',
     ]),
     convergence: numbers(diagnostics.romanianConvergence, [
       'verified', 'completedWindows', 'totalWindows', 'primaryWindows',
