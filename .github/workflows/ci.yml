@@ -46,7 +46,9 @@ jobs:
           node tests/js/voice-lifecycle.js
           node tests/js/voice-confirmation-windows.js
       - name: Validate Romanian post-lock precision refinement
-        run: node tests/js/romanian-precision.js
+        run: |
+          node tests/js/romanian-precision.js
+          node tests/js/romanian-voice-precision.js
       - name: Validate canonical correlation status selection
         run: node tests/js/correlation-status.js
       - name: Validate Romanian adaptive save policy

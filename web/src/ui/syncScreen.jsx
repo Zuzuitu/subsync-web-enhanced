@@ -440,7 +440,10 @@ export default class SyncScreen {
     this.precisionEvidence.textContent =
       `${buckets} cue buckets · thirds ${beginning}/${middle}/${end} · raw matches ${rawPoints}`;
     this.precisionRobustness.textContent =
-      `leave-one-cue max ${formatPrecisionSeconds(precision.maxMappedDelta)} · median ${formatPrecisionSeconds(precision.medianMappedDelta)} · slope max ${formatPrecisionPpm(precision.maxSlopeDeltaPpm)} · ${samples} checks`;
+      `${precision.voicePrecisionApplied ? 'lexical fit: ' : ''}leave-one-cue max ${formatPrecisionSeconds(precision.maxMappedDelta)} · median ${formatPrecisionSeconds(precision.medianMappedDelta)} · slope max ${formatPrecisionPpm(precision.maxSlopeDeltaPpm)} · ${samples} checks`
+      + (precision.voicePrecisionApplied
+        ? ` · voice: ${precision.voiceValidationFolds} held-out folds · spread ${formatPrecisionSeconds(precision.voiceValidationSpread)}`
+        : '');
 
     this.precisionEvidenceRow.hidden = false;
     this.precisionRobustnessRow.hidden = false;

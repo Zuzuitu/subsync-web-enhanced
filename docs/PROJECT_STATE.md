@@ -4,6 +4,72 @@ LAST_UPDATED: 2026-10-14
 
 ## Canonical status
 
+## 2026-10-14 — Independent post-lock voice precision candidate
+
+The first PR88 Legacy build attempt failed the unchanged synthetic Romanian
+drift gate: 0.549547 seconds across an 80-cue, 481-second retained Piper input.
+Exact-input replay of OLD live `7786b51f...` and PR88 `5f71e03d...` produces
+byte-identical exported SRTs and identical formulas (`a=1.001213550567627`,
+`b=-8.538544654846191`). Therefore the precision defect predates startup recovery;
+it is not fixed by a CI rerun. Both the failed input and outcomes are retained.
+PR88's Legacy attempt 2 passed; no acceptance/quality threshold was weakened.
+
+Branch `fix/voice-affine-precision` addresses that separate precision defect.
+It proposes an optional affine polish ONLY after verified canonical Romanian
+same-language convergence and the existing duplicate-raw-match, balanced-cue
+and 0.75-second whole-title guards. It reuses existing neural probability bins,
+requests no audio, and never supplies Original or synthetic ground truth to the
+estimator. All existing lexical/robust fallbacks remain available unchanged.
+
+Endpoint changes are searched within the existing canonical 0.75-second bound
+at half a 250 ms activity bin. Three folds hold out WHOLE probes in each title
+third; adjacent correlated bins cannot leak between training and validation.
+Each fold needs at least three disjoint probes per third, finite scores >=0.45,
+held-out score improvement >=0.02 and no regional loss greater than 0.005. Fold
+fits must agree within one activity bin, global improvement must exceed 0.04,
+and median lexical residual may not worsen by more than one bin. Real speed
+changes are supported; a slope of one is never imposed. Insufficient, silent,
+nonfinite, overlapping, inconsistent or unbalanced evidence keeps the existing
+formula. Output eligibility and canonical sc0ty thresholds are unchanged.
+
+The exact retained failure first FAILS the new regression on old source. The
+candidate passes it plus genuine-speed-change, clean-fit preservation, malformed
+input, contradictory-third and real synchronizer VAD-path/idempotence guards.
+The committed fixture contains only own synthetic cue bounds, word-time pairs
+and detector probabilities; no audio, transcript or private movie material.
+Ground truth is evaluation-only. New diagnostic fields are numeric/boolean;
+the UI distinguishes lexical jackknife sensitivity from voice fold spread.
+
+A complete local Chromium 140 PWA replay on that same retained MKV/SRT now
+exports all 80 cues: drift -0.096688 s, start MAE 0.047100 s, p95 0.091050 s,
+maximum 0.096000 s (old MAE 0.242525 s, p95 0.489300 s, maximum 0.515000 s).
+Exactly the same 9 probes/540 bins were used. Applied formula:
+`a=0.999786554776837`, `b=-7.9944353103637695`; voice score 0.9769474,
+gain 0.1163215, minimum held-out gain 0.0906499, regional minimum gain 0,
+3 folds with 0.125 s mapped spread; canonical mapped delta 0.625 s.
+This is a local behavior candidate, not a released or physical-device result.
+Release CI and direct post-deploy verification are pending.
+
+## 2026-10-14 — Startup recovery validated and integrated (PR88)
+
+PR88 passed all nine head workflows on `5f71e03d0b084b3400c747048d4a742d40f008b2`
+(Legacy build attempt 2), merged as `3cc0beae6a3440686df653b077e856db9c14bc91`
+and deliberate deployment 38613704381 is running at this checkpoint.
+Actual model/runtime tests in Chromium 154.0.8037.97 and WebKit 26.0 recover
+denied module import and unavailable shared memory; probabilities match the
+healthy primary exactly (max delta 0 in both browsers). These are controlled
+failures, not a claim identifying the exact physical exception.
+
+The original sixth-title MKA with primary import forcibly failed completed the
+entire local Chromium 140 PWA flow in 812.604 seconds, with zero page errors,
+48 probes and 884 cues exported. All 1768 timestamps have 96 ms MAE/max versus
+the withheld Original; text/order are preserved except existing trailing-space
+normalization. Formula `a=1`, `b=-9.903316736221313`; neural score 0.6378179,
+1440 bins, 3 thirds and 0.5 s spread. Fallback succeeded, failureStage=0,
+load/inference failures=false, empty/overflow windows=0. Startup numeric report
+was available after 2.216 seconds with zero audio windows/evidence counted.
+No physical iPhone or universal-title success is claimed.
+
 ## 2026-10-14 — Physical startup failure isolated; recovery candidate
 
 The new physical iPhone/Chrome diagnostic reports delivered runtime
