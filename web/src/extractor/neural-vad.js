@@ -6,19 +6,31 @@ const MODEL_SHA = '1a153a22f4509e292a94e67d6f9b85e8deb25b4988682b7e174c65279d878
 
 export default class NeuralVad {
   static async create(base) {
-    importScripts(`${base}ort.wasm.min.js`);
-    const ort = self.ort;
-    ort.env.wasm.numThreads = 1;
-    ort.env.wasm.proxy = false;
-    ort.env.wasm.wasmPaths = base;
-    const response = await fetch(`${base}silero_vad.onnx`);
-    if (!response.ok) throw new Error('Voice detector download failed');
-    const bytes = await response.arrayBuffer();
-    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
-    const hash = Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('');
-    if (hash !== MODEL_SHA) throw new Error('Voice detector integrity mismatch');
-    const session = await ort.InferenceSession.create(bytes, { executionProviders: ['wasm'] });
-    return new NeuralVad(ort, session);
+    // Stable numeric stages are safe to include in diagnostic exports:
+    // 1 runtime script, 2 model fetch, 3 integrity, 4 WASM session.
+    let stage = 1;
+    try {
+      importScripts(`${base}ort.wasm.min.js`);
+      const ort = self.ort;
+      ort.env.wasm.numThreads = 1;
+      ort.env.wasm.proxy = false;
+      ort.env.wasm.wasmPaths = base;
+      stage = 2;
+      const response = await fetch(`${base}silero_vad.onnx`);
+      if (!response.ok) throw new Error('Voice detector download failed');
+      const bytes = await response.arrayBuffer();
+      stage = 3;
+      const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+      const hash = Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('');
+      if (hash !== MODEL_SHA) throw new Error('Voice detector integrity mismatch');
+      stage = 4;
+      const session = await ort.InferenceSession.create(bytes, { executionProviders: ['wasm'] });
+      return new NeuralVad(ort, session);
+    } catch (error) {
+      const failure = new Error(String(error));
+      failure.voiceStage = stage;
+      throw failure;
+    }
   }
 
   constructor(ort, session) {
@@ -27,14 +39,18 @@ export default class NeuralVad {
     this.chunks = [];
     this.count = 0;
     this.overflow = false;
+    this.receivedSamples = 0;
+    this.overflowWindows = 0;
   }
 
   push(samples, time) {
     if (this.closed || this.overflow || !Number.isFinite(time)) return;
+    this.receivedSamples += samples.length;
     if (this.count + samples.length > MAX_SAMPLES) {
       this.chunks = [];
       this.count = 0;
       this.overflow = true;
+      this.overflowWindows++;
       return;
     }
     // WASM's view becomes invalid/reused after the synchronous callback.
@@ -94,6 +110,9 @@ export default class NeuralVad {
         try {
           output = await this.session.run(feeds);
           probability = Number(output.output.data[0]);
+          if (!Number.isFinite(probability) || probability < 0 || probability > 1) {
+            throw new Error('Voice detector returned an invalid probability');
+          }
           state = new Float32Array(output.stateN.data);
           context = input.slice(input.length - 64);
         } finally {

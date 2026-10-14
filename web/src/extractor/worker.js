@@ -203,6 +203,8 @@ class Extractor {
         ? await this.romanianSpeechRec.drainActivity(this.timeWindow[0] || 0,
           this.timeWindow[1] == null ? this.pipeline.demux.getDuration() : this.timeWindow[1])
         : [],
+      voiceStatus: this.romanianSpeechRec
+        ? this.romanianSpeechRec.getVoiceStatus() : null,
     };
   }
 

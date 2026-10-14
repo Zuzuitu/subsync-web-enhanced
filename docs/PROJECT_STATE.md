@@ -4,6 +4,46 @@ LAST_UPDATED: 2026-10-03
 
 ## Canonical status
 
+## 2026-10-03 — Sixth-title physical failure investigation (not released)
+
+PR #84 merged as `6a3394803235fccc7d31f07e90bee49394459bcc` and Pages
+deployment 37126749128 succeeded. The live manifest and all neural asset hashes
+were verified. This does not establish physical-device success.
+
+The user's subsequent physical iPhone/Chrome report for a sixth title used that
+runtime, ran 858.871 seconds, and ended without Save: 16 primary + 5 lexical
+rescue windows, no accepted correlation, and an empty `romanianVad` object.
+That empty object does not distinguish model initialization failure, inference
+failure, missing PCM or rejected timing evidence. No such root cause is proven.
+
+The sixth folder's supplied MP3 plus shifted SRT (exact +10 s relative to the
+withheld Original) was replayed in Chromium 141 against the public PR84 runtime.
+It exported successfully after 48 windows (16 + 32 voice confirmation), 815.639
+seconds, zero page errors, and 364 ms absolute start/end error for all 884 cues.
+Its accepted voice offset was -9.635786533355713, score 0.5977769361523747,
+1440 bins, 3 thirds and spread 0.125 s. WebKit 26 also completed the MP3 replay
+with the same correction and no page errors in 987.443 seconds. These are
+baseline results, NOT evidence that a new patch fixed the physical failure.
+The user subsequently confirmed the failed run used original MKA, not MP3.
+That exact MKA has now been downloaded: 267332722 bytes, AC3 48 kHz 6 channels,
+duration 4746.816 seconds matching the physical report. MKA replay is in progress.
+The first 16 Chromium probes produce 60 VAD bins each and schedule the 32 voice
+confirmation windows; the physical failure's missing voice path has not yet
+been reproduced. Do not treat MP3 success as MKA validation.
+
+Branch `fix/voice-evidence-sixth-title` adds privacy-allowlisted voice lifecycle
+diagnostics (attempted/available/load failure/inference failure, observed windows,
+empty windows and sample count) plus evaluation/candidate status. They travel
+with completed worker windows and do not change formulas, thresholds or budgets.
+Additional numeric stages distinguish runtime script (1), model download (2),
+integrity (3), WASM initialization (4) and inference (5); zero means no failure.
+PCM sample and overflow-window counters distinguish absent input from rejected
+evidence. Invalid model probabilities now explicitly disable voice evidence
+instead of silently producing empty bins. The lexical fallback is preserved.
+Local lifecycle, worker-window and diagnostic privacy regressions pass. This is
+an observability fix only; no physical synchronization fix or release is claimed.
+Private media, subtitles and traces remain outside the repository.
+
 This file is the human-readable technical checkpoint for SubSync2.
 Repository truth overrides chat memory. Before material changes, read in this order:
 1. `docs/PROJECT_STATE.md`
