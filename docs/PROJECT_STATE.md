@@ -4,6 +4,40 @@ LAST_UPDATED: 2026-10-14
 
 ## Canonical status
 
+## 2026-10-14 — Recovery and affine precision delivered (PR88/PR89)
+
+PR88 recovery is publicly delivered as
+`3cc0beae6a3440686df653b077e856db9c14bc91`. Deliberate deployment
+38613704381 succeeded. Direct readback verifies the exact live manifest/hash,
+bootstrap, runtime/recovery/early-status bundle markers and unshared runtime
+WASM digest `f533b5f21790563d7556c611c3835ac65848ee326da2689aac54ed7d9cc8c6a4`.
+Delivered bundle SHA-256: `ad457098f88c79bf1366c1b56ebbd60d32e1d97044f6fdc61d668a876bf3e7b8`.
+
+PR89 affine precision passed all nine exact-head workflow runs on
+`31a424854c321ecddcf1034c250496e3dee11d1b` on attempt 1 and was squash-merged
+as `512694e51b20032c991a6104f3f0f3197913c1d5`. Its deliberate deployment
+38620737143 succeeded. Direct live readback verifies that exact manifest hash,
+bootstrap, runtime marker, recovery, affine/fold-validation and early-status
+bundle markers. Delivered bundle SHA-256:
+`f3bc97c92404c6fff867dcef319f6bf6d7ee12afaa80823d4503afa438c1bb5e`.
+Live model and primary/compatibility WASM digests match their pinned configuration
+(`1a153a22...`, `207d02be...`, `f533b5f2...` respectively). Both behavior patches
+are publicly delivered; this checkpoint update does not redeploy the product.
+The authoritative retained CI diagnostics confirm the voice refinement actually
+applied in BOTH Chromium 154 and WebKit 26, using 9 probes and 3 held-out folds.
+They produce identical formulas (`a=0.9997965693473816`, `b=-8.017579078674316`),
+score gain 0.08127651036139671, median absolute start error 0.0675 seconds and
+title drift -0.0920785568971326 seconds on that freshly generated synthetic input.
+This supplements, rather than replaces, the exact failed-input before/after
+comparison below. All original acceptance/quality thresholds remain unchanged.
+
+The sixth original-MKA forced-recovery replay remains 884 cues / 1768 timestamps
+at 96 ms MAE/max against the withheld Original. The actual synchronizer guard
+explicitly preserves this accepted offset-only VAD path and prevents repeat
+refinement. No private film/transcript is committed. Physical iPhone success and
+universal-title accuracy remain unclaimed; the new initialization state is
+observable before a full audio scan is needed.
+
 ## 2026-10-14 — Independent post-lock voice precision candidate
 
 The first PR88 Legacy build attempt failed the unchanged synthetic Romanian
@@ -24,8 +58,9 @@ estimator. All existing lexical/robust fallbacks remain available unchanged.
 Endpoint changes are searched within the existing canonical 0.75-second bound
 at half a 250 ms activity bin. Three folds hold out WHOLE probes in each title
 third; adjacent correlated bins cannot leak between training and validation.
-Each fold needs at least three disjoint probes per third, finite scores >=0.45,
-held-out score improvement >=0.02 and no regional loss greater than 0.005. Fold
+At least three disjoint probes per title third are required; each fold holds out
+one probe group and trains on the other two. Finite validation scores must be
+>=0.45, held-out improvement >=0.02 and regional loss no greater than 0.005. Fold
 fits must agree within one activity bin, global improvement must exceed 0.04,
 and median lexical residual may not worsen by more than one bin. Real speed
 changes are supported; a slope of one is never imposed. Insufficient, silent,
