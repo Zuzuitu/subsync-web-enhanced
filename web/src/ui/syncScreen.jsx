@@ -46,6 +46,7 @@ export default class SyncScreen {
           Stage: <span this='diagnosticStage'>-</span>
         </p>
         <p this='diagnosticEvidence'>Waiting for processing evidence...</p>
+        <p this='voiceEvidence' data-diagnostic='voice-startup' role='status' hidden />
         <p this='diagnosticReason' class='diagnostic_reason' hidden />
       </div>
       <dl>
@@ -221,6 +222,8 @@ export default class SyncScreen {
     this.setState(i18n`Synchronizing...`);
     this.updateTimer = setInterval(() => this.updateStatus(Synchronizer.instance.getStatus()), 1000);
     this.stopBtn.disabled = false;
+    this.reportBtn.disabled = false;
+    this.updateStatus(Synchronizer.instance.getStatus());
   }
 
   setState(message, mark, sclass) {
@@ -336,11 +339,18 @@ export default class SyncScreen {
   }
 
   downloadReport() {
-    if (!this.reviewReport) return;
+    // Startup failures can be inspected/stopped immediately, without requiring
+    // the user to repeat an entire film scan just to obtain a numeric code.
+    const report = this.reviewReport || diagnosticReport(
+      Synchronizer.instance.getStatus(), Synchronizer.instance.getTimingReview(), {
+        runtime: runtimeVersion, browser: navigator.userAgent,
+        elapsedSeconds: (performance.now() - this.startTime) / 1000,
+        outcome: 'running',
+      });
     let url;
     let link;
     try {
-      url = URL.createObjectURL(new Blob([JSON.stringify(this.reviewReport, null, 2) + '\n'],
+      url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2) + '\n'],
         {type: 'application/json'}));
       link = el('a', {href: url, download: 'subsync2-diagnostics.json', hidden: true});
       document.body.appendChild(link);
@@ -359,6 +369,14 @@ export default class SyncScreen {
       return;
     }
     this.diagnosticPanel.hidden = false;
+    const voice = diagnostics.romanianVad;
+    this.voiceEvidence.hidden = !voice;
+    if (voice) {
+      this.voiceEvidence.textContent = voice.available
+        ? `Voice timing: ready${voice.fallbackSucceeded ? ' (compatibility runtime recovered startup)' : ''}.`
+        : `Voice timing unavailable (stage ${voice.failureStage || 0}, code ${voice.failureCode || 0}). `
+          + 'Lexical verification continues; you can download diagnostics now or stop.';
+    }
     const subCount = diagnostics.subtitles || 0;
     const subWords = diagnostics.subWords || 0;
     const refWords = diagnostics.refWords || 0;

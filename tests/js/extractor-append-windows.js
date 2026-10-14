@@ -41,6 +41,8 @@ function extractor(windows) {
     return new Promise(resolve => { completeVoice = resolve; });
   } };
   const voiceRun = voiced.run();
+  assert.strictEqual(voiced.getVoiceStatus().available, true,
+    'voice startup status must be observable before a completed probe');
   assert.strictEqual(voiced.windowIndex, 0,
     'must wait for asynchronous voice evidence before advancing the decoder');
   completeVoice([{ time: 1.125, energy: .8 }]);

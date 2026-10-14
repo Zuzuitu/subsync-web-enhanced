@@ -108,6 +108,8 @@ function diagnosticReport(status, review, environment) {
       'attempted', 'available', 'loadFailed', 'inferenceFailed', 'windows',
       'emptyWindows', 'evaluated', 'candidateFound',
       'failureStage', 'pcmSamples', 'overflowWindows',
+      'failureCode', 'runtimeCode', 'fallbackAttempted', 'fallbackSucceeded',
+      'primaryFailureCode', 'initializationMs',
     ]),
     convergence: numbers(diagnostics.romanianConvergence, [
       'verified', 'completedWindows', 'totalWindows', 'primaryWindows',

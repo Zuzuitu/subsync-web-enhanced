@@ -157,6 +157,11 @@ export default class Synchronizer {
             timeWindows: romanianPrimaryWindows,
           }))
         ]);
+        if (romanianPrimaryWindows) {
+          // Expose the real startup inference/recovery before spending minutes
+          // on the first speech probe. Window completion keeps updating it.
+          this.diagnostics.romanianVad = await refExtractors[0].getVoiceStatus();
+        }
         this.recordStage(listener, 'pipeline-open', 'ready');
       } catch (e) {
         throw this.recordError(listener, annotateErrorStage(e, 'pipeline-open'));

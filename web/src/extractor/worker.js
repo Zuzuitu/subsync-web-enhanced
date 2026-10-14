@@ -213,6 +213,10 @@ class Extractor {
     };
   }
 
+  getVoiceStatus() {
+    return this.romanianSpeechRec ? this.romanianSpeechRec.getVoiceStatus() : null;
+  }
+
   getWindowProgress(position) {
     const [ startTime, endTime ] = this.timeWindow;
     const windowEnd = endTime == null ? this.pipeline.demux.getDuration() : endTime;

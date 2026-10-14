@@ -101,6 +101,10 @@ Silero VAD (MIT) is pinned to commit
 https://github.com/snakers4/silero-vad. ONNX Runtime Web 1.20.1 (MIT)
 is pinned to release commit `5c1b7ccbff7e5141c1da7a9d963d660e5741c319`
 of https://github.com/microsoft/onnxruntime.
+The startup recovery path uses the official ONNX Runtime Web 1.18.0 (MIT)
+unshared SIMD binary, pinned to `45737400a2f3015c11f005ed7603611eaed306a6`.
+It runs the same integrity-verified Silero model only if the primary runtime
+fails to initialize or pass its startup inference; no device/title rule is used.
 The build verifies the model, runtime archive, runtime files and license notices
 against `config/neural-vad.json`. Both upstream licenses and ONNX Runtime's
 third-party notices are distributed beside the assets in `scripts/vad/`.

@@ -80,11 +80,19 @@ let report = diagnosticReport(status, review, env);
 status.diagnostics.romanianVad = { attempted: true, available: false,
   loadFailed: true, inferenceFailed: false, sampleCount: 0, windows: 16,
   emptyWindows: 0, evaluated: true, candidateFound: false, accepted: false,
+  failureCode: 3, runtimeCode: 2, fallbackAttempted: true,
+  fallbackSucceeded: false, primaryFailureCode: 1, initializationMs: 1234,
   error: 'private filename', text: 'private transcript' };
 const voiceReport = diagnosticReport(status, review, env).romanianVad;
 assert.strictEqual(voiceReport.loadFailed, true);
 assert.strictEqual(voiceReport.available, false);
 assert.strictEqual(voiceReport.sampleCount, 0);
+assert.strictEqual(voiceReport.failureCode, 3);
+assert.strictEqual(voiceReport.runtimeCode, 2);
+assert.strictEqual(voiceReport.fallbackAttempted, true);
+assert.strictEqual(voiceReport.fallbackSucceeded, false);
+assert.strictEqual(voiceReport.primaryFailureCode, 1);
+assert.strictEqual(voiceReport.initializationMs, 1234);
 assert.strictEqual(voiceReport.error, undefined);
 assert.strictEqual(voiceReport.text, undefined);
 assert.strictEqual(report.saveEligible, false, 'pending adaptive lock stays fail-closed');

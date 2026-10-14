@@ -4,6 +4,48 @@ LAST_UPDATED: 2026-10-14
 
 ## Canonical status
 
+## 2026-10-14 — Physical startup failure isolated; recovery candidate
+
+The new physical iPhone/Chrome diagnostic reports delivered runtime
+`7786b51fda6c9e7c8b36b3b2f919a96e5079d12a`, elapsed 796.808 seconds,
+16 primary + 5 lexical rescue windows, Save disabled and zero speech-probability
+bins. Its lifecycle explicitly says loadFailed=true, failureStage=4,
+inferenceFailed=false, pcmSamples=0 and overflowWindows=0. This identifies ONNX
+session initialization as the failing stage, not decoding, probe overflow or
+rejected voice timing. The exception text was not exported, so the exact physical
+exception (import, WASM, allocation or session) is NOT established.
+
+The official pinned ORT 1.20.1 artifact imports a shared WASM memory even with
+numThreads=1; setting that flag does not make its binary unshared. Branch
+`fix/voice-startup-recovery` retains this already validated primary runtime and
+adds one bounded fallback after session/startup-inference failure: official ORT
+1.18.0, commit `45737400a2f3015c11f005ed7603611eaed306a6`, genuinely unshared SIMD
+WASM with a classic loader (no dynamic .mjs import). Its archive, two runtime files
+and license notices are individually pinned/verified. The SAME SHA-verified
+Silero model is reused; model download/integrity failures never enter recovery.
+No title/UA offset, estimator, acceptance, Save or audio-budget rule is changed.
+
+One real silent frame verifies startup inference before the movie scan; it is
+discarded and excluded from PCM/timing counters. Failed startup sessions are
+released before fallback. Startup status is visible and numeric diagnostics can
+be downloaded before the first completed speech probe, so a loading failure
+does not require another full-film test to inspect. Runtime/fallback booleans,
+runtimeCode (1 primary, 2 compatibility), initializationMs and failure categories
+are privacy-allowlisted. Codes: 0 unknown, 1 module import, 2 WASM compile/link,
+3 shared memory/threads, 4 allocation, 5 timeout, 6 model/session, 7 network.
+Stage 5 also covers the startup inference, not only subsequent movie inference.
+
+Regression fails on the previous implementation at stage 4 when the module
+import is denied. Actual Chromium 140 worker tests pass both denied import and
+unavailable shared-memory paths using the real pinned model/runtime. Synthetic
+non-silent probability bins are identical to the primary runtime (max delta 0).
+The binary memory validator confirms the fallback is unshared and rejects the
+primary as shared. Unit coverage also checks healthy-primary preservation,
+failed warmup cleanup, both runtimes failing, one-attempt limit, integrity
+fail-closed behavior and numeric/boolean privacy. Physical success, full original
+MKA recovery replay and release CI remain pending at this checkpoint. These
+controlled failures are not falsely identified as the physical exception.
+
 ## 2026-10-14 — Diagnostic publication and bounded voice-probe follow-up
 
 User explicitly authorized publishing the diagnostic patch. PR #85 passed all
