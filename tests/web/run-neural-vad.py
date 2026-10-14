@@ -42,8 +42,16 @@ try:
                   const first = await detector.drain(100, 101);
                   detector.push(new Float32Array(16000), 200);
                   const second = await detector.drain(200, 201);
+                  detector.beginProbe(300, 301);
+                  detector.push(new Float32Array(16000 * 70), 230);
+                  detector.push(new Float32Array(16000), 300);
+                  detector.push(new Float32Array(16000 * 70), 301);
+                  const retainedSamples = detector.count;
+                  const overflowWindows = detector.overflowWindows;
+                  const bounded = await detector.drain(300, 301);
                   detector.delete();
-                  postMessage({first, second, threads: self.ort.env.wasm.numThreads});
+                  postMessage({first, second, bounded, retainedSamples, overflowWindows,
+                    threads: self.ort.env.wasm.numThreads});
                 } catch (error) {
                   if (detector) detector.delete();
                   postMessage({error: String(error)});
@@ -62,12 +70,17 @@ try:
             }""", {"source": source, "base": origin + "/scripts/vad/" + config["directory"] + "/"})
             assert "error" not in result, result
             assert result["threads"] == 1, result
-            assert len(result["first"]) == len(result["second"]) == 4, result
+            assert len(result["first"]) == len(result["second"]) == len(result["bounded"]) == 4, result
+            assert result["retainedSamples"] == 16000, result
+            assert result["overflowWindows"] == 0, result
             for index, (first, second) in enumerate(zip(result["first"], result["second"])):
                 assert first["time"] == 100 + (index + .5) * .25
                 assert second["time"] == first["time"] + 100
                 assert 0 <= first["energy"] < .1, result
                 assert abs(first["energy"] - second["energy"]) < 1e-6, result
+                bounded = result["bounded"][index]
+                assert bounded["time"] == first["time"] + 200, result
+                assert abs(bounded["energy"] - first["energy"]) < 1e-6, result
             print(json.dumps({"browser": args.browser, "version": browser.version,
                               "modelSha256": config["files"][0]["sha256"], "result": result}))
         finally:

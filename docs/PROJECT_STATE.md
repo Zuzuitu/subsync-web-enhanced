@@ -27,6 +27,10 @@ Whisper PCM unchanged. It also prevents a new probe replacing in-flight inferenc
 Regression fails on the prior implementation and passes on the follow-up. Coverage
 includes split/overlapping chunks, immutable WASM views, stale samples after seek,
 postroll, actual over-cap probes, cancellation and asynchronous window ordering.
+The actual pinned ONNX/Silero detector in Chromium also preserves identical
+probabilities for bounded useful PCM surrounded by 70-second preroll/postroll,
+retaining only 16000 samples for the requested one-second probe. The authoritative
+browser detector test now exercises this regression in Chromium and WebKit.
 No sampling, timing-estimator, acceptance, Save, privacy or cost rule is changed.
 
 ## 2026-10-03 — Sixth-title physical failure investigation (not released)
