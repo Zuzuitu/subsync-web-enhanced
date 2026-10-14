@@ -4,17 +4,59 @@ const FRAME = 512;
 const MAX_SAMPLES = RATE * 64;
 const MODEL_SHA = '1a153a22f4509e292a94e67d6f9b85e8deb25b4988682b7e174c65279d8788e3';
 
+// Numeric categories only: never export an exception's URLs, paths or text.
+// 0 unknown, 1 module import, 2 WASM compile/link, 3 shared memory/threads,
+// 4 allocation, 5 timeout, 6 model/session, 7 network/asset loading.
+function failureCode(error) {
+  const message = String(error);
+  if (/sharedarraybuffer|shared.*memory|wasm.*threads|atomics/i.test(message)) return 3;
+  if (/out of memory|allocation|bad_alloc|cannot enlarge memory/i.test(message)) return 4;
+  if (/timeout|timed out/i.test(message)) return 5;
+  if (/importing a module|dynamically imported module|module script|importscripts/i.test(message)) return 1;
+  if (/compileerror|linkerror|webassembly\.(instantiate|compile)/i.test(message)) return 2;
+  if (/fetch|network|download|load wasm binary/i.test(message)) return 7;
+  if (/onnx|model|session/i.test(message)) return 6;
+  return 0;
+}
+
 export default class NeuralVad {
-  static async create(base) {
+  static async create(base, fallbackBase) {
     // Stable numeric stages are safe to include in diagnostic exports:
-    // 1 runtime script, 2 model fetch, 3 integrity, 4 WASM session.
+    // 1 runtime script, 2 model fetch, 3 integrity, 4 WASM session, 5 inference.
     let stage = 1;
-    try {
-      importScripts(`${base}ort.wasm.min.js`);
+    const started = Date.now();
+    const initialization = { runtimeCode: 1, fallbackAttempted: false,
+      fallbackSucceeded: false, primaryFailureCode: 0, initializationMs: 0 };
+    const loadRuntime = runtimeBase => {
+      importScripts(`${runtimeBase}ort.wasm.min.js`);
       const ort = self.ort;
       ort.env.wasm.numThreads = 1;
       ort.env.wasm.proxy = false;
-      ort.env.wasm.wasmPaths = base;
+      ort.env.wasm.simd = true;
+      ort.env.wasm.wasmPaths = runtimeBase;
+      return ort;
+    };
+    const initialize = async (ort, bytes) => {
+      stage = 4;
+      const session = await ort.InferenceSession.create(bytes, { executionProviders: ['wasm'] });
+      const detector = new NeuralVad(ort, session);
+      try {
+        // One real inference catches broken sessions before a long movie scan.
+        // Synthetic startup silence is discarded, never timing evidence.
+        stage = 5;
+        detector.push(new Float32Array(FRAME), 0);
+        const check = await detector.drain(0, FRAME / RATE);
+        if (check.length !== 1) throw new Error('Voice detector startup inference failed');
+        detector.receivedSamples = 0;
+        return detector;
+      } catch (error) {
+        await session.release().catch(() => {});
+        detector.session = null;
+        throw error;
+      }
+    };
+    try {
+      let ort = loadRuntime(base);
       stage = 2;
       const response = await fetch(`${base}silero_vad.onnx`);
       if (!response.ok) throw new Error('Voice detector download failed');
@@ -23,12 +65,31 @@ export default class NeuralVad {
       const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
       const hash = Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('');
       if (hash !== MODEL_SHA) throw new Error('Voice detector integrity mismatch');
-      stage = 4;
-      const session = await ort.InferenceSession.create(bytes, { executionProviders: ['wasm'] });
-      return new NeuralVad(ort, session);
+      let detector;
+      try {
+        detector = await initialize(ort, bytes);
+      } catch (error) {
+        if (!fallbackBase || (stage !== 4 && stage !== 5)) throw error;
+        initialization.primaryFailureCode = failureCode(error);
+        initialization.fallbackAttempted = true;
+        initialization.runtimeCode = 2;
+        ort = null;
+        // The official 1.18 SIMD binary is genuinely unshared and its classic
+        // loader has no dynamic .mjs import. Use it only after primary failure,
+        // once, with the SAME verified model and unchanged timing estimator.
+        stage = 1;
+        detector = await initialize(loadRuntime(fallbackBase), bytes);
+        initialization.fallbackSucceeded = true;
+      }
+      initialization.initializationMs = Date.now() - started;
+      detector.initialization = initialization;
+      return detector;
     } catch (error) {
       const failure = new Error(String(error));
       failure.voiceStage = stage;
+      failure.voiceCode = failureCode(error);
+      initialization.initializationMs = Date.now() - started;
+      failure.initialization = initialization;
       throw failure;
     }
   }

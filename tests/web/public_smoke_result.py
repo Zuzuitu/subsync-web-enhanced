@@ -8,9 +8,10 @@ from pathlib import Path
 def validate_voice_diagnostic(value):
     """Allow only the numeric/boolean VAD evidence already emitted by the PWA."""
     booleans = {"accepted", "attempted", "available", "loadFailed", "inferenceFailed",
-                "evaluated", "candidateFound"}
+                "evaluated", "candidateFound", "fallbackAttempted", "fallbackSucceeded"}
     allowed = {"offset", "factor", "score", "sampleCount", "thirdCount", "spread",
-               "windows", "emptyWindows", "failureStage", "pcmSamples", "overflowWindows"} | booleans
+               "windows", "emptyWindows", "failureStage", "pcmSamples", "overflowWindows",
+               "failureCode", "runtimeCode", "primaryFailureCode", "initializationMs"} | booleans
     if not isinstance(value, dict) or set(value) - allowed:
         raise SystemExit("Unexpected voice diagnostic fields")
     for key, item in value.items():

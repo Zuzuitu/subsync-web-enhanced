@@ -14,8 +14,12 @@ class PublicSmokeResultTest(unittest.TestCase):
         validate_voice_diagnostic({"offset": -10.2, "score": .6, "accepted": True})
         validate_voice_diagnostic({"attempted": True, "available": False,
                                   "loadFailed": True, "windows": 16, "sampleCount": 0})
+        validate_voice_diagnostic({"runtimeCode": 2, "fallbackAttempted": True,
+                                  "fallbackSucceeded": True, "primaryFailureCode": 3,
+                                  "failureCode": 0, "initializationMs": 500})
         for bad in ({"text": "private"}, {"score": "private"}, {"score": float("nan")},
-                    {"score": True}, {"accepted": 1}, [1, 2]):
+                    {"score": True}, {"accepted": 1}, {"fallbackAttempted": 1},
+                    {"failureCode": "private"}, {"initializationMs": float("inf")}, [1, 2]):
             with self.subTest(value=bad), self.assertRaises(SystemExit):
                 validate_voice_diagnostic(bad)
 

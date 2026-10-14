@@ -11,6 +11,30 @@
     "ort-wasm-simd-threaded.mjs": "745eb7c0ce6f18a6aa521971b2877babc7ffb27eecb58ab3bc6e5ef4692672e8",
     "ort-wasm-simd-threaded.wasm": "207d02be4591c156b0a98f024f3d58005b5b04c92274d759fb390338c63559ea"
   },
+  "fallbackRuntime": {
+    "directory": "silero-1a153a22-ort-1.18.0-unshared",
+    "runtimeCommit": "45737400a2f3015c11f005ed7603611eaed306a6",
+    "runtimeArchive": {
+      "url": "https://registry.npmjs.org/onnxruntime-web/-/onnxruntime-web-1.18.0.tgz",
+      "sha256": "b4940dec2f4f63cd98d48597336809d45fdaa1c4ddc6d2e6e61183772a266e07"
+    },
+    "runtimeFiles": {
+      "ort.wasm.min.js": "90533a3fd7006df7f897c0d63c468996da5c8e430e39964d92ebe586c4996614",
+      "ort-wasm-simd.wasm": "f533b5f21790563d7556c611c3835ac65848ee326da2689aac54ed7d9cc8c6a4"
+    },
+    "files": [
+      {
+        "name": "ort-LICENSE",
+        "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/45737400a2f3015c11f005ed7603611eaed306a6/LICENSE",
+        "sha256": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c"
+      },
+      {
+        "name": "ort-ThirdPartyNotices.txt",
+        "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/45737400a2f3015c11f005ed7603611eaed306a6/ThirdPartyNotices.txt",
+        "sha256": "10fc98a2f4d478e981813d594e23d7e31b0430e66501a658c1ecab2a226a4b52"
+      }
+    ]
+  },
   "files": [
     {
       "name": "silero_vad.onnx",

@@ -362,6 +362,7 @@ jobs:
 
       - name: Verify local neural voice runtime without lexical fallback
         run: |
+          python3 tests/wasm/assert-unshared-memory.py web/dist/scripts/vad/silero-1a153a22-ort-1.18.0-unshared/ort-wasm-simd.wasm
           python3 tests/web/run-neural-vad.py --browser chromium
           python3 tests/web/run-neural-vad.py --browser webkit
 

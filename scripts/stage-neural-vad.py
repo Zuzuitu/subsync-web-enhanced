@@ -18,8 +18,7 @@ def download(asset):
         return checked(response.read(), asset["sha256"])
 
 
-def stage(dist):
-    config = json.loads((Path(__file__).resolve().parents[1] / "config/neural-vad.json").read_text())
+def stage_bundle(dist, config):
     target = Path(dist) / "scripts/vad" / config["directory"]
     target.mkdir(parents=True, exist_ok=True)
     records = []
@@ -40,8 +39,16 @@ def stage(dist):
             write(name, archive.extractfile(member).read(), digest)
     for asset in config["files"]:
         write(asset["name"], download(asset), asset["sha256"])
-    return {"directory": config["directory"], "modelCommit": config["modelCommit"],
+    return {"directory": config["directory"],
             "runtimeCommit": config["runtimeCommit"], "files": records}
+
+
+def stage(dist):
+    config = json.loads((Path(__file__).resolve().parents[1] / "config/neural-vad.json").read_text())
+    result = stage_bundle(dist, config)
+    result["modelCommit"] = config["modelCommit"]
+    result["fallbackRuntime"] = stage_bundle(dist, config["fallbackRuntime"])
+    return result
 
 
 if __name__ == "__main__":

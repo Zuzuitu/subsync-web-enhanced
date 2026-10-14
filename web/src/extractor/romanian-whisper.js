@@ -59,11 +59,17 @@ export default class RomanianSpeechRecognition {
     logger.log('runtime', info);
     recognition.recognizer.loadModel(modelBytes);
     try {
-      recognition.vad = await NeuralVad.create(`${settings.url}scripts/vad/${vadConfig.directory}/`);
+      recognition.vad = await NeuralVad.create(
+        `${settings.url}scripts/vad/${vadConfig.directory}/`,
+        `${settings.url}scripts/vad/${vadConfig.fallbackRuntime.directory}/`
+      );
+      Object.assign(recognition.voiceStatus, recognition.vad.initialization);
       recognition.voiceStatus.available = true;
     } catch (error) {
+      Object.assign(recognition.voiceStatus, error.initialization);
       recognition.voiceStatus.loadFailed = true;
       recognition.voiceStatus.failureStage = error.voiceStage || 4;
+      recognition.voiceStatus.failureCode = error.voiceCode || 0;
       logger.warn('Voice timing unavailable; retaining lexical verification', String(error));
     }
     return recognition;
@@ -75,7 +81,9 @@ export default class RomanianSpeechRecognition {
     this.listeners = [];
     this.voiceStatus = { attempted: true, available: false, loadFailed: false,
       inferenceFailed: false, failureStage: 0, windows: 0, emptyWindows: 0,
-      sampleCount: 0, pcmSamples: 0, overflowWindows: 0 };
+      sampleCount: 0, pcmSamples: 0, overflowWindows: 0, failureCode: 0,
+      runtimeCode: 0, fallbackAttempted: false, fallbackSucceeded: false,
+      primaryFailureCode: 0, initializationMs: 0 };
     this.recognizer.setWordsCallback(word => {
       for (const listener of this.listeners) {
         listener(word);

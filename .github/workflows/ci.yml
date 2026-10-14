@@ -42,6 +42,7 @@ jobs:
           node tests/js/romanian-vad.js
           node tests/js/neural-vad-buffer.js
           node tests/js/neural-vad-probe-bounds.js
+          node tests/js/neural-vad-startup.js
           node tests/js/voice-lifecycle.js
           node tests/js/voice-confirmation-windows.js
       - name: Validate Romanian post-lock precision refinement
