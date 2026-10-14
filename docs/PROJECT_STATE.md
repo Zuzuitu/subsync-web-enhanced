@@ -46,7 +46,10 @@ No sampling, timing-estimator, acceptance, Save, privacy or cost rule is changed
 PR #86 passed all eight head workflow runs on
 `4ad7cf3bc5dd73757c4797fb5b71aa5ae06d0ef0` and was squash-merged as
 `7786b51fda6c9e7c8b36b3b2f919a96e5079d12a`. Deliberate deployment run
-38524543469 is in progress; verify its live manifest before calling PR86 delivered.
+38524543469 succeeded. The live manifest reports exactly `7786b51f...`; the
+delivered bundle carries that runtime hash, the probe guard and lifecycle fields.
+PR86 is publicly delivered. This is a general buffer fix, not a claimed physical
+iPhone root-cause resolution.
 
 The English-to-Romanian Mobile WebKit gate initially ended inconclusively below
 the unchanged canonical correlation threshold. The same head passed on attempt 2,
