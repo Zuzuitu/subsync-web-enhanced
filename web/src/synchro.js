@@ -563,8 +563,12 @@ export default class Synchronizer {
     }
 
     const convergence = this.diagnostics && this.diagnostics.romanianConvergence;
+    const voice = this.romanianContextAnchors && this.romanianScan
+      && this.diagnostics.romanianVad && this.diagnostics.romanianVad.available
+      ? { activity: this.romanianScan.activitySamples,
+        windows: this.romanianScan.windowSummaries.map(window => [window.start, window.end]) } : null;
     const refinement = selectRomanianPrecisionRefinement(
-      this.status, convergence, this.subtitles.events, this.referenceDuration
+      this.status, convergence, this.subtitles.events, this.referenceDuration, voice
     );
     if (!refinement || !this.status.formula) {
       return false;
@@ -578,6 +582,15 @@ export default class Synchronizer {
       robustRetainedApplied: refinement.method === 'robust-retained-cues',
       robustInlierBuckets: refinement.inlierBuckets,
       robustInlierPoints: refinement.inlierPoints,
+      voicePrecisionApplied: refinement.method === 'voice-validated-affine',
+      voiceScore: refinement.voiceScore,
+      voiceScoreGain: refinement.voiceScoreGain,
+      voiceMinimumValidationGain: refinement.voiceMinimumValidationGain,
+      voiceMinimumThirdGain: refinement.voiceMinimumThirdGain,
+      voiceValidationFolds: refinement.voiceValidationFolds,
+      voiceValidationSpread: refinement.voiceValidationSpread,
+      voiceProbeCount: refinement.voiceProbeCount,
+      voiceSampleCount: refinement.voiceSampleCount,
     };
     this.status = {
       ...this.status,

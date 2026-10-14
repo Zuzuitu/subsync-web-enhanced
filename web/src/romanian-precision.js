@@ -5,6 +5,7 @@ const {
   MAX_FORMULA_DELTA_SECONDS,
 } = require('./romanian-convergence.js');
 const { robustRetainedRefinement } = require('./romanian-robust.js');
+const { voicePrecisionRefinement } = require('./romanian-voice-precision.js');
 
 const MAX_REFINEMENT_MAPPED_DELTA_SECONDS = MAX_FORMULA_DELTA_SECONDS;
 
@@ -17,7 +18,7 @@ function validFormula(formula) {
   );
 }
 
-function selectRomanianPrecisionRefinement(status, convergence, events, duration) {
+function selectRomanianPrecisionRefinement(status, convergence, events, duration, voice) {
   if (!status || !status.correlated || !convergence || !convergence.verified) {
     return null;
   }
@@ -69,7 +70,11 @@ function selectRomanianPrecisionRefinement(status, convergence, events, duration
     precision, status.formula || standard.formula, standard.formula,
     events, duration, MAX_REFINEMENT_MAPPED_DELTA_SECONDS, MIN_PRECISION_THIRD_SHARE
   );
-  return robust ? { ...robust, method: 'robust-retained-cues' } : standard;
+  const retained = robust ? { ...robust, method: 'robust-retained-cues' } : standard;
+  const voiced = voicePrecisionRefinement(voice, events, duration,
+    status.formula || standard.formula, retained.formula, precision.fitPointTimes,
+    MAX_REFINEMENT_MAPPED_DELTA_SECONDS);
+  return voiced ? { ...voiced, method: 'voice-validated-affine' } : retained;
 }
 
 module.exports = {

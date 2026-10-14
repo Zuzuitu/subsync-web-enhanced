@@ -48,6 +48,10 @@ const status = {subReady: true, formula, canonicalFormula: {a: 1, b: -15}, point
     robustRetainedApplied: true,
     robustInlierBuckets: 21,
     robustInlierPoints: 25,
+    voicePrecisionApplied: true,
+    voiceScore: .97, voiceScoreGain: .11, voiceMinimumValidationGain: .07,
+    voiceMinimumThirdGain: 0, voiceValidationFolds: 3,
+    voiceValidationSpread: 0, voiceProbeCount: 9, voiceSampleCount: 540,
     fitPointTimes: [[110.25, 100.25], [210.5, 200.5]],
     fitPointTimesTruncated: false,
   },
@@ -111,6 +115,10 @@ assert.strictEqual(report.precision.refinementMappedDelta, 0.2);
 assert.strictEqual(report.precision.robustRetainedApplied, true);
 assert.strictEqual(report.precision.robustInlierBuckets, 21);
 assert.strictEqual(report.precision.robustInlierPoints, 25);
+assert.strictEqual(report.precision.voicePrecisionApplied, true);
+assert.strictEqual(report.precision.voiceValidationFolds, 3);
+assert.strictEqual(report.precision.voiceScoreGain, .11);
+assert.strictEqual(report.precision.voiceSampleCount, 540);
 assert.deepStrictEqual(report.precision.fitPointTimes, [[110.25, 100.25], [210.5, 200.5]]);
 assert.strictEqual(report.precision.fitPointTimesTruncated, false);
 status.precision.candidateRawPoints = 21;

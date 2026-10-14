@@ -67,6 +67,8 @@ function precisionEvidence(source) {
     'refinementAvailable', 'refinementFactor', 'refinementMaxDistance',
     'refinementMappedDelta', 'refinementApplied',
     'robustRetainedApplied', 'robustInlierBuckets', 'robustInlierPoints',
+    'voicePrecisionApplied', 'voiceScore', 'voiceScoreGain', 'voiceMinimumValidationGain',
+    'voiceMinimumThirdGain', 'voiceValidationFolds', 'voiceValidationSpread', 'voiceProbeCount', 'voiceSampleCount',
     'jackknifeSamples', 'maxMappedDelta', 'medianMappedDelta', 'maxSlopeDeltaPpm', 'maxOffsetDelta',
     'fitPointTimesTruncated',
     'candidateRawPoints', 'candidatePointTimesTruncated',
