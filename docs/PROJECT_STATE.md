@@ -1,8 +1,33 @@
 # SubSync2 — Project State
 
-LAST_UPDATED: 2026-10-03
+LAST_UPDATED: 2026-10-14
 
 ## Canonical status
+
+## 2026-10-14 — Diagnostic publication and bounded voice-probe follow-up
+
+User explicitly authorized publishing the diagnostic patch. PR #85 passed all
+nine workflow runs on `7f8a0c01bd538fabb8b68d2f97ec53376424b8a8`, was squash-merged
+as `47197a50d0fc7cdde6324013226df8540905d179`, and the deliberate
+`deploy/pages-preview` ref was advanced to that commit. Deployment run
+38521348858 is in progress; verify Pages and the live manifest before calling it
+publicly delivered. Diagnostic publication is not a physical synchronization fix.
+
+The original sixth-title MKA has been downloaded again and verified as exactly
+267332722 bytes, AC3 48 kHz 6 channels, duration 4746.816 seconds. A full diagnostic
+Chromium replay is running. Earlier partial replay output was not retained to
+completion; no completed original-MKA export or physical iPhone success is claimed.
+
+A separate, deterministic voice-buffer defect has now been reproduced: 70 seconds
+of decoder preroll before a requested 15-second interval exceeds the 64-second
+buffer cap and discards the useful probe. This is NOT established as the physical
+sixth-title cause. The follow-up bounds each probe before backward seeking, clips
+preroll/postroll before copying and applying the same 64-second cap, and leaves
+Whisper PCM unchanged. It also prevents a new probe replacing in-flight inference.
+Regression fails on the prior implementation and passes on the follow-up. Coverage
+includes split/overlapping chunks, immutable WASM views, stale samples after seek,
+postroll, actual over-cap probes, cancellation and asynchronous window ordering.
+No sampling, timing-estimator, acceptance, Save, privacy or cost rule is changed.
 
 ## 2026-10-03 — Sixth-title physical failure investigation (not released)
 
