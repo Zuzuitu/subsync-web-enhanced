@@ -10,13 +10,21 @@ User explicitly authorized publishing the diagnostic patch. PR #85 passed all
 nine workflow runs on `7f8a0c01bd538fabb8b68d2f97ec53376424b8a8`, was squash-merged
 as `47197a50d0fc7cdde6324013226df8540905d179`, and the deliberate
 `deploy/pages-preview` ref was advanced to that commit. Deployment run
-38521348858 is in progress; verify Pages and the live manifest before calling it
-publicly delivered. Diagnostic publication is not a physical synchronization fix.
+38521348858 succeeded. The live manifest reports that exact hash, the delivered
+bundle contains the lifecycle fields, and the live model/runtime WASM SHA-256
+digests match the pinned configuration. Diagnostic publication is not a physical
+synchronization fix.
 
 The original sixth-title MKA has been downloaded again and verified as exactly
 267332722 bytes, AC3 48 kHz 6 channels, duration 4746.816 seconds. A full diagnostic
-Chromium replay is running. Earlier partial replay output was not retained to
-completion; no completed original-MKA export or physical iPhone success is claimed.
+Chromium 141 replay of the local PR85-equivalent diagnostic bundle completed in
+1114.633 seconds with zero page errors, 48 probes and all 884 cues exported.
+All 1768 start/end timestamps differ from the withheld Original by approximately
+96 ms (MAE and maximum). Original remains evaluation-only; the input shift is
+exactly +10 seconds. Accepted VAD offset: -9.903316736221313; score:
+0.6378179242832804; 1440 bins; 3 thirds; spread: 0.5 seconds. Lifecycle reports
+available=true, loadFailed=false, inferenceFailed=false, emptyWindows=0,
+failureStage=0 and overflowWindows=0. No physical iPhone success is claimed.
 
 A separate, deterministic voice-buffer defect has now been reproduced: 70 seconds
 of decoder preroll before a requested 15-second interval exceeds the 64-second
@@ -31,7 +39,31 @@ The actual pinned ONNX/Silero detector in Chromium also preserves identical
 probabilities for bounded useful PCM surrounded by 70-second preroll/postroll,
 retaining only 16000 samples for the requested one-second probe. The authoritative
 browser detector test now exercises this regression in Chromium and WebKit.
+A 15-second PCM segment decoded from the original MKA also retained all 60 bins
+with identical before/after probabilities while ignoring the extra preroll.
 No sampling, timing-estimator, acceptance, Save, privacy or cost rule is changed.
+
+PR #86 passed all eight head workflow runs on
+`4ad7cf3bc5dd73757c4797fb5b71aa5ae06d0ef0` and was squash-merged as
+`7786b51fda6c9e7c8b36b3b2f919a96e5079d12a`. Deliberate deployment run
+38524543469 succeeded. The live manifest reports exactly `7786b51f...`; the
+delivered bundle carries that runtime hash, the probe guard and lifecycle fields.
+PR86 is publicly delivered. This is a general buffer fix, not a claimed physical
+iPhone root-cause resolution.
+
+The English-to-Romanian Mobile WebKit gate initially ended inconclusively below
+the unchanged canonical correlation threshold. The same head passed on attempt 2,
+with a -7.663-second correction for the +8-second fixture. The generated fixture
+was different (MKA outputs 567283 vs 574242 bytes; 73 vs 76 reference words).
+The pinned Piper HTTP API uses nonzero generator/duration noise by default and the
+generator does not override it. Both outcomes remain recorded. This identifies
+fixture variability, not a proven new product fix or universal accuracy guarantee.
+
+Remaining physical gate: obtain the new privacy-safe diagnostic using the same
+original MKA and shifted SRT on the published build. That evidence must distinguish
+load stage, inference, missing PCM/overflow and rejected evaluation before claiming
+or applying a physical-specific root-cause fix. The general preroll defect does not
+occur in the completed local original-MKA replay (overflowWindows=0).
 
 ## 2026-10-03 — Sixth-title physical failure investigation (not released)
 
