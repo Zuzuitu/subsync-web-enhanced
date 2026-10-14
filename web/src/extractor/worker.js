@@ -144,6 +144,11 @@ class Extractor {
     this.windowFinished = false;
     const demux = this.pipeline.demux;
     const startTime = this.timeWindow[0] || 0;
+    if (this.romanianSpeechRec) {
+      const endTime = this.timeWindow[1] == null
+        ? demux.getDuration() : this.timeWindow[1];
+      this.romanianSpeechRec.beginProbe(startTime, endTime);
+    }
     if (startTime || forceSeek) {
       demux.seek(startTime);
     }

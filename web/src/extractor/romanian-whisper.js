@@ -138,6 +138,10 @@ export default class RomanianSpeechRecognition {
     this.recognizer.discontinuity();
   }
 
+  beginProbe(start, end) {
+    if (this.vad) this.vad.beginProbe(start, end);
+  }
+
   async drainActivity(start, end) {
     this.voiceStatus.windows++;
     if (!this.vad) return [];

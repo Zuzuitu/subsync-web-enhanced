@@ -66,6 +66,8 @@ const session = {
   });
   slow.push(new Float32Array(512), 0);
   const pending = slow.drain(0, 1);
+  assert.throws(() => slow.beginProbe(1, 2), /active voice probe/,
+    'a new probe must not discard evidence while inference is in flight');
   slow.delete();
   assert.equal(released, 0, 'cancellation must not release a running session');
   resume({ output: new Tensor('', [.8], []), stateN: new Tensor('', new Float32Array(256), []) });

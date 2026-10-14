@@ -31,7 +31,9 @@ function extractor(windows) {
 (async () => {
   const voiced = extractor([[1, 3], [10, 12]]);
   let completeVoice;
+  const voiceProbes = [];
   voiced.romanianSpeechRec = { discontinuity() {},
+    beginProbe: (start, end) => voiceProbes.push([start, end]),
     getVoiceStatus: () => ({ available: true, sampleCount: 1 }),
     drainActivity: (start, end) => {
     assert.strictEqual(start, 1);
@@ -46,6 +48,8 @@ function extractor(windows) {
   assert.strictEqual(voiceResult.windowCompleted.activity[0].time, 1.125);
   assert.strictEqual(voiceResult.windowCompleted.voiceStatus.available, true);
   assert.strictEqual(voiced.windowIndex, 1);
+  assert.deepStrictEqual(voiceProbes, [[10, 12]],
+    'the next probe must be bounded only after previous inference completed');
 
   const pending = extractor([[1, 3], [10, 12]]);
   const first = await pending.run();

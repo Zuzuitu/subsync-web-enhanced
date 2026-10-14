@@ -15,6 +15,10 @@ class Recognizer { setWordsCallback() {} }
   rec.voiceStatus.loadFailed = false;
   rec.voiceStatus.available = true;
   rec.vad = { drain: async () => [{ time: .125, energy: .8 }] };
+  let probeBounds;
+  rec.vad.beginProbe = (start, end) => { probeBounds = [start, end]; };
+  rec.beginProbe(2, 3);
+  assert.deepStrictEqual(probeBounds, [2, 3]);
   await rec.drainActivity(0, 1);
   assert.equal(rec.getVoiceStatus().sampleCount, 1);
   rec.vad.drain = async () => [];

@@ -43,9 +43,30 @@ export default class NeuralVad {
     this.overflowWindows = 0;
   }
 
+  beginProbe(start, end) {
+    if (this.closed) return false;
+    if (this.active) throw new Error('Cannot replace an active voice probe');
+    this.chunks = [];
+    this.count = 0;
+    this.overflow = false;
+    this.probe = Number.isFinite(start) && Number.isFinite(end) && end > start
+      ? { start, end } : null;
+    return Boolean(this.probe);
+  }
+
   push(samples, time) {
     if (this.closed || this.overflow || !Number.isFinite(time)) return;
     this.receivedSamples += samples.length;
+    // Backward seeking can return a long decoder preroll. Clip BEFORE copying
+    // and applying the memory cap, so irrelevant audio cannot discard the
+    // requested bounded probe. Whisper still receives the unmodified PCM.
+    if (this.probe) {
+      const first = Math.max(0, Math.ceil((this.probe.start - time) * RATE - 1e-6));
+      const last = Math.min(samples.length, Math.floor((this.probe.end - time) * RATE + 1e-6));
+      if (last <= first) return;
+      samples = samples.subarray(first, last);
+      time += first / RATE;
+    }
     if (this.count + samples.length > MAX_SAMPLES) {
       this.chunks = [];
       this.count = 0;
