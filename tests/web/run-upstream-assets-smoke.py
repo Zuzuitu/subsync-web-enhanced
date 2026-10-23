@@ -199,7 +199,7 @@ try:
             "url": response.url,
         }))
 
-        page.goto(url, wait_until="load")
+        page.goto(url + ("&" if "?" in url else "?") + "lang=en", wait_until="load")
         page.wait_for_selector("#subsync_app", timeout=30_000)
 
         # Real app path: ENG reference subtitles + Italian target subtitles.
@@ -220,7 +220,7 @@ try:
         dict_responses = assert_asset_response(responses, "dict-eng-ita.zip")
 
         # Real app path: Italian audio model requested on demand.
-        page.goto(url, wait_until="load")
+        page.goto(url + ("&" if "?" in url else "?") + "lang=en", wait_until="load")
         page.wait_for_selector("#subsync_app", timeout=30_000)
         responses.clear()
 
