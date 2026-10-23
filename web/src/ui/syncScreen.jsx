@@ -328,8 +328,8 @@ export default class SyncScreen {
       const range = (start, end) => `${timeStampFractionFmt(start)} – ${timeStampFractionFmt(end)}`;
       const shift = `${sample.shiftSeconds >= 0 ? '+' : ''}${sample.shiftSeconds.toFixed(3)} s`;
       mount(this.timingReviewSamples, el('li',
-        `${sample.position}, cue ${sample.cue}: ${range(sample.beforeStart, sample.beforeEnd)}`
-        + ` → ${range(sample.afterStart, sample.afterEnd)} (${shift})`));
+        uiText(`${sample.position}, cue ${sample.cue}: ${range(sample.beforeStart, sample.beforeEnd)}`
+        + ` → ${range(sample.afterStart, sample.afterEnd)} (${shift})`)));
     }
     this.timingReviewWarning.hidden = !review.backwardStarts && !review.invalidCues;
     this.timingReviewWarning.textContent = uiText(

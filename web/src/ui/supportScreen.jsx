@@ -1,4 +1,5 @@
 import { el } from 'redom';
+import i18n from 'es2015-i18n-tag';
 import Router from '../router.js';
 import { OverlayItem } from './overlay.jsx';
 import { simpleList } from './components.jsx';
