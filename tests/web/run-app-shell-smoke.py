@@ -156,7 +156,7 @@ try:
         page = browser.new_page()
         console_errors, runtime_errors, failed = page_errors(page)
 
-        page.goto(url, wait_until="load")
+        page.goto(url + ("&" if "?" in url else "?") + "lang=en", wait_until="load")
         page.wait_for_selector("#subsync_app", timeout=30_000)
 
         text = page.locator("#subsync_app").inner_text()
@@ -210,12 +210,12 @@ try:
 
         audio_page = browser.new_page()
         audio_console, audio_runtime, audio_failed = page_errors(audio_page)
-        audio_page.goto(url + "?tab=audio", wait_until="load")
+        audio_page.goto(url + "?tab=audio&lang=en", wait_until="load")
         audio_page.wait_for_selector("iframe.audio_extractor_frame", timeout=30_000)
         audio_frame = audio_page.frame_locator("iframe.audio_extractor_frame")
         audio_frame.locator("#fileInput").wait_for(state="attached", timeout=30_000)
         audio_title = audio_frame.locator("h1").first.inner_text()
-        if audio_title != "Audio Extractor":
+        if audio_title != "Extractor audio":
             raise SystemExit(f"Unexpected Audio Extractor title: {audio_title!r}")
         modes = audio_frame.locator('input[name="mode"]')
         mode_values = [modes.nth(i).get_attribute("value") for i in range(modes.count())]
