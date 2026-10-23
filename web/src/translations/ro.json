@@ -141,5 +141,17 @@
   "Diagnostics": "Diagnosticare",
   "Stage:": "Etapă:",
   "Review timing changes": "Verifică modificările de timp",
-  "Download diagnostic report": "Descarcă raportul de diagnostic"
+  "Download diagnostic report": "Descarcă raportul de diagnostic",
+  "Waiting for processing evidence...": "Se așteaptă datele procesării…",
+  "These are timing changes, not measured accuracy. Check these scenes in your player. Automatic correction for cut scenes or different editions is not available yet.": "Acestea sunt corecții de timp, nu măsurători ale preciziei. Verifică scenele în player. Corectarea automată a versiunilor diferite sau a scenelor tăiate nu este încă disponibilă.",
+  "No media, filenames or subtitle text in the diagnostic report. Nothing is uploaded.": "Raportul nu conține fișiere media, nume de fișiere sau textul subtitrărilor. Nu se încarcă nimic pe server.",
+  "canonical acceptance:": "acceptare verificată:",
+  "precision evidence:": "dovezi de precizie:",
+  "formula sensitivity:": "sensibilitatea formulei:",
+  "Checking downloaded language data...": "Se verifică modelele lingvistice descărcate…",
+  "Clear downloaded language data": "Șterge datele lingvistice descărcate",
+  "No downloaded language data.": "Nu există date lingvistice descărcate.",
+  "Could not read downloaded language data.": "Datele lingvistice descărcate nu au putut fi citite.",
+  "Clearing downloaded language data...": "Se șterg datele lingvistice descărcate…",
+  "Could not clear language data": "Datele lingvistice nu au putut fi șterse"
 }

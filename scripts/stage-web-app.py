@@ -161,15 +161,15 @@ audio_extractor_index.write_text(audio_extractor_html, encoding="utf-8")
 
 bootstrap_name = f"build-{args.hash}.html"
 bootstrap = """<!doctype html>
-<html lang="en">
+<html lang="ro">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
-  <title>Updating SubSync2</title>
+  <title>Actualizare SubSync2</title>
 </head>
 <body>
-  <p>Updating SubSync2...</p>
+  <p>Se actualizează SubSync2…</p>
   <script>
     (async function () {
       var expectedHash = "__BUILD_HASH__";

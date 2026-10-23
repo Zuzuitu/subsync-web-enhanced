@@ -39,7 +39,7 @@ async function main() {
   document.documentElement.classList.toggle('android-shell', IS_ANDROID_SHELL);
   if (IS_ANDROID_SHELL) {
     const localBadge = document.querySelector('.local_badge');
-    if (localBadge) localBadge.textContent = 'Android TV · local';
+    if (localBadge) localBadge.textContent = 'Android TV · procesare locală';
   }
 
   settings.load();

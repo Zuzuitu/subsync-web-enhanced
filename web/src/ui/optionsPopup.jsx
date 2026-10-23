@@ -1,3 +1,4 @@
+import uiText from './romanian-ui.js';
 import { el } from 'redom';
 import i18n from 'es2015-i18n-tag';
 import { Overlay, OverlayItem } from './overlay.jsx';
@@ -27,9 +28,9 @@ export default class OptionsPopup extends OverlayItem {
 
     // Keep cache UI references explicit too. This popup predates the current
     // browser build and nested JSX refs are not reliable here.
-    this.cacheSummary = <p>Checking downloaded language data...</p>;
+    this.cacheSummary = <p>{i18n`Checking downloaded language data...`}</p>;
     this.cacheList = <ul />;
-    this.clearCacheBtn = <button disabled>Clear downloaded language data</button>;
+    this.clearCacheBtn = <button disabled>{i18n`Clear downloaded language data`}</button>;
     this.clearCacheBtn.onclick = this.clearLanguageCache.bind(this);
 
     this.content = <div>
@@ -76,12 +77,12 @@ export default class OptionsPopup extends OverlayItem {
         </dd>
       </dl>
       <section class='language_cache'>
-        <h2>Language data</h2>
+        <h2>{i18n`Language data`}</h2>
         {this.cacheSummary}
         {this.cacheList}
         {this.clearCacheBtn}
       </section>
-      <p><em>subsync version {version}</em></p>
+      <p><em>versiunea SubSync {version}</em></p>
       <div class='buttons'>
         <button onclick={this.save.bind(this)} class='highlight'>{i18n`OK`}</button>
         <button onclick={this.hide.bind(this)}>{i18n`Cancel`}</button>
@@ -115,7 +116,7 @@ export default class OptionsPopup extends OverlayItem {
       this.cacheList.textContent = '';
 
       if (!assets.length) {
-        this.cacheSummary.textContent = 'No downloaded language data.';
+        this.cacheSummary.textContent = uiText('No downloaded language data.');
         this.clearCacheBtn.disabled = true;
         return;
       }
@@ -123,7 +124,7 @@ export default class OptionsPopup extends OverlayItem {
       const knownBytes = assets.reduce((sum, asset) => sum + (asset.bytes || 0), 0);
       const unknownCount = assets.filter(asset => !asset.bytes).length;
       this.cacheSummary.textContent =
-        `${assets.length} cached package${assets.length === 1 ? '' : 's'}` +
+        uiText(`${assets.length} cached package${assets.length === 1 ? '' : 's'}`) +
         (knownBytes ? ` · ${formatBytes(knownBytes)} recorded` : '') +
         (unknownCount ? ` · ${unknownCount} legacy size unknown` : '');
 
@@ -136,25 +137,25 @@ export default class OptionsPopup extends OverlayItem {
       }
       this.clearCacheBtn.disabled = false;
     } catch (error) {
-      this.cacheSummary.textContent = 'Could not read downloaded language data.';
+      this.cacheSummary.textContent = uiText('Could not read downloaded language data.');
       this.clearCacheBtn.disabled = true;
     }
   }
 
   async clearLanguageCache() {
     if (!window.confirm(
-      'Remove downloaded speech models and dictionaries from this browser? They can be downloaded again when needed.'
+      uiText('Remove downloaded speech models and dictionaries from this browser? They can be downloaded again when needed.')
     )) {
       return;
     }
 
     this.clearCacheBtn.disabled = true;
-    this.cacheSummary.textContent = 'Clearing downloaded language data...';
+    this.cacheSummary.textContent = uiText('Clearing downloaded language data...');
     try {
       await Synchronizer.instance.clearCachedAssets();
       await this.refreshLanguageCache();
     } catch (error) {
-      Overlay.showErrorPopup('Could not clear language data', error);
+      Overlay.showErrorPopup(uiText('Could not clear language data'), error);
       await this.refreshLanguageCache();
     }
   }
@@ -223,13 +224,13 @@ function assetLabel(asset) {
   };
 
   if (asset.type === 'speech') {
-    return `${langName(asset.params[0])} speech model`;
+    return uiText(`${langName(asset.params[0])} speech model`);
   }
   if (asset.type === 'asr') {
-    return `${langName(asset.params[0])} local speech model (Whisper)`;
+    return uiText(`${langName(asset.params[0])} local speech model (Whisper)`);
   }
   if (asset.type === 'dict') {
-    return `${asset.params.map(langName).join(' ↔ ')} dictionary`;
+    return uiText(`${asset.params.map(langName).join(' ↔ ')} dictionary`);
   }
   return asset.name;
 }

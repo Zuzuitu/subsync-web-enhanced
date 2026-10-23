@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#101828">
   <meta name="description" content="Extrage local audio din MKV/MP4 fără upload.">
   <link rel="stylesheet" href="./styles.css?__BUILD_HASH__">
-  <title>SubSync2 Audio Extractor</title>
+  <title>SubSync2 — Extragere audio</title>
 </head>
 <body>
   <main class="shell">
     <section class="hero">
       <div>
-        <p class="eyebrow">SUBSYNC2 · LOCAL TOOL</p>
-        <h1>Audio Extractor</h1>
+        <p class="eyebrow">SUBSYNC2 · INSTRUMENT LOCAL</p>
+        <h1>Extractor audio</h1>
         <p class="subtitle">MKV / MP4 → MP3 sau MKA, direct pe dispozitiv.</p>
       </div>
       <span class="privacy-pill">100% local</span>
@@ -21,7 +21,7 @@
 
     <section class="card privacy-card">
       <strong>Procesare locală</strong>
-      <span>Fișierul video nu este uploadat. Este citit direct din Files/iCloud ca File/Blob.</span>
+      <span>Fișierul video nu este încărcat pe un server. Este citit direct din Files/iCloud ca File/Blob.</span>
     </section>
 
     <section class="card drop-card">
@@ -29,7 +29,7 @@
       <button id="pickBtn" class="dropzone" type="button">
         <span class="drop-icon">＋</span>
         <strong>Alege MKV / MP4</strong>
-        <span>Din fișierele locale sau din storage-ul dispozitivului</span>
+        <span>Din fișierele locale sau din memoria dispozitivului</span>
       </button>
       <div id="fileMeta" class="file-meta hidden"></div>
     </section>
@@ -53,7 +53,7 @@
         </label>
         <label class="mode-card">
           <input type="radio" name="mode" value="mka">
-          <span class="mode-title">Original MKA</span>
+          <span class="mode-title">MKA original</span>
           <span class="mode-desc">Fără recodare · păstrează pista audio originală</span>
           <span class="mode-badge">calitate originală</span>
         </label>
@@ -75,13 +75,13 @@
         <button id="downloadBtn" class="ghost-btn" type="button">Descarcă</button>
         <button id="resetBtn" class="ghost-btn" type="button">Alege alt fișier</button>
       </div>
-      <p class="notice">Pe iPhone poți folosi Share Sheet / Save to Files. În aplicația Android, „Salvează fișierul” deschide selectorul nativ de destinație.</p>
+      <p class="notice">Pe iPhone poți folosi meniul Partajare / Salvează în Fișiere. În aplicația Android, „Salvează fișierul” deschide selectorul nativ de destinație.</p>
     </section>
 
     <section class="card info-card">
-      <div><strong>MKA original:</strong> remux bitstream-preserving, fără recodare.</div>
+      <div><strong>MKA original:</strong> copiere directă a fluxului audio, fără recodare.</div>
       <div><strong>MP3 compact:</strong> mono 16 kHz / 64 kbps; AC-3/E-AC-3 și DTS folosesc decodoare WASM locale.</div>
-      <div><strong>Fișiere mari:</strong> inputul este citit ca File/Blob, fără upload și fără copiere integrală în RAM.</div>
+      <div><strong>Fișiere mari:</strong> fișierul este citit prin API-ul File/Blob, fără upload și fără copiere integrală în RAM.</div>
     </section>
   </main>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
