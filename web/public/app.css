@@ -791,7 +791,10 @@ body {
   background: linear-gradient(154deg, rgba(19,32,53,.98), rgba(12,23,39,.97));
   box-shadow: 0 32px 77px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.045);
   padding: clamp(24px, 4.8vw, 46px);
-  backdrop-filter: blur(12px);
+  /* Keep fixed-position save/error overlays viewport-centered. A backdrop-filter
+     on an ancestor makes position:fixed relative to the card, pushing dialogs
+     below the visible viewport when the main UI is tall (WebKit + Chromium). */
+  backdrop-filter: none;
 }
 #subsync_app h1 {
   color: #f2f8ff;
