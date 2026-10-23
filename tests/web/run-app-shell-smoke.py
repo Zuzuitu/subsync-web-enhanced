@@ -156,6 +156,24 @@ try:
         page = browser.new_page()
         console_errors, runtime_errors, failed = page_errors(page)
 
+        # The default frontend language is Romanian. Exercise its real DOM,
+        # independently of English-language compatibility regressions.
+        ro_page = browser.new_page()
+        ro_page.goto(url, wait_until="load")
+        ro_page.wait_for_selector("#subsync_app", timeout=30_000)
+        if ro_page.locator("html").get_attribute("lang") != "ro":
+            raise SystemExit("Default PWA document must declare Romanian")
+        ro_text = ro_page.locator("#subsync_app").inner_text()
+        for expected in ("Subtitrare", "Fișier de referință", "Alege fișierul"):
+            if expected not in ro_text:
+                raise SystemExit(f"Romanian UI missing expected text: {expected!r}")
+        ro_page.get_by_role("button", name="Setări avansate", exact=True).click()
+        ro_popup = ro_page.locator("#subsync_app .popup").last
+        ro_popup.wait_for(state="visible", timeout=10_000)
+        if "Date lingvistice" not in ro_popup.inner_text():
+            raise SystemExit("Romanian options popup was not translated")
+        ro_page.close()
+
         page.goto(url + ("&" if "?" in url else "?") + "lang=en", wait_until="load")
         page.wait_for_selector("#subsync_app", timeout=30_000)
 
