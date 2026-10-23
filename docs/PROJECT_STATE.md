@@ -1,5 +1,17 @@
 # SubSync2 — Project State
 
+## 2026-10-23 — SubSync2 Studio premium PWA visual candidate (LOCAL ONLY)
+
+Rock64 local branch `design/pwa-studio-rock64-20261023` is a visual-only
+proposal targeting the `6274bae87c99e3c38c196f4d7490a4687464dd40` baseline.
+Updates root shell typography, background, decorative waveform hero, tab affordance,
+file/selection cards, focus indicators and Audio Extractor style overrides.
+No algorithm, thresholds, offline-cache asset list, native Android bridge,
+MP3/MKA settings, privacy path, licensing or network behavior changed.
+This is NOT merged/deployed and was not physically tested on Shield/iPhone.
+Before release: review diff, run local validations + full required CI via PR
+when GitHub Actions capacity is available, then canonical Pages deploy.
+
 LAST_UPDATED: 2026-10-14
 
 ## Canonical status
