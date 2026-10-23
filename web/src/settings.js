@@ -32,7 +32,7 @@ export class Settings {
 
   get defaults() {
     return {
-      lang: 'pl',
+      lang: 'ro',
       url: undefined,
       logLevel: 20,
       jobsNo: undefined,
