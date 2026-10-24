@@ -115,7 +115,7 @@ try:
         )
 
         started = time.monotonic()
-        page.goto(url, wait_until="load", timeout=60_000)
+        page.goto(url + ("&" if "?" in url else "?") + "lang=en", wait_until="load", timeout=60_000)
         page.wait_for_selector("#subsync_app", timeout=30_000)
 
         browser_info = page.evaluate(

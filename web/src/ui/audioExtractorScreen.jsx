@@ -6,7 +6,7 @@ export default class AudioExtractorScreen {
       <iframe
         this='frame'
         class='audio_extractor_frame'
-        title='SubSync2 Audio Extractor'
+        title='SubSync2 Extractor audio'
         src='./audio-extractor/index.html'
         loading='eager'
       />

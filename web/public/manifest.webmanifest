@@ -1,7 +1,7 @@
 {
-  "name": "SubSync2 — Subtitle Synchronizer",
+  "name": "SubSync2 — Sincronizare subtitrări",
   "short_name": "SubSync2",
-  "description": "Synchronize subtitle timing locally in your browser.",
+  "description": "Sincronizează subtitrările și extrage piste audio direct pe dispozitiv, fără încărcare pe server.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

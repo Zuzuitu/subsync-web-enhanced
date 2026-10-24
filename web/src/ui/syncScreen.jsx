@@ -1,3 +1,4 @@
+import uiText from './romanian-ui.js';
 import { el, mount, setAttr } from 'redom';
 import i18n from 'es2015-i18n-tag';
 import SaveSubtitlesPopup from './saveSubsPopup.jsx';
@@ -37,15 +38,15 @@ export default class SyncScreen {
         <ProgressBar this='progressBar' />
       </p>
       <div this='assetPanel' class='asset_panel' hidden>
-        <strong>Language data</strong>
+        <strong>{i18n`Language data`}</strong>
         <ul this='assetList' />
       </div>
       <div this='diagnosticPanel' class='diagnostic_panel' hidden>
-        <strong>Diagnostics</strong>
+        <strong>{i18n`Diagnostics`}</strong>
         <p>
-          Stage: <span this='diagnosticStage'>-</span>
+          {i18n`Stage:`} <span this='diagnosticStage'>-</span>
         </p>
-        <p this='diagnosticEvidence'>Waiting for processing evidence...</p>
+        <p this='diagnosticEvidence'>{i18n`Waiting for processing evidence...`}</p>
         <p this='voiceEvidence' data-diagnostic='voice-startup' role='status' hidden />
         <p this='diagnosticReason' class='diagnostic_reason' hidden />
       </div>
@@ -73,13 +74,13 @@ export default class SyncScreen {
             <li>{i18n`formula`}: <strong this='formula'>-</strong></li>
             <li>{i18n`max change`}: <strong this='maxChange'>-</strong></li>
             <li this='canonicalAcceptanceRow' hidden>
-              canonical acceptance: <strong this='canonicalAcceptance'>-</strong>
+              {i18n`canonical acceptance:`} <strong this='canonicalAcceptance'>-</strong>
             </li>
             <li this='precisionEvidenceRow' data-diagnostic='precision-evidence' hidden>
-              precision evidence: <strong this='precisionEvidence'>-</strong>
+              {i18n`precision evidence:`} <strong this='precisionEvidence'>-</strong>
             </li>
             <li this='precisionRobustnessRow' data-diagnostic='precision-robustness' hidden>
-              formula sensitivity: <strong this='precisionRobustness'>-</strong>
+              {i18n`formula sensitivity:`} <strong this='precisionRobustness'>-</strong>
             </li>
           </ul>
           <a this='hideDetailsBtn' onclick={this.showDetails.bind(this, false)}>{i18n`hide`}</a>
@@ -87,20 +88,19 @@ export default class SyncScreen {
       </dl>
       <p this='message' />
       <details this='timingReviewPanel' data-review='timing' hidden>
-        <summary>Review timing changes</summary>
+        <summary>{i18n`Review timing changes`}</summary>
         <p this='timingReviewNote' />
         <ul this='timingReviewSamples' />
-        <p>These are timing changes, not measured accuracy. Check these scenes in your player.
-          Automatic correction for cut scenes or different editions is not available yet.</p>
+        <p>{i18n`These are timing changes, not measured accuracy. Check these scenes in your player. Automatic correction for cut scenes or different editions is not available yet.`}</p>
       </details>
       <p this='timingReviewWarning' role='status' hidden />
       <div class='buttons'>
         <button this='stopBtn' disabled>{i18n`Stop`}</button>
         <button this='backBtn' hidden>{i18n`Back`}</button>
         <button this='saveBtn' class='highlight' disabled>{i18n`Save subtitles`}</button>
-        <button this='reportBtn' disabled>Download diagnostic report</button>
+        <button this='reportBtn' disabled>{i18n`Download diagnostic report`}</button>
       </div>
-      <p>No media, filenames or subtitle text in the diagnostic report. Nothing is uploaded.</p>
+      <p>{i18n`No media, filenames or subtitle text in the diagnostic report. Nothing is uploaded.`}</p>
     </div>;
 
     this.stopBtn.onclick = this.stop.bind(this);
@@ -192,9 +192,9 @@ export default class SyncScreen {
       item.dataset.assetState = event.state || 'unknown';
 
       const label = document.createElement('strong');
-      label.textContent = assetLabel(event.asset);
+      label.textContent = uiText(assetLabel(event.asset));
       item.appendChild(label);
-      item.appendChild(document.createTextNode(': ' + assetStateText(event)));
+      item.appendChild(document.createTextNode(': ' + uiText(assetStateText(event))));
       this.assetList.appendChild(item);
     }
   }
@@ -211,7 +211,7 @@ export default class SyncScreen {
       : event.state === 'error'
         ? 'error'
         : 'running';
-    this.diagnosticStage.textContent = `${stageLabel(event.stage)} — ${stateText}`;
+    this.diagnosticStage.textContent = uiText(`${stageLabel(event.stage)} — ${stateText}`);
     setAttr(this.diagnosticStage, {
       class: event.state === 'error' ? 'sync_fail' : '',
     });
@@ -233,7 +233,7 @@ export default class SyncScreen {
     } else if (mark === false) {
       m = '\u2716 ';
     }
-    this.state.textContent = m + message;
+    this.state.textContent = m + uiText(message);
     setAttr(this.state, { class: sclass });
   }
 
@@ -292,11 +292,10 @@ export default class SyncScreen {
         if (this.diagnosticReason.hidden) {
           const convergence = status.diagnostics.romanianConvergence;
           this.diagnosticPanel.hidden = false;
-          this.diagnosticReason.textContent =
-            `Romanian adaptive verification did not gather enough canonical evidence. `
+          this.diagnosticReason.textContent = uiText(`Romanian adaptive verification did not gather enough canonical evidence. `
             + `Save stays disabled to avoid exporting an intermediate timing formula `
             + `(probes ${convergence.completedWindows}/${convergence.totalWindows}, `
-            + `points ${convergence.lastPoints || status.points || 0}).`;
+            + `points ${convergence.lastPoints || status.points || 0}).`);
           this.diagnosticReason.hidden = false;
         }
       } else {
@@ -321,21 +320,21 @@ export default class SyncScreen {
     });
     this.reportBtn.disabled = false;
     this.timingReviewPanel.hidden = !review.available;
-    this.timingReviewNote.textContent = isSaveReady(status)
+    this.timingReviewNote.textContent = uiText(isSaveReady(status)
       ? 'Current accepted linear correction — start and end of each sample cue.'
-      : 'Provisional correction only — this preview does not enable Save.';
+      : 'Provisional correction only — this preview does not enable Save.');
     this.timingReviewSamples.textContent = '';
     for (const sample of review.samples) {
       const range = (start, end) => `${timeStampFractionFmt(start)} – ${timeStampFractionFmt(end)}`;
       const shift = `${sample.shiftSeconds >= 0 ? '+' : ''}${sample.shiftSeconds.toFixed(3)} s`;
       mount(this.timingReviewSamples, el('li',
-        `${sample.position}, cue ${sample.cue}: ${range(sample.beforeStart, sample.beforeEnd)}`
-        + ` → ${range(sample.afterStart, sample.afterEnd)} (${shift})`));
+        uiText(`${sample.position}, cue ${sample.cue}: ${range(sample.beforeStart, sample.beforeEnd)}`
+        + ` → ${range(sample.afterStart, sample.afterEnd)} (${shift})`)));
     }
     this.timingReviewWarning.hidden = !review.backwardStarts && !review.invalidCues;
-    this.timingReviewWarning.textContent =
+    this.timingReviewWarning.textContent = uiText(
       `Timeline review: ${review.backwardStarts} backward start-time jumps; ${review.invalidCues} invalid cues. `
-      + 'File order alone does not prove an edition mismatch. The linear correction does not repair timeline resets.';
+      + 'File order alone does not prove an edition mismatch. The linear correction does not repair timeline resets.');
   }
 
   downloadReport() {
@@ -356,7 +355,7 @@ export default class SyncScreen {
       document.body.appendChild(link);
       link.click();
     } catch (error) {
-      Overlay.showErrorPopup('Could not download diagnostic report', error);
+      Overlay.showErrorPopup(uiText('Could not download diagnostic report'), error);
     } finally {
       if (link) link.remove();
       if (url) setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -372,10 +371,10 @@ export default class SyncScreen {
     const voice = diagnostics.romanianVad;
     this.voiceEvidence.hidden = !voice;
     if (voice) {
-      this.voiceEvidence.textContent = voice.available
+      this.voiceEvidence.textContent = uiText(voice.available
         ? `Voice timing: ready${voice.fallbackSucceeded ? ' (compatibility runtime recovered startup)' : ''}.`
         : `Voice timing unavailable (stage ${voice.failureStage || 0}, code ${voice.failureCode || 0}). `
-          + 'Lexical verification continues; you can download diagnostics now or stop.';
+          + 'Lexical verification continues; you can download diagnostics now or stop.');
     }
     const subCount = diagnostics.subtitles || 0;
     const subWords = diagnostics.subWords || 0;
@@ -406,10 +405,10 @@ export default class SyncScreen {
         + ` · canonical span: ${Math.round(100 * (convergence.probeCoverageRatio || 0))}%`
         + ` · adaptive lock: ${convergence.verified ? 'verified' : 'pending'}`
       : '';
-    this.diagnosticEvidence.textContent =
+    this.diagnosticEvidence.textContent = uiText(
       `Decoded subtitles: ${subCount} · subtitle words: ${subWords} · reference words: ${refWords}`
       + anchorText
-      + convergenceText;
+      + convergenceText);
   }
 
   renderPrecisionDetails(status) {
@@ -421,7 +420,7 @@ export default class SyncScreen {
     const canonical = Boolean(status && status.correlated);
     this.canonicalAcceptanceRow.hidden = !canonical;
     if (canonical) {
-      this.canonicalAcceptance.textContent = 'accepted';
+      this.canonicalAcceptance.textContent = uiText('accepted');
     }
 
     if (!canonical || !precision || !precision.available) {
@@ -437,13 +436,13 @@ export default class SyncScreen {
     const rawPoints = Number(precision.rawPoints) || 0;
     const samples = Number(precision.jackknifeSamples) || 0;
 
-    this.precisionEvidence.textContent =
-      `${buckets} cue buckets · thirds ${beginning}/${middle}/${end} · raw matches ${rawPoints}`;
-    this.precisionRobustness.textContent =
+    this.precisionEvidence.textContent = uiText(
+      `${buckets} cue buckets · thirds ${beginning}/${middle}/${end} · raw matches ${rawPoints}`);
+    this.precisionRobustness.textContent = uiText(
       `${precision.voicePrecisionApplied ? 'lexical fit: ' : ''}leave-one-cue max ${formatPrecisionSeconds(precision.maxMappedDelta)} · median ${formatPrecisionSeconds(precision.medianMappedDelta)} · slope max ${formatPrecisionPpm(precision.maxSlopeDeltaPpm)} · ${samples} checks`
       + (precision.voicePrecisionApplied
         ? ` · voice: ${precision.voiceValidationFolds} held-out folds · spread ${formatPrecisionSeconds(precision.voiceValidationSpread)}`
-        : '');
+        : ''));
 
     this.precisionEvidenceRow.hidden = false;
     this.precisionRobustnessRow.hidden = false;
@@ -455,8 +454,8 @@ export default class SyncScreen {
       return;
     }
     this.diagnosticPanel.hidden = false;
-    this.diagnosticStage.textContent = stageLabel(diagnosis.stage);
-    this.diagnosticReason.textContent = `${diagnosis.title}. ${diagnosis.detail}`;
+    this.diagnosticStage.textContent = uiText(stageLabel(diagnosis.stage));
+    this.diagnosticReason.textContent = uiText(`${diagnosis.title}. ${diagnosis.detail}`);
     this.diagnosticReason.hidden = false;
     setAttr(this.diagnosticReason, {
       class: diagnosis.kind === 'error'

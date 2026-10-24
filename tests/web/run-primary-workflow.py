@@ -75,7 +75,7 @@ try:
             "url": response.url,
         }) if response.status >= 400 else None)
 
-        page.goto(url, wait_until="load")
+        page.goto(url + ("&" if "?" in url else "?") + "lang=en", wait_until="load")
         page.wait_for_selector("#subsync_app", timeout=30_000)
 
         sub_input = page.locator('input[name="streams-group-sub-file"]')

@@ -171,7 +171,7 @@ try:
         )
 
         # First run: both required assets must be downloaded, extracted and stored.
-        page.goto(url, wait_until="load")
+        page.goto(url + ("&" if "?" in url else "?") + "lang=en", wait_until="load")
         page.wait_for_selector("#subsync_app", timeout=30_000)
         install_transition_recorder(page)
         select_inputs(page)
@@ -214,7 +214,7 @@ try:
 
         # Second run in the same browser origin: IDBFS must serve both assets as cached.
         responses.clear()
-        page.goto(url, wait_until="load")
+        page.goto(url + ("&" if "?" in url else "?") + "lang=en", wait_until="load")
         page.wait_for_selector("#subsync_app", timeout=30_000)
         install_transition_recorder(page)
         select_inputs(page)
@@ -313,7 +313,7 @@ try:
             raise SystemExit("Cache entries remained visible after clearing")
 
         # Reload to prove the IDBFS deletion was persisted, not only reflected in memory.
-        page.goto(url, wait_until="load")
+        page.goto(url + ("&" if "?" in url else "?") + "lang=en", wait_until="load")
         page.wait_for_selector("#subsync_app", timeout=30_000)
         page.get_by_role("button", name="Advanced options", exact=True).click()
         popup = page.locator("#subsync_app .popup").last

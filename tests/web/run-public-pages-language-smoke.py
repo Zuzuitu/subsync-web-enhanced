@@ -195,7 +195,7 @@ with tempfile.TemporaryDirectory(prefix="subsync2-public-pages-languages-") as t
             )
             page.on("pageerror", lambda exc: page_errors.append(str(exc)))
 
-            page.goto(PREVIEW_URL, wait_until="load", timeout=60_000)
+            page.goto(PREVIEW_URL + ("&" if "?" in PREVIEW_URL else "?") + "lang=en", wait_until="load", timeout=60_000)
             page.wait_for_selector("#subsync_app", timeout=30_000)
 
             sub_input = page.locator('input[name="streams-group-sub-file"]')
@@ -256,7 +256,7 @@ with tempfile.TemporaryDirectory(prefix="subsync2-public-pages-languages-") as t
             )
             page.on("pageerror", lambda exc: page_errors.append(str(exc)))
 
-            page.goto(PREVIEW_URL, wait_until="load", timeout=60_000)
+            page.goto(PREVIEW_URL + ("&" if "?" in PREVIEW_URL else "?") + "lang=en", wait_until="load", timeout=60_000)
             page.wait_for_selector("#subsync_app", timeout=30_000)
 
             sub_input = page.locator('input[name="streams-group-sub-file"]')

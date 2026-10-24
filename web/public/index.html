@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="en">
+<html lang="ro">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#101828">
-  <meta name="description" content="SubSync2 synchronizes subtitle timing locally in your browser.">
-  <title>SubSync2 — Subtitle Synchronizer</title>
+  <meta name="description" content="SubSync2 sincronizează subtitrările direct în browser, fără încărcarea fișierelor pe server.">
+  <title>SubSync2 — Sincronizare subtitrări</title>
   <link rel="manifest" href="./manifest.webmanifest?__BUILD_HASH__">
   <link rel="icon" href="./icon.svg?__BUILD_HASH__" type="image/svg+xml">
   <link rel="stylesheet" href="./app.css?__BUILD_HASH__">
@@ -15,7 +15,7 @@
       ? pagePath.slice(0, -1)
       : pagePath.slice(0, pagePath.lastIndexOf("/"));
     var baseurl = appPath.split("/").filter(Boolean).join("/");
-    var user_language = "en";
+    var user_language = new URLSearchParams(window.location.search).get("lang") === "en" ? "en" : "ro";
     var subsync2_build_hash = "__BUILD_HASH__";
 
     async function checkForSubSync2Update() {
@@ -42,55 +42,55 @@
 <body>
   <div class="page">
     <header class="site_header">
-      <a class="brand" href="./" aria-label="SubSync2 home">
+      <a class="brand" href="./" aria-label="Pagina principală SubSync2">
         <span class="brand_mark" aria-hidden="true">S2</span>
         <span>
           <strong>SubSync2</strong>
-          <small>Precision subtitle studio</small>
+          <small>Studio de sincronizare a subtitrărilor</small>
         </span>
       </a>
-      <span class="local_badge">Local processing</span>
+      <span class="local_badge">Procesare locală</span>
     </header>
 
     <section class="studio_hero" aria-label="SubSync2 Studio">
       <div class="studio_hero_copy">
-        <p class="studio_kicker">SUBSYNC2 STUDIO · EDITION 2026</p>
+        <p class="studio_kicker">SUBSYNC2 STUDIO · EDIȚIA 2026</p>
         <h1>Sincronizare cu <em>precizie.</em></h1>
         <p class="studio_description">Potrivește subtitrările cu audio sau video, apoi extrage piste audio când ai nevoie. Procesarea rămâne pe dispozitiv.</p>
         <div class="studio_capsules" aria-label="Caracteristici">
-          <span>Procesare locală</span><span>MKV &amp; SRT</span><span>Audio Extractor</span>
+          <span>Procesare locală</span><span>MKV &amp; SRT</span><span>Extractor audio</span>
         </div>
       </div>
       <div class="studio_art" aria-hidden="true">
-        <div class="studio_art_top"><span>AUDIO / TIMELINE</span><span><i></i><i></i><i></i></span></div>
+        <div class="studio_art_top"><span>AUDIO / CRONOLOGIE</span><span><i></i><i></i><i></i></span></div>
         <div class="studio_wave">
           <b style="--h:16%"></b><b style="--h:28%"></b><b style="--h:39%"></b><b style="--h:23%"></b><b style="--h:57%"></b><b style="--h:77%"></b><b style="--h:41%"></b><b style="--h:24%"></b><b style="--h:64%"></b><b style="--h:89%"></b><b style="--h:71%"></b><b style="--h:30%"></b><b style="--h:51%"></b><b style="--h:84%"></b><b style="--h:98%"></b><b style="--h:59%"></b><b style="--h:31%"></b><b style="--h:67%"></b><b style="--h:45%"></b><b style="--h:83%"></b><b style="--h:52%"></b><b style="--h:27%"></b><b style="--h:63%"></b><b style="--h:46%"></b><b style="--h:19%"></b>
         </div>
-        <div class="studio_art_footer"><span>WAVEFORM · VISUAL MOTIF</span><strong>SubSync2</strong></div>
+        <div class="studio_art_footer"><span>FORMĂ DE UNDĂ · ELEMENT GRAFIC</span><strong>SubSync2</strong></div>
       </div>
     </section>
 
-    <nav class="app_tabs" role="tablist" aria-label="SubSync2 tools">
-      <a id="subsync_tab_sync" class="active" data-subsync2-tab="sync" role="tab" aria-selected="true" href="./?tab=sync"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h12M4 12h16M4 17h10"/><path d="m17 4 3 3-3 3M13 14l3 3-3 3"/></svg><span>Synchronize</span></a>
-      <a id="subsync_tab_audio" data-subsync2-tab="audio" role="tab" aria-selected="false" href="./?tab=audio"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4m4-8v12m4-15v18m4-15v12m4-8v4"/></svg><span>Audio Extractor</span></a>
+    <nav class="app_tabs" role="tablist" aria-label="Instrumente SubSync2">
+      <a id="subsync_tab_sync" class="active" data-subsync2-tab="sync" role="tab" aria-selected="true" href="./?tab=sync"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h12M4 12h16M4 17h10"/><path d="m17 4 3 3-3 3M13 14l3 3-3 3"/></svg><span>Sincronizare</span></a>
+      <a id="subsync_tab_audio" data-subsync2-tab="audio" role="tab" aria-selected="false" href="./?tab=audio"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4m4-8v12m4-15v18m4-15v12m4-8v4"/></svg><span>Extractor audio</span></a>
     </nav>
 
-    <div class="studio_workspace_head" aria-hidden="true"><span>WORKSPACE</span><div class="studio_liner"></div></div>
+    <div class="studio_workspace_head" aria-hidden="true"><span>SPAȚIU DE LUCRU</span><div class="studio_liner"></div></div>
     <main class="app_card" id="main_content" aria-live="polite"></main>
 
-    <section class="privacy_note" aria-label="Privacy">
-      <strong>Your media stays on your device.</strong>
-      Video, audio and subtitles are processed in the browser. Language assets are downloaded only when needed.
+    <section class="privacy_note" aria-label="Confidențialitate">
+      <strong>Fișierele tale rămân pe dispozitiv.</strong>
+      Fișierele video, audio și subtitrările sunt procesate local, în browser. Modelele lingvistice sunt descărcate numai când ai nevoie de ele.
     </section>
 
     <footer class="site_footer">
-      <span>SubSync2 is based on SubSync by Michał Szymaniak (sc0ty).</span>
-      <a href="https://github.com/sc0ty/subsync" rel="noopener noreferrer">Original project</a>
+      <span>SubSync2 este bazat pe SubSync, creat de Michał Szymaniak (sc0ty).</span>
+      <a href="https://github.com/sc0ty/subsync" rel="noopener noreferrer">Proiectul original</a>
       <span>GNU GPL v3</span>
     </footer>
   </div>
 
-  <noscript>SubSync2 requires JavaScript and WebAssembly.</noscript>
+  <noscript>SubSync2 necesită JavaScript și WebAssembly.</noscript>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", function () {
@@ -100,7 +100,7 @@
         ).then(function (registration) {
           return registration.update();
         }).catch(function (error) {
-          console.warn("Service worker registration failed:", error);
+          console.warn("Înregistrarea funcției offline a eșuat:", error);
         });
       });
     }

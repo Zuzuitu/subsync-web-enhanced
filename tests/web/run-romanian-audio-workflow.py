@@ -284,7 +284,7 @@ try:
                 f"canonical correlation requires {MIN_CORRELATION_BUCKETS}"
             )
 
-        page.goto(url, wait_until="load")
+        page.goto(url + ("&" if "?" in url else "?") + "lang=en", wait_until="load")
         page.wait_for_selector("#subsync_app", timeout=30_000)
 
         page.evaluate("""() => {

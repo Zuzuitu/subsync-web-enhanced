@@ -83,7 +83,7 @@ try:
             "url": response.url,
         }) if response.status >= 400 else None)
 
-        page.goto(url, wait_until="load")
+        page.goto(url + ("&" if "?" in url else "?") + "lang=en", wait_until="load")
         page.wait_for_selector("iframe.audio_extractor_frame", timeout=30_000)
         frame = page.frame_locator("iframe.audio_extractor_frame")
         file_input = frame.locator("#fileInput")

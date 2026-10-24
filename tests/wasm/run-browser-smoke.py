@@ -79,7 +79,7 @@ try:
         page.on("response", record_response)
         page.on("requestfailed", record_request_failed)
 
-        page.goto(url, wait_until="load")
+        page.goto(url + ("&" if "?" in url else "?") + "lang=en", wait_until="load")
 
         timed_out = False
         try:

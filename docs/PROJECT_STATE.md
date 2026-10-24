@@ -1,5 +1,159 @@
 # SubSync2 — Project State
 
+## 2026-10-24 — CHECKPOINT ACTIV: PR #92 traducere UI română, domeniu și handoff
+
+> **Sursa de adevăr:** repository-ul GitHub, PR #92 și GitHub Actions în timp real.
+> Acest bloc înlocuiește ca stare curentă vechea rubrică din 2026-10-23
+> „SubSync2 Studio ... (LOCAL ONLY)”, care descria o fază de dinaintea PR #91.
+> Nu interpreta testele unui SHA anterior drept succes pentru un SHA ulterior.
+
+### 1. Deciziile utilizatorului (obligatorii)
+
+- Tradu **întreaga INTERFAȚĂ PWA** în română naturală, nu conținutul subtitrărilor,
+  modelele vocale, dicționarele, catalogul de limbi sau algoritmii. Inclusiv
+  sincronizare, ecrane, taburi, selectoare, opțiuni avansate, stare/progres,
+  mesaje de eroare, diagnosticare, verificare timpi, descărcare/raport și
+  Audio Extractor. UI în română implicit.
+- **NU atinge** dicționarele altor limbi (inclusiv Polish), fișierele
+  `web/src/translations/pl.json`, pachetele de date sc0ty și modelele de limbă.
+  Păstrează catalogul original (217 pachete de dicționare conform invariants),
+  fluxurile engleză→română și română→română, codurile ro/ron/rum, diacriticele,
+  logica de corelație, pragurile canonice și licența GPLv3/creditul sc0ty.
+- Denumirile tehnologice SRT, MKV, MP3, MKA, WebAssembly și identificatorii din
+  diagnostic JSON rămân stabile. Limba engleză poate fi selectată pentru
+  compatibilitate/testare prin `?lang=en`; poloneza rămâne în catalog.
+- După validarea traducerii, configurează **`sync.alexlab.media`** pe
+  GitHub Pages; nu afirma că domeniul funcționează până când GitHub Pages,
+  Cloudflare DNS, HTTPS și accesul direct au fost verificate.
+- La sfârșit, furnizează o **listă comparativă verificată** SubSync2 vs.
+  upstream `sc0ty/subsync` + propuneri de îmbunătățiri/adăugiri prioritizate.
+- Lucrează autonom ca senior engineer, fără redesign, resetări ale motorului,
+  ștergeri de original, schimbări speculative sau declarații neverificate.
+  Respectă `config/project-invariants.json` și `AGENTS.md`.
+
+### 2. Istoric de producție confirmat
+
+- Repo: `Zuzuitu/subsync-web-enhanced`; upstream `sc0ty/subsync`, pinned
+  `UPSTREAM_COMMIT=c888da7257d57bf039523c9f7015feacb4b95dc3`.
+- PR #91 „Studio premium visual refresh” a trecut 5/5 workflow-uri și este
+  MERGED; commit de merge `4375aa9d49daaff23add70233606f61ff8690d9b`.
+- `main` și `deploy/pages-preview` indicau ambele acest SHA la ultima
+  verificare. Workflow-ul de producție `40034443607` a încheiat cu
+  **SUCCESS** atât build-ul cât și deploy-ul Pages (23.10.2026 22:53 UTC).
+- Link public confirmat de jurnalul Pages:
+  `https://zuzuitu.github.io/subsync-web-enhanced/`.
+  Aceasta este versiunea **Studio premium**, nu traducerea PR #92.
+- Motorul de sincronizare și funcțiile Audio Extractor nu au fost schimbate
+  de PR #91 (design/CSS și fix popup WebKit). Nu declara automat că orice film
+  poate fi sincronizat cu precizie; Smallfoot a avut rezultate validate, iar
+  Goofy / cazurile diferite necesită în continuare probe independente.
+
+### 3. Implementarea traducerii — PR #92 în curs, NU în producție
+
+- PR: `https://github.com/Zuzuitu/subsync-web-enhanced/pull/92`
+- Branch: `feat/romanian-ui-sync-domain-20261024`.
+- Ultimul SHA de cod **înaintea acestui checkpoint**:
+  `9e5ca7deeda2af4639533350282471634320f855` (verifică HEAD la reluare).
+- PR #92 este **OPEN**, `merged=false`, `mergeable=true`; merge state
+  `unstable` cât timp build-ul nu are verdict final.
+- Modificări principale: `web/src/translations/ro.json` (nou, catalog UI),
+  `web/src/translations/index.js` (înregistrează ro păstrând pl/en),
+  `web/src/settings.js` (ro implicit), `web/public/index.html` (lang ro,
+  shell premium complet românizat, ?lang=en), `web/public/manifest.webmanifest`,
+  `web/src/main.js`, `web/src/ui/optionsPopup.jsx`,
+  `web/src/ui/syncScreen.jsx`, `web/src/ui/romanian-ui.js` (traducerea
+  mesajelor dinamice afișate, fără a modifica codurile din raport),
+  `web/src/ui/audioExtractorScreen.jsx`,
+  `web/public/audio-extractor/index.html`,
+  `scripts/stage-web-app.py` (bootstrap românesc);
+  teste de UI adaptate pentru limba implicită și ruta explicită ?lang=en.
+- Nu s-a modificat `pl.json` sau codul de sincronizare, dicționarele
+  `assets/`, modelele `config/*`, runtime-urile wasm ori parametrii MP3/MKA.
+- QA necesar: audit text complet în interfața română (inclusiv confirmări,
+  mesaje rare, stări de cache, eroare și pagina de actualizare), verificare
+  logică exactă a catalogului și a helperului `uiText`; testați atât română,
+  cât și ruta en de compatibilitate, iPhone WebKit și Android shell.
+- Atenție: `test/public-pages...` citește site-ul public deja lansat (vechea
+  versiune). PASS-ul acestui workflow **nu demonstrează** că PR #92 a fost
+  publicat; pentru PR #92 trebuie verificat buildul local/staged și
+  ulterior readback public al noului SHA.
+
+### 4. Rezultate CI verificate pe SHA-ul de cod 9e5ca7de
+
+- CI `40048052054` **SUCCESS**; încă un CI `40048048782` SUCCESS.
+- MKV WASM Fast Diagnostic `40048052075` **SUCCESS**.
+- Romanian Identical Input Study `40048052060` **SUCCESS**.
+- Public Pages Language Smoke `40048052252` **SUCCESS**.
+- Large-file Browser Stress `40048052066` **SUCCESS**.
+- Mobile WebKit Compatibility `40048052063` **SUCCESS**.
+- Legacy WebAssembly Build `40048052546`: **attempt 1 FAILURE** la
+  `Exercise Romanian audio through real PWA UI`:
+  „Romanian audio full-title timing error too large: p95=0.600s (limit 0.60s)”.
+  Pragul nu a fost relaxat. Nu atribui automat eroarea traducerii; compară
+  diagnosticele exacte, precizia ne-rotunjită, fixture-ul și execuțiile
+  anterioare. Attempt 2 a fost relansat folosind
+  `rerun_failed_workflow_run_jobs`; la ultima verificare era
+  **in_progress**, etapa `Generate Romanian audio and offset Romanian subtitles`.
+  Link: `https://github.com/Zuzuitu/subsync-web-enhanced/actions/runs/40048052546`.
+  Verifică din nou în primul rând; este posibil să se fi finalizat.
+- Într-o execuție veche `Public Pages Language Smoke` eșua din cauza
+  Playwright 1.55 pe runner Ubuntu 26.04; `.github/workflows/public-pages-language-smoke.yml`
+  a fost pinuit la `ubuntu-24.04`. Verificarea actuală a trecut.
+- **NU face merge/deploy în absența dovezilor pentru build** și nu crește
+  artificial toleranțele de precizie pentru a obține verde.
+
+### 5. Domeniul personalizat — încă neconfigurat / neverificat
+
+- Țintă exactă: `https://sync.alexlab.media/`.
+- Infra prezentă: GitHub Pages prin GitHub Actions pe branch-ul
+  `deploy/pages-preview`; workflow `.github/workflows/deploy-pages-preview.yml`
+  construiește PWA, oglindește asseturile originale verificate SHA/signature,
+  apoi publică artifactul Pages.
+- Configurare încă necesară: în GitHub repo **Settings > Pages > Custom domain**
+  `sync.alexlab.media`, Cloudflare DNS `CNAME sync -> zuzuitu.github.io`
+  inițial **DNS only**; așteaptă verificarea DNS, certificatul HTTPS,
+  `Enforce HTTPS`, vizitează noua rădăcină și verifică `build-manifest.json`,
+  hashul bundle-ului, service worker, cache, `?tab=audio` și reluarea PWA.
+  Nu presupune că un fișier CNAME în repository modifică automat Settings
+  când deploy-ul folosește Actions.
+- GitHub connector disponibil în chat poate modifica cod/PR, dar **nu a fost
+  identificată o conexiune autorizată Cloudflare** pentru scriere DNS
+  și nu există instrument confirmat care schimbă GitHub Pages Custom domain;
+  explică exact intervenția manuală doar dacă acestea rămân imposibile.
+- Atenție la schimbarea originii: IndexedDB, Cache Storage și service workers
+  sunt separate între github.io și noul subdomeniu. Datele/modelul local se
+  pot redescărca; o instalare PWA pe vechiul origin nu migrează automat.
+  Nu rupe vechiul site până la validarea noului.
+
+### 6. Plan precis pentru următorul agent
+
+1. Citește acest checkpoint, `config/project-invariants.json`, `AGENTS.md`,
+   PR #92/diff, branch HEAD, GitHub Actions curent și eventual latest deploy.
+2. Verifică verdictul `40048052546` attempt 2. Dacă eșuează, extrage
+   diagnosticele exacte și reproduce inputul; nu transforma un FAIL în PASS
+   prin schimbarea pragurilor și nu pretinde cauză fără probe.
+3. Audit și remedieri ale traducerii doar în UI; verifică interfața în ro
+   inclusiv erori și peste ?tab=audio, fără modificarea modelelor/dicționarelor.
+4. Asigură PASS pentru toate testele obligatorii pe HEAD-ul final al PR #92;
+   dacă modifici checkpointul sau codul, verifică din nou SHA/run-urile.
+5. Dacă valid: merge PR #92 în `main` cu expected_head_sha, apoi
+   fast-forward protejat `deploy/pages-preview` la noul merge SHA,
+   monitorizează `Deploy PWA Preview` până la SUCCESS build+deploy.
+   Confirmă explicit live manifest/shell/ro default și engleza `?lang=en`.
+6. Configurează/reconfirmă `sync.alexlab.media` prin Pages + DNS + TLS,
+   cu pași/manual dacă lipsesc permisiunile; verifică origin, cache/offline,
+   Audio Extractor și fluxul SRT pe domeniul final.
+7. Furnizează raport factual „SubSync2 față de original”, consultând pinned
+   upstream și commit/diff, nu doar descriere generică; separă livrat/
+   validat pe CI/de validat fizic și propune roadmap prioritizat
+   (precizie pe titluri dificile și versiuni diferite, diagnostics, UI/UX,
+   testare pe iPhone/Shield, eficiență/risc memorie/offline).
+8. Păstrează checkpointul curent după fiecare schimbare de stare, nu șterge
+   istoricul și nu pretinde că întregul proiect este gata până când PR92,
+   Pages și domeniul sunt confirmate.
+
+---
+
 ## 2026-10-23 — SubSync2 Studio premium PWA visual candidate (LOCAL ONLY)
 
 Rock64 local branch `design/pwa-studio-rock64-20261023` is a visual-only
