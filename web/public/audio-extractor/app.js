@@ -27,7 +27,7 @@ function loadClassicRuntime(url,globalName){
     const script=document.createElement('script');
     script.src=url;
     script.async=true;
-    script.onload=()=>globalThis[globalName]?resolve(globalThis[globalName]):reject(new Error('Runtime '+globalName+' did not initialize.'));
+    script.onload=()=>globalThis[globalName]?resolve(globalThis[globalName]):reject(new Error('Modulul local '+globalName+' nu a putut fi inițializat.'));
     script.onerror=()=>reject(new Error('Nu am putut încărca runtime-ul local '+globalName+'.'));
     document.head.appendChild(script);
   });
@@ -56,7 +56,7 @@ async function ensureDecoder(track){
   const key=`${codec} ${internal}`;
   if((key.includes('ac3')||key.includes('eac3')||key.includes('e-ac-3'))&&!extensions.ac3){await loadEngine();const ext=await loadClassicRuntime(AC3_URL,'MediabunnyAc3');ext.registerAc3Decoder();extensions.ac3=true}
   if(key.includes('dts')&&!extensions.dts){await loadEngine();const ext=await loadClassicRuntime(DTS_URL,'MediabunnyDts');ext.registerDtsDecoder();extensions.dts=true}
-  if(!await safeCall(()=>track.canDecode(),false))throw new Error(`Pista ${codec||internal||'cu codec necunoscut'} nu poate fi decodată pe acest dispozitiv pentru MP3. Poți încerca „Original MKA”.`);
+  if(!await safeCall(()=>track.canDecode(),false))throw new Error(`Pista ${codec||internal||'cu codec necunoscut'} nu poate fi decodată pe acest dispozitiv pentru MP3. Poți încerca „MKA original”.`);
 }
 async function disposeInput(){compatibilityToken++;try{input?.dispose?.()}catch(_){}input=null;sourceFile=null;audioTracks=[];primaryAudio=null}
 async function cleanupResult(){if(!result)return;const old=result;result=null;resultActions.classList.add('hidden');try{if(old.opfs&&old.root&&old.entryName)await old.root.removeEntry(old.entryName)}catch(_){}}
@@ -80,8 +80,8 @@ async function renderTracks(){
     const track=audioTracks[i];
     const [codec,internal,lang,name,channels,rate,disposition]=await Promise.all([safeCall(()=>track.getCodec(),null),safeCall(()=>track.getInternalCodecId(),null),safeCall(()=>track.getLanguageCode(),'und'),safeCall(()=>track.getName(),null),safeCall(()=>track.getNumberOfChannels(),null),safeCall(()=>track.getSampleRate(),null),safeCall(()=>track.getDisposition(),{})]);
     const isPrimary=primaryAudio&&track.id===primaryAudio.id,checked=isPrimary||(!primaryAudio&&i===0),language=lang&&lang!=='und'?String(lang).toUpperCase():'limbă necunoscută',title=name||`Pista audio ${track.number||i+1}`,flags=[];
-    if(disposition?.default)flags.push('default');if(disposition?.commentary)flags.push('comentariu');
-    const detail=[codec||internal||'codec necunoscut',language,Number.isFinite(channels)?`${channels} ch`:null,Number.isFinite(rate)?`${Math.round(rate/100)/10} kHz`:null,...flags].filter(Boolean).join(' • ');
+    if(disposition?.default)flags.push('implicită');if(disposition?.commentary)flags.push('comentariu');
+    const detail=[codec||internal||'codec necunoscut',language,Number.isFinite(channels)?`${channels} ${channels===1?'canal':'canale'}`:null,Number.isFinite(rate)?`${Math.round(rate/100)/10} kHz`:null,...flags].filter(Boolean).join(' • ');
     cards.push(`<label class="track-option"${IS_ANDROID_SHELL?' tabindex="0"':''}><input type="radio" name="audioTrack" value="${i}" ${checked?'checked':''}><div class="track-body"><div class="track-title">${escapeHtml(title)} ${isPrimary?'<span class="primary-tag">principală</span>':''}</div><div class="track-detail">${escapeHtml(detail)}</div></div></label>`);
   }
   trackList.innerHTML=cards.join('');trackList.querySelectorAll('input[name="audioTrack"]').forEach(el=>el.addEventListener('change',updateCompatibility));prepareAndroidTvControls();
@@ -156,7 +156,7 @@ function requestNativeSave(){
     pendingNativeSaveSession=null;setNativeSaveBusy(false);showToast(readableError(err),true);return false;
   }
 }
-async function shareResult(){if(!result?.file)return;if(hasNativeAndroidSave()){requestNativeSave();return}try{const p={files:[result.file],title:result.name};if(navigator.share&&(!navigator.canShare||navigator.canShare(p))){await navigator.share(p);return}downloadResult();showToast('Share Sheet nu este disponibil; am pornit descărcarea.')}catch(err){if(err?.name!=='AbortError')showToast(readableError(err),true)}}
+async function shareResult(){if(!result?.file)return;if(hasNativeAndroidSave()){requestNativeSave();return}try{const p={files:[result.file],title:result.name};if(navigator.share&&(!navigator.canShare||navigator.canShare(p))){await navigator.share(p);return}downloadResult();showToast('Meniul de partajare nu este disponibil; am pornit descărcarea.')}catch(err){if(err?.name!=='AbortError')showToast(readableError(err),true)}}
 function downloadResult(){if(!result?.file)return;if(hasNativeAndroidSave()){requestNativeSave();return}const url=URL.createObjectURL(result.file),a=document.createElement('a');a.href=url;a.download=result.name;a.rel='noopener';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)}
 
 window.addEventListener('message',event=>{
@@ -177,7 +177,7 @@ function prepareAndroidTvControls(){
   const pickerHint=pickBtn.querySelector('span:last-child');
   if(heroEyebrow)heroEyebrow.textContent='SUBSYNC2 · ANDROID TV';
   if(privacyPill)privacyPill.textContent='Android TV · local';
-  if(pickerHint)pickerHint.textContent='HDD extern, USB sau storage local';
+  if(pickerHint)pickerHint.textContent='HDD extern, USB sau memorie locală';
   shareBtn.textContent='Salvează pe dispozitiv';
   downloadBtn.classList.add('hidden');
 }
