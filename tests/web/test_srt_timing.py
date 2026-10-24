@@ -23,6 +23,27 @@ class TimingTest(unittest.TestCase):
         self.assertIsNone(quality["finalThirdMedianErrorSeconds"])
         self.assertEqual(quality["endMedianErrorSeconds"], 0)
 
+    def test_mid_title_offset_jump_exposed_by_full_title_metrics(self):
+        # The first two cues are aligned, while the rest require +12s.
+        # A first-cue-only test would miss this discrepancy.
+        times = (5, 10, 15, 20, 25, 30)
+        source = "\n\n".join(
+            f"{i}\n00:00:{t:02},000 --> 00:00:{t + 1:02},000\nx"
+            for i, t in enumerate(times, 1)
+        )
+        output = "\n\n".join(
+            f"{i}\n00:00:{t + (0 if i <= 2 else 12):02},000 --> "
+            f"00:00:{t + 1 + (0 if i <= 2 else 12):02},000\nx"
+            for i, t in enumerate(times, 1)
+        )
+        quality = measure_srt_timing(source, output, 0)
+        self.assertEqual(quality["cueCount"], 6)
+        self.assertEqual(quality["beginningMedianErrorSeconds"], 0)
+        self.assertEqual(quality["middleMedianErrorSeconds"], 12)
+        self.assertEqual(quality["finalThirdMedianErrorSeconds"], 12)
+        self.assertEqual(quality["startP95AbsErrorSeconds"], 12)
+        self.assertEqual(quality["startMaxAbsErrorSeconds"], 12)
+
     def test_changed_cue_count_still_rejected(self):
         one = "1\n00:00:01,000 --> 00:00:02,000\nx"
         with self.assertRaises(ValueError):
