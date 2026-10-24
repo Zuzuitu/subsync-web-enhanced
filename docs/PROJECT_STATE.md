@@ -23,6 +23,31 @@
 **Status inițial P0:** doar analiză și documentație de arhitectură; nicio procesare de fundal în PWA sau versiune iOS nativă nu este livrată încă.
 
 ---
+## 2026-10-24 — Identitate Signal: logo, favicon și pictograme PWA
+
+Utilizatorul a cerut explicit un logo nou modern și publicarea sa împreună cu
+faviconul. Branch dedicat: `feat/subsync2-signal-brand-20261024`.
+
+- `web/public/icon.svg` este sursa vectorială originală: un S din două trasee
+  separate de o îmbinare diagonală, mentă/albastru pe fundal închis. Antetul
+  folosește același simbol, cu wordmark SubSync² accesibil ca SubSync2.
+- Sunt incluse favicon ICO (16/32/48), PNG 32, Apple touch 180, PNG PWA 192/512
+  și un PNG maskable 512 opac cu simbolul în zona sigură. Sursa nu include
+  fonturi, scripturi sau dependențe grafice externe.
+- `scripts/render-brand-icons.py` regenerează rasterele din SVG; este un utilitar
+  de mentenanță, nu o dependență a buildului sau a utilizatorului.
+- Antetul, faviconurile și toate URL-urile pictogramelor din manifest sunt
+  versionate cu build hash. Service worker-ul le precachează; Audio Extractor
+  direct folosește aceeași identitate, fără un manifest sau worker separat.
+- Smoke-ul existent decodează pictogramele în browser, verifică dimensiunile,
+  versiunea și disponibilitatea lor în cache-ul offline.
+- Verificări locale inițiale: invariants și Audio Extractor tab PASS.
+  Publicarea se confirmă prin PR/CI, verdictul Deploy PWA Preview și citirea
+  efectivă a build-manifest/iconurilor de la `https://sync.alexlab.media/`.
+
+Schimbarea este vizuală și de distribuție a pictogramelor. Nu modifică motorul,
+pragurile, dicționarele sau prioritățile English audio → Romanian subtitles.
+PR #94 pentru benchmarkul de precizie rămâne o lucrare separată.
 
 ## 2026-10-24 — STARE NOUĂ DUPĂ MERGE PR #92 (verificări reale, domeniu încă în așteptare)
 

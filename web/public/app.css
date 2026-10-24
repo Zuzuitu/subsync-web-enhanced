@@ -572,15 +572,24 @@ body {
 .brand_mark {
   width: 52px;
   height: 52px;
-  border: 1px solid rgba(140, 250, 212, .30);
-  border-radius: 17px;
-  color: #d0fff0;
-  background: linear-gradient(145deg, rgba(140,250,212,.18), rgba(88,151,238,.08)), #102034;
-  box-shadow: 0 10px 30px rgba(0,0,0,.26), inset 0 1px 0 rgba(255,255,255,.13);
-  font-size: 1.03rem;
-  letter-spacing: -.06em;
+  flex: 0 0 auto;
+  display: block;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  box-shadow: 0 8px 24px rgba(0,0,0,.22);
 }
-.brand strong { font-size: 1.25rem; letter-spacing: -.04em; font-weight: 850; }
+.brand strong { font-size: 1.45rem; letter-spacing: -.055em; font-weight: 850; line-height: 1.15; }
+.brand_sync { color: #b4fbe4; }
+.brand sup {
+  display: inline-block;
+  margin-left: 3px;
+  color: #8dd9f4;
+  font-size: .53em;
+  font-weight: 750;
+  line-height: 1;
+  vertical-align: super;
+}
 .brand small { color: #90a2bb; font-size: .77rem; letter-spacing: .02em; }
 .local_badge {
   display: inline-flex;
@@ -931,8 +940,8 @@ body {
   .page { width: min(100% - 18px, 1110px); padding-top: max(12px, env(safe-area-inset-top)); }
   .site_header { padding-bottom: 14px; }
   .brand { gap: 9px; }
-  .brand_mark { width: 43px; height: 43px; border-radius: 14px; }
-  .brand strong { font-size: 1.03rem; }
+  .brand_mark { width: 46px; height: 46px; border-radius: 11px; }
+  .brand strong { font-size: 1.27rem; }
   .brand small { font-size: .67rem; }
   .local_badge { display: none; }
   .studio_hero { margin: 13px 0 15px; padding: 23px 20px; border-radius: 23px; }
