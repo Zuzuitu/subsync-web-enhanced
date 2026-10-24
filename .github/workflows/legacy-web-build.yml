@@ -314,7 +314,7 @@ jobs:
         run: python3 tests/web/run-app-shell-smoke.py
 
       - name: Verify MP4 audio import, real WORKERFS read-fault recovery and error layout
-        run: python3 tests/web/run-media-import.py --browser chromium
+        run: bash tests/web/run-media-import.sh chromium
 
       - name: Exercise Audio Extractor MP3 and MKA in Chromium
         run: python3 tests/web/run-audio-extractor-e2e.py --browser chromium
@@ -361,7 +361,7 @@ jobs:
         run: python3 -m playwright install --with-deps webkit
 
       - name: Verify MP4 audio import and byte-exact recovery with iPhone-like WebKit
-        run: python3 tests/web/run-media-import.py --browser webkit
+        run: bash tests/web/run-media-import.sh webkit
 
       - name: Exercise Romanian audio with iPhone-like WebKit
         run: python3 tests/web/run-romanian-audio-workflow.py --browser webkit

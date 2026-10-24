@@ -44,6 +44,11 @@ actual PWA Chromium direct import and injected-fault recovery PASS with the full
 remain rejected after one retry; scratch cleanup and 320/393 px layout PASS; UI
 screenshot inspected. Project invariants, bundle build and diff checks PASS.
 Automated fresh-build Chromium and iPhone-like WebKit checks are wired into CI;
+the OPFS import check uses an isolated Playwright **1.64.1** runner and a real
+HTTPS/persistent browser profile. The existing pinned 1.55 compatibility/ASR
+checks remain unchanged. Older Linux Playwright WebKit omits navigator.storage
+entirely (upstream microsoft/playwright #18235); do not skip OPFS assertions or
+claim positive recovery coverage from that build.
 final exact-head results and release provenance must be read from the PR/run.
 Private media is used only in local QA and is not committed or uploaded to CI.
 

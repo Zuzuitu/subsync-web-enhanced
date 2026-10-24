@@ -109,14 +109,17 @@ try:
             chrome = shutil.which('google-chrome') or shutil.which('chromium') or shutil.which('chromium-browser')
             if chrome:
                 launch['executable_path'] = chrome
-        browser = browser_type.launch(**launch)
         for fault in [False, True]:
-            context = browser.new_context(viewport={'width': 393, 'height': 852}, is_mobile=True, has_touch=True, ignore_https_errors=True)
+            profile = tempfile.TemporaryDirectory(prefix='subsync-media-import-profile-')
+            context = browser_type.launch_persistent_context(profile.name, **launch,
+                viewport={'width': 393, 'height': 852}, is_mobile=True, has_touch=True, ignore_https_errors=True)
             page = context.new_page()
             if fault:
                 page.add_init_script('(' + FAULT_SCRIPT + ')()')
             page.goto(url, wait_until='load')
-            assert page.evaluate('isSecureContext && !!navigator.storage?.getDirectory && !!crypto.subtle')
+            capabilities = page.evaluate('''() => ({secure:isSecureContext,
+              storage:!!navigator.storage?.getDirectory, crypto:!!crypto.subtle})''')
+            assert all(capabilities.values()), capabilities
             ref = page.locator('input[name="streams-group-ref-file"]')
             ref.wait_for(state='attached')
             ref.set_input_files(str(source))
@@ -172,7 +175,7 @@ try:
             results['cases'][-1]['invalidFileRejectedAndCopiesReleased'] = True
             results['cases'][-1]['dialogFits320And393'] = True
             context.close()
-        browser.close()
+            profile.cleanup()
     results['status'] = 'pass'
 finally:
     server.shutdown()

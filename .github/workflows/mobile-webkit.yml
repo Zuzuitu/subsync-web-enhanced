@@ -138,7 +138,7 @@ jobs:
         run: python3 -m playwright install --with-deps webkit
 
       - name: Verify MP4 audio import, byte-exact recovery and mobile error layout
-        run: python3 tests/web/run-media-import.py --browser webkit
+        run: bash tests/web/run-media-import.sh webkit
 
       - name: Exercise Audio Extractor MP3 and MKA with iPhone-like WebKit
         run: >-
