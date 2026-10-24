@@ -1,5 +1,50 @@
 # SubSync2 — Project State
 
+## 2026-10-24 — STARE NOUĂ DUPĂ MERGE PR #92 (verificări reale, domeniu încă în așteptare)
+
+> **Acesta este checkpointul curent.** Secțiunea precedentă „PR #92 traducere UI română, domeniu și handoff” de mai jos este istorică și nu mai descrie starea PR-ului. Folosește HEAD și GitHub Actions live ca sursă de adevăr.
+
+### Realizări confirmate în repository
+
+- PR #92 „feat(i18n): Interfață SubSync2 în română, fără modificări la dicționare” este **MERGED**, folosind `expected_head_sha=276357dfd324a48813bc0b19e258a00f3fc02d9f`.
+- **Merge / squash SHA:** `dece4240424b9e8bf5b8b372600e28158e387547`.
+- Înainte de merge, **toate cele opt verificări ale SHA-ului final au fost SUCCESS**:
+  - CI `40053764598`;
+  - Android Client `40053764571`;
+  - Large-file Browser Stress `40053764521`;
+  - MKV WASM Fast Diagnostic `40053764533`;
+  - Mobile WebKit Compatibility `40053764474`;
+  - Public Pages Language Smoke `40053764465`;
+  - Romanian Identical Input Study `40053764523`;
+  - Legacy WebAssembly Build `40053764464`.
+- Cele două patchuri finale de UI au fost integrate înaintea acestor verdicturi:
+  - `ba2fc19c92fdf5ccf92f52cf8808d1f0a6dbcd06`: traducerea ultimelor etichete/erori Audio Extractor (`web/public/audio-extractor/app.js`);
+  - `276357dfd324a48813bc0b19e258a00f3fc02d9f`: repararea linkului desktop legacy de pe ecranul „Browser incompatibil” (`web/src/ui/supportScreen.jsx`), direcționat la releases upstream sc0ty.
+- Catalogul `ro.json` conține toate **138** cheile existente în `pl.json` plus **17** chei de interfață suplimentare; configurația publică alege româna implicit și păstrează `?lang=en`. **Nu** au fost modificate `pl.json`, dicționarele, modelele sau algoritmul de sincronizare.
+- Branch-ul `deploy/pages-preview` a fost avansat cu succes **fast-forward, force=false, expected_sha=4375aa9d49daaff23add70233606f61ff8690d9b** la `dece4240424b9e8bf5b8b372600e28158e387547`. Comparațiile GitHub au confirmat că `main` și branch-ul de deploy indică același SHA imediat după update.
+
+### Ce NU a fost încă verificat
+
+- Actualizarea ref-ului de deploy **nu este echivalentă cu un verdict SUCCESS al GitHub Pages**. Conectorul disponibil întoarce workflow runs legate de PR, dar nu enumeră în mod fiabil runurile `push` de pe `deploy/pages-preview`. Este încă necesară confirmarea joburilor `build` și `deploy` în workflow-ul `Deploy PWA Preview` și citirea efectivă a versiunii publice `https://zuzuitu.github.io/subsync-web-enhanced/`.
+- Nu s-a confirmat distribuirea build-ului românesc și a manifestului public la originea GitHub Pages. Testul „Public Pages Language Smoke” al PR-ului poate citi build-ul public **anterior**, deci PASS nu înlocuiește un readback post-deploy.
+- `https://sync.alexlab.media/` **nu este confirmat configurat sau HTTPS valid**. Accesul la cod și PR-uri este autorizat; conectorul curent GitHub **nu expune setarea administrativă GitHub Pages Custom domain**, iar căutarea unei integrări Cloudflare nu a identificat un conector disponibil.
+- Testarea fizică pe iPhone și NVIDIA Shield, cazurile cu tăieturi/ediții diferite (inclusiv Goofy) și auditul complet al mesajelor rare rămân neconfirmate; nu declara compatibilitate universală.
+
+### Următoarea secvență, fără improvizații
+
+1. Verifică în GitHub Actions runul `Deploy PWA Preview` pornit după fast-forward-ul `deploy/pages-preview`; confirmă **SUCCESS** pentru build și deploy, apoi citește manifestul, JS, service worker, UI română implicit și `?lang=en` de pe site-ul public.
+2. În `Settings > Pages > Custom domain`, setează `sync.alexlab.media` **înainte** de a crea DNS CNAME. Providerul DNS: Cloudflare; înregistrare `CNAME sync -> zuzuitu.github.io`, inițial DNS-only; verifică apoi TLS/Enforce HTTPS, fără întreruperea site-ului vechi.
+3. Conform documentației GitHub Pages, când sursa de publish este GitHub Actions, fișierul `CNAME` din repository **este ignorat**, deci nu substituie configurarea din Settings.
+4. Verifică pe noul origin root-path, manifest, build-manifest, service worker, cache separat per origin, `?tab=audio`, exportul SRT, actualizarea PWA și Safari. Nu pretinde că DNS/certificatul/telefonul fizic funcționează fără probe.
+5. Păstrează toate pragurile de sincronizare și asseturile lingvistice. Roadmap P0: diferențe de ediție și precizie reală; P1: validare fizică și post-deploy smoke; P2: UX/istoric local de diagnostic.
+
+### Rollback
+
+- Dacă deploymentul nou este defect, ținta cunoscută de rollback pentru `deploy/pages-preview` este `4375aa9d49daaff23add70233606f61ff8690d9b` (PR #91 Studio premium, deploy anterior SUCCESS); documentează motivul și folosește un flux controlat de rollback, fără `force push` nejustificat. Nu considera site-ul nou verificat numai pentru că branch-ul indică SHA-ul nou.
+
+---
+
+
 ## 2026-10-24 — CHECKPOINT ACTIV: PR #92 traducere UI română, domeniu și handoff
 
 > **Sursa de adevăr:** repository-ul GitHub, PR #92 și GitHub Actions în timp real.
