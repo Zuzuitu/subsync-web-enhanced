@@ -3,6 +3,33 @@ import XCTest
 @testable import BackgroundCore
 
 final class MediaFilesTests: XCTestCase {
+    func testSandboxRootAliasAndCanonicalChildResolveToSameAsset() throws {
+        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        let actual = temporary.appendingPathComponent("real/speech")
+        try FileManager.default.createDirectory(at: actual, withIntermediateDirectories: true)
+        let model = actual.appendingPathComponent("model.bin")
+        try Data([1, 2, 3]).write(to: model)
+        let alias = temporary.appendingPathComponent("alias")
+        try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: actual.deletingLastPathComponent())
+        let resolver = AssetPathResolver(root: alias)
+        XCTAssertEqual(try resolver.resolve("speech/model.bin"), model.standardizedFileURL.resolvingSymlinksInPath())
+    }
+
+    func testAssetTraversalAndEscapingSymlinkAreRejected() throws {
+        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        let root = temporary.appendingPathComponent("assets")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let outside = temporary.appendingPathComponent("outside.bin")
+        try Data([1]).write(to: outside)
+        try FileManager.default.createSymbolicLink(at: root.appendingPathComponent("escape.bin"), withDestinationURL: outside)
+        let resolver = AssetPathResolver(root: root)
+        XCTAssertThrowsError(try resolver.resolve("../outside.bin"))
+        XCTAssertThrowsError(try resolver.resolve("escape.bin"))
+        XCTAssertThrowsError(try resolver.resolve(outside.path))
+    }
+
     func testOnlyTimestampBytesChangeIncludingBOMCRLFAndDiacritics() throws {
         let source = "\u{FEFF}7\r\n00:00:18,000 --> 00:00:20,000 X1:2\r\n<i>Știință, țară, împreună</i>\r\n\r\n9\r\n00:02:18,000 --> 00:02:21,000\r\nAcelași text! ăâîșț\r\n"
         let expected = source.replacingOccurrences(of: "00:00:18,000", with: "00:00:10,000")

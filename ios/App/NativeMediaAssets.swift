@@ -16,15 +16,15 @@ struct NativeMediaAssets: Sendable {
             let archives: [String: String]; let files: [Entry]
         }
         struct Model: Decodable { let lang: String, sampleformat: String, samplerate: String; let sphinx: [String: String] }
-        guard let root = Bundle.main.resourceURL?.appendingPathComponent("LanguageAssets"),
-              let manifest = try? JSONDecoder().decode(Manifest.self, from: Data(contentsOf: root.appendingPathComponent("assets.json"))),
+        guard let bundleRoot = Bundle.main.resourceURL?.appendingPathComponent("LanguageAssets") else { throw NativeMediaError.assets }
+        let paths = AssetPathResolver(root: bundleRoot)
+        let root = paths.root
+        guard let manifest = try? JSONDecoder().decode(Manifest.self, from: Data(contentsOf: root.appendingPathComponent("assets.json"))),
               manifest.schemaVersion == 1, manifest.language == "eng", manifest.files.count < 1000,
               manifest.archives["speechEnglish"] == "b96fa77cc3567c0351d1a1dae2cd87cb38ae815834903cc1e680e48b6cbd45a5",
               manifest.archives["dictionaryEnglishRomanian"] == "04350f06586fc06082142e7a8e9b32f961782bc08341755594a0c4be3b57cfc4" else { throw NativeMediaError.assets }
         func checked(_ path: String) throws -> URL {
-            let url = root.appendingPathComponent(path).standardizedFileURL.resolvingSymlinksInPath()
-            guard url.path.hasPrefix(root.standardizedFileURL.path + "/") else { throw NativeMediaError.assets }
-            return url
+            try paths.resolve(path)
         }
         for entry in manifest.files {
             try token.check()
@@ -44,8 +44,7 @@ struct NativeMediaAssets: Sendable {
         guard model.lang == "eng", model.sampleformat == "S16", model.samplerate == "16000" else { throw NativeMediaError.assets }
         var parameters = model.sphinx
         for (key, value) in parameters where value.hasPrefix("./") {
-            let resolved = descriptor.deletingLastPathComponent().appendingPathComponent(value).standardizedFileURL
-            guard resolved.path.hasPrefix(root.path + "/") else { throw NativeMediaError.assets }
+            let resolved = try paths.contained(descriptor.deletingLastPathComponent().appendingPathComponent(value))
             parameters[key] = resolved.path
         }
         self.parameters = parameters
