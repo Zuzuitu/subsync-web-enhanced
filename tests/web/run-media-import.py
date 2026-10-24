@@ -47,9 +47,9 @@ assert source.is_file()
 # This reproduces AVERROR_INVALIDDATA without changing the original file/codec.
 FAULT_SCRIPT = r'''() => {
  const OriginalWorker = window.Worker;
- window.Worker = class extends OriginalWorker {
-  constructor(url, options) {
-   if (!String(url).startsWith('blob:')) { super(url, options); return; }
+ const OriginalBlob = window.Blob;
+ window.Blob = class extends OriginalBlob {
+  constructor(parts, options) {
    const prefix = `
     const sourceSlice = File.prototype.slice;
     const sourceRead = FileReaderSync.prototype.readAsArrayBuffer;
@@ -71,12 +71,15 @@ FAULT_SCRIPT = r'''() => {
       return sourceRead.call(this, blob);
     };
    `;
-   const wrapper = URL.createObjectURL(new Blob([prefix, 'importScripts(' + JSON.stringify(String(url)) + ');'], {type:'text/javascript'}));
-   super(wrapper, options);
+   super(options && options.type === 'text/javascript' ? [prefix, ...parts] : parts, options);
+  }
+ };
+ window.Worker = class extends OriginalWorker {
+  constructor(url, options) {
+   super(url, options);
    this.addEventListener('message', event => {
      if (event.data && event.data.readFaultInjected) window.__readFaultInjected = true;
    });
-   this.addEventListener('error', () => URL.revokeObjectURL(wrapper), {once:true});
   }
  };
 }'''
@@ -114,6 +117,8 @@ try:
             context = browser_type.launch_persistent_context(profile.name, **launch,
                 viewport={'width': 393, 'height': 852}, is_mobile=True, has_touch=True, ignore_https_errors=True)
             page = context.new_page()
+            page_errors = []
+            page.on('pageerror', lambda error: page_errors.append(str(error)))
             if fault:
                 page.add_init_script('(' + FAULT_SCRIPT + ')()')
             page.goto(url, wait_until='load')
@@ -121,7 +126,11 @@ try:
               storage:!!navigator.storage?.getDirectory, crypto:!!crypto.subtle})''')
             assert all(capabilities.values()), capabilities
             ref = page.locator('input[name="streams-group-ref-file"]')
-            ref.wait_for(state='attached')
+            try:
+                ref.wait_for(state='attached')
+            except Exception:
+                print({'fault': fault, 'pageErrors': page_errors, 'text': page.locator('body').inner_text()})
+                raise
             ref.set_input_files(str(source))
             group = ref.locator('xpath=..')
             try:
