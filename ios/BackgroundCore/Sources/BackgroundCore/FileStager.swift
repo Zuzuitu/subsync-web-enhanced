@@ -35,7 +35,10 @@ public final class FileStager: Sendable {
         let capacity = try availableBytes ?? root.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]).volumeAvailableCapacityForImportantUsage ?? 0
         guard capacity >= Int64(size) + 64 * 1024 * 1024 else { throw FileStageError.insufficientSpace }
         try token.check()
-        let suffix = kind == .subtitle ? "srt" : "media"
+        let extensionText = source.pathExtension.lowercased()
+        let safeExtension = !extensionText.isEmpty && extensionText.count <= 12
+            && extensionText.unicodeScalars.allSatisfy { CharacterSet.alphanumerics.contains($0) && $0.isASCII }
+        let suffix = kind == .subtitle ? "srt" : safeExtension ? extensionText : "media"
         let name = UUID().uuidString + "." + suffix
         let partial = root.appendingPathComponent(name + ".part")
         let final = root.appendingPathComponent(name)

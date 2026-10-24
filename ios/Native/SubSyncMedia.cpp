@@ -149,7 +149,9 @@ int ss2_media_start(SS2Media *c, int stream, int sampleRate) {
         for (const auto &s : c->tracks) if (static_cast<int>(s.no) == stream) found = true;
         if (!found) throw std::runtime_error("invalid audio track");
         c->audio->connectOutput(c->resampler);
-        c->resampler->connectOutput(c->speech, AudioFormat(AV_SAMPLE_FMT_S16, sampleRate), 32 * 1024);
+        // Match gizmo/wasm/extractor.cpp::resamplerConnectOutput exactly,
+        // including its one-channel layout value (1), not an alternate remix.
+        c->resampler->connectOutput(c->speech, AudioFormat(AV_SAMPLE_FMT_S16, sampleRate, 1), 32 * 1024);
         c->ref->connectDec(c->audio, stream);
         c->audioStarted = true;
         c->ref->start();

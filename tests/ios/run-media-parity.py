@@ -32,6 +32,8 @@ dictionary = folder / assets["dictionaryPath"]
 def run(path, mode="run"):
     command = [str(args.engine.resolve()), str(subtitle), str(path), str(dictionary), str(parameters), str(model["samplerate"]), mode]
     completed = subprocess.run(command, text=True, capture_output=True, timeout=180)
+    if completed.returncode not in (0, 2, 3):
+        print(completed.stderr[-12000:])
     try: status = json.loads(completed.stdout)
     except Exception:
         print(completed.stderr[-5000:])

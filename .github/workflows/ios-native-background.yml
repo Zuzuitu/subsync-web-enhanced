@@ -193,7 +193,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ios26-build-evidence-${{ github.sha }}
-          path: ios/build/*.log
+          path: |
+            ios/build/*.log
+            tests/generated/native-media-parity.json
           if-no-files-found: warn
       - name: Upload unsigned iPhone app (cannot install without signing)
         uses: actions/upload-artifact@v4
