@@ -1,5 +1,36 @@
 # SubSync2 — Project State
 
+## 2026-10-24 — P0 native iOS milestone: real CPU PoC and canonical C++ adapter
+
+**Implemented locally, build/physical evidence pending:** separate iOS 26 SwiftUI
+app in `ios/`, BGContinuedProcessingTask submission on an explicit tap, real
+bounded CPU work with measured Progress, synchronous expiration/cancel, durable
+atomic job/result records, interrupted-on-relaunch recovery and explicit restart
+from zero. The UI labels this as a CPU diagnostic; it DOES NOT synchronize films.
+The SAME original C++ correlator sources are linked through a C ABI; no algorithm
+fork or threshold change. See `docs/IOS_NATIVE_BACKGROUND_POC.md` for the source
+inventory, native-port risks, build instructions and physical acceptance protocol.
+
+**Baseline:** main `745c6db096c9f9e47c4bcf8471b44e1478aa5763` (PR #95 confirmed
+merged). Branch `feat/ios26-native-background-poc-20261024`; PR/SHA/CI follow in the
+next checkpoint once published. Local C ABI/direct-core and fail-closed cue-count
+tests PASS; governance invariants PASS. macOS/Xcode compile, Swift tests and all
+physical iPhone evidence are pending at this entry; no signed IPA exists.
+
+**Live PR #94 readback:** OPEN, mergeable=false, head
+`dc7a0be650854fa3b01256850c595a5abc8d8ae2`; CI `40058134762`, Android
+`40058134831`, Romanian Identical Input Study `40058134778`, Legacy WebAssembly
+Build `40058134891` all SUCCESS. Its checkpoint conflict remains to reconcile
+without dropping either roadmap. Do not infer a merged state from these checks.
+
+**Next:** finish/verify macOS Xcode 26 simulator + unsigned arm64 builds, then
+physical signed iPhone 5–15 minute CPU/app-switch/lock/cancel/restart proof. Full
+native FFmpeg/PocketSphinx/dictionary/Files/SRT integration and EN→RO fixture parity
+remain gated; see the unchanged P0 phases and precision backlog below. Production
+PWA `https://sync.alexlab.media/` is not changed or deployed by this milestone.
+
+---
+
 ## 2026-10-24 — NOUA PRIORITATE P0: procesare în fundal iPhone (decizie explicită a utilizatorului)
 
 **Obiectiv:** pe iPhone, utilizatorul pornește sincronizarea unui film cu audio de regulă ENGLEZESC și SRT ROMÂN, apoi poate deschide alte aplicații ori bloca ecranul fără să piardă jobul; păstrează sincronizarea precisă, procesarea locală implicită și exportul SRT. Aceasta devine **următorul proiect prioritar**, înainte de roadmapul de precizie, pe care NU îl uităm și NU îl abandonăm.

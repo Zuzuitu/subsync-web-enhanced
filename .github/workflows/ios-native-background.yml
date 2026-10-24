@@ -1,0 +1,74 @@
+name: iOS Native Background
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "ios/**"
+      - "tests/ios/**"
+      - "gizmo/**"
+      - "docs/PROJECT_STATE.md"
+      - "docs/IOS_NATIVE_BACKGROUND_POC.md"
+      - ".github/workflows/ios-native-background.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-native-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-build:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select verified Xcode 26 toolchain
+        run: |
+          test -d /Applications/Xcode_26.3.app
+          sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+      - name: Verify canonical native bridge
+        run: python3 tests/ios/run-native-tests.py
+      - name: Test durable jobs, real CPU work and interruption safety
+        run: |
+          mkdir -p ios/build
+          set -o pipefail
+          swift test --package-path ios/BackgroundCore 2>&1 | tee ios/build/swift-tests.log
+      - name: Verify deterministic project generation
+        run: |
+          python3 ios/tools/generate-project.py
+          git diff --exit-code -- ios/SubSync2Background.xcodeproj
+          plutil -lint ios/App/Info.plist ios/SubSync2Background.xcodeproj/project.pbxproj
+      - name: Build iOS Simulator application (compilation only)
+        run: |
+          set -o pipefail
+          xcodebuild -project ios/SubSync2Background.xcodeproj -scheme SubSync2Background \
+            -configuration Release -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath ios/build/simulator CODE_SIGNING_ALLOWED=NO \
+            SUBSYNC_SOURCE_COMMIT="$GITHUB_SHA" build 2>&1 | tee ios/build/simulator-build.log
+      - name: Build unsigned native arm64 iPhone application
+        run: |
+          set -o pipefail
+          xcodebuild -project ios/SubSync2Background.xcodeproj -scheme SubSync2Background \
+            -configuration Release -destination 'generic/platform=iOS' \
+            -derivedDataPath ios/build/device CODE_SIGNING_ALLOWED=NO \
+            SUBSYNC_SOURCE_COMMIT="$GITHUB_SHA" build 2>&1 | tee ios/build/device-build.log
+      - name: Verify evidence evaluator
+        run: python3 -m unittest discover -s tests/ios -p 'test_*.py'
+      - name: Upload build evidence (not a signed IPA or physical test)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios26-build-evidence-${{ github.sha }}
+          path: ios/build/*.log
+          if-no-files-found: warn
+      - name: Upload unsigned iPhone app (cannot install without signing)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios26-unsigned-app-${{ github.sha }}
+          path: ios/build/device/Build/Products/Release-iphoneos/SubSync2Background.app/
+          if-no-files-found: error
