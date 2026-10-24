@@ -23,6 +23,7 @@ public struct MediaJob: Codable, Identifiable, Sendable {
     public let id: UUID
     public let created: Date
     public let subtitle: StagedInput, media: StagedInput
+    public let audioStream: Int32
     public var state: JobState
     public var message: String
     public var duration: Double
@@ -32,9 +33,9 @@ public struct MediaJob: Codable, Identifiable, Sendable {
     public var outputSHA256: String?
     public var events: [WorkEvent]
 
-    public init(subtitle: StagedInput, media: StagedInput) {
+    public init(subtitle: StagedInput, media: StagedInput, audioStream: Int32 = -1) {
         schemaVersion = 1; id = UUID(); created = Date()
-        self.subtitle = subtitle; self.media = media; state = .queued
+        self.subtitle = subtitle; self.media = media; self.audioStream = audioStream; state = .queued
         message = "În așteptarea pornirii native."; duration = 0; processedSeconds = 0
         referenceWords = 0; outcome = nil; outputSHA256 = nil; events = []
     }

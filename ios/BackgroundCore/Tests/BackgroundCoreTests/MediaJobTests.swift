@@ -16,7 +16,7 @@ final class MediaJobTests: XCTestCase {
     }
     private func fit(correlated: Bool = true) -> NativeOutcome {
         NativeOutcome(done: true, correlated: correlated, a: 1, b: -8, factor: 0.99999,
-                      maxDistance: .1, points: 20, cueCount: 1, referenceWords: 30)
+                      maxDistance: 0.1, points: 20, cueCount: 1, referenceWords: 30)
     }
     func testCompletedOutputIsAtomicVerifiedAndTextPreserved() throws {
         try exercise { store, job, bytes in

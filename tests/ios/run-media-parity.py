@@ -10,7 +10,7 @@ import wave
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tests/web"))
-from srt_timing import parse_srt_times
+from srt_timing import parse_srt_times, measure_srt_timing, TIMING_RE
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--engine", type=Path, required=True)
@@ -63,6 +63,18 @@ write()
 # New parity gate, not a relaxed canonical acceptance threshold. Same words / fit
 # should agree far more closely than this 100 ms ceiling across the whole title.
 assert report["maximumNativeBrowserTimestampDeltaSeconds"] <= .1, report
+status_file = folder / "native-status.json"
+status_file.write_text(json.dumps(native))
+exported = folder / "native-output.rum.srt"
+subprocess.run(["swift", "run", "--package-path", str(ROOT / "ios/BackgroundCore"), "srt-export",
+                str(subtitle), str(status_file), str(exported)], check=True, timeout=180)
+original_text, output_text = subtitle.read_text(), exported.read_text()
+assert TIMING_RE.sub("", original_text) == TIMING_RE.sub("", output_text), "SRT payload or cue labels changed"
+report["fullTitleTimingQuality"] = measure_srt_timing(original_text, output_text, -truth["offsetSeconds"])
+output_times = parse_srt_times(output_text)
+report["fullTitleTimingQuality"]["startMAESeconds"] = sum(abs(out[0] - (src[0] - truth["offsetSeconds"]))
+    for src, out in zip(times, output_times)) / len(times)
+write()
 cancel_code, cancelled = run(media, "cancel")
 report["cancelBeforeOpen"] = cancelled
 assert cancel_code == 3 and cancelled["cancelled"] and not cancelled["done"]

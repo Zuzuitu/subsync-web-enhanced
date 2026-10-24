@@ -20,6 +20,7 @@ def obj(label, body):
     return uid(label)
 
 sources = ["App/Telemetry.swift", "App/BackgroundController.swift", "App/SubSync2BackgroundApp.swift"]
+sources += ["App/NativeMediaAssets.swift", "App/MediaController.swift", "App/MediaSyncView.swift"]
 sources += json.loads((IOS / "native-sources.json").read_text())
 sources += json.loads((IOS / "media-sources.json").read_text())
 resources = ["../LICENSE", "../THIRD_PARTY_NOTICES.md", "LanguageAssets"]
