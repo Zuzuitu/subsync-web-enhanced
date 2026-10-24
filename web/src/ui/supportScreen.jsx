@@ -4,7 +4,6 @@ import Router from '../router.js';
 import { OverlayItem } from './overlay.jsx';
 import { simpleList } from './components.jsx';
 import { checkSupportedTech } from '../utils.js';
-import settings from '../settings.js';
 
 export default class NotSupportedScreen {
 
@@ -31,7 +30,8 @@ export default class NotSupportedScreen {
     </div>;
 
     this.desktopLink.target = '_blank';
-    this.desktopLink.href = settings.lang + '/download.html';
+    this.desktopLink.rel = 'noopener noreferrer';
+    this.desktopLink.href = 'https://github.com/sc0ty/subsync/releases';
   }
 
   async update(props) {
