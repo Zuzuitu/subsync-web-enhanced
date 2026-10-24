@@ -1,6 +1,8 @@
 # iOS 26 native background milestone — 2026-10-24
 
-Status: native CPU PoC implemented; NOT a released movie synchronizer. See the
+Status: CPU runtime proof module implemented in PR #97. Experimental native
+movie synchronization is now implemented by PR #98; see IOS_NATIVE_MEDIA_SYNC.md.
+Signed physical-device/background acceptance is still pending. See the
 latest top entry in PROJECT_STATE.md for exact PR/commit/build results. The
 production PWA at https://sync.alexlab.media/ is independent of this project.
 
@@ -55,9 +57,9 @@ all subsequent precision tasks remain pending, not discarded.
   screen locking. Lock/protected-data notification is only an observed signal;
   it does not itself prove a lock/unlock test.
 
-The job store is PoC infrastructure. Files picker/security-scoped input staging,
-media identity/quota/stream copy and atomic SRT export remain phase 2/3 work.
-No unimplemented media controls or fake sync button are exposed.
+The CPU job store remains the separate runtime diagnostic. PR #98 adds a distinct
+native media job store, bounded Files imports and validated atomic SRT export;
+see IOS_NATIVE_MEDIA_SYNC.md. No exact decoder/ASR resume is claimed.
 
 ## Build and test
 
@@ -105,8 +107,9 @@ can be installed. TestFlight needs separately authorized distribution signing.
 4. Separately test native cancel, system UI cancel/expiration, force quit and
    reopen, low power, call interruptions and storage exhaustion. An interrupted
    job must not be completed or automatically resubmitted. Retry begins at zero.
-5. Only then integrate bounded, security-scoped Files import, pinned native
-   FFmpeg/PocketSphinx/assets and actual EN→RO synchronization. Compare the same
+5. The independently implemented experimental Files/FFmpeg/PocketSphinx/assets
+   and EN→RO path in PR #98 must then pass the signed physical-device gate.
+   Compare the same
    independent fixture against browser output: cue count, MAE/median/P95/max,
    thirds/drift, text and diacritics. Include silent/no-match/cut negative cases.
    Keep all canonical gates. Large MKV/codec/memory/battery tests follow.

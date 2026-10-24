@@ -75,7 +75,7 @@ public final class JobStore: @unchecked Sendable {
         }
         job.checksum = checksum
         job.state = .completed
-        job.message = "Test CPU finalizat. Sincronizarea filmelor nu este încă integrată."
+        job.message = "Test CPU finalizat. Exportă raportul pentru verificarea execuției."
         job.append(kind: "completed", metrics: metrics)
         // Both files are atomic. If killed between them, the persisted running
         // record becomes interrupted on launch and this orphan is not reused.

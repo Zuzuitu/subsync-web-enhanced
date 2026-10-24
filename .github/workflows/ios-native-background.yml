@@ -14,15 +14,131 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: ios-native-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  native-build:
+  core-tests:
     runs-on: macos-15
-    timeout-minutes: 25
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
+      - name: Test durable jobs, CPU work, bounded imports and SRT byte preservation
+        run: |
+          mkdir -p ios/build
+          set -o pipefail
+          swift test --package-path ios/BackgroundCore 2>&1 | tee ios/build/swift-tests.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: native-swift-tests, path: ios/build/swift-tests.log}
+
+  native-dependencies:
+    runs-on: macos-15
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {platform: macos, arch: auto}
+          - {platform: iphoneos, arch: arm64}
+          - {platform: iphonesimulator, arch: arm64}
+          - {platform: iphonesimulator, arch: x86_64}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Apple toolchain and native architecture
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
+          dep_arch='${{ matrix.arch }}'
+          if [ "$dep_arch" = auto ]; then dep_arch=$(uname -m); fi
+          echo "DEP_ARCH=$dep_arch" >> "$GITHUB_ENV"
+          brew install autoconf automake libtool pkg-config
+      - uses: actions/cache/restore@v4
+        id: deps-cache
+        with:
+          path: ios/vendor/${{ matrix.platform }}-${{ env.DEP_ARCH }}
+          key: native-media-26.3-${{ matrix.platform }}-${{ env.DEP_ARCH }}-${{ hashFiles('ios/tools/build-dependencies.py', 'config/legacy-build-pins.json') }}
+      - name: Build exact pinned static FFmpeg and PocketSphinx sources
+        run: |
+          mkdir -p ios/build
+          set -o pipefail
+          python3 ios/tools/build-dependencies.py --platform '${{ matrix.platform }}' --arch "$DEP_ARCH" 2>&1 | tee ios/build/dependencies.log
+      - uses: actions/cache/save@v4
+        if: steps.deps-cache.outputs.cache-hit != 'true'
+        with:
+          path: ios/vendor/${{ matrix.platform }}-${{ env.DEP_ARCH }}
+          key: native-media-26.3-${{ matrix.platform }}-${{ env.DEP_ARCH }}-${{ hashFiles('ios/tools/build-dependencies.py', 'config/legacy-build-pins.json') }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-deps-${{ matrix.platform }}-${{ matrix.arch }}
+          path: ios/vendor/${{ matrix.platform }}-${{ env.DEP_ARCH }}/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-deps-log-${{ matrix.platform }}-${{ matrix.arch }}
+          path: ios/build/dependencies.log
+
+  shared-fixture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify reference WASM source provenance
+        run: |
+          git fetch --depth=1 origin dc7a0be650854fa3b01256850c595a5abc8d8ae2
+          git diff --exit-code dc7a0be650854fa3b01256850c595a5abc8d8ae2 -- gizmo config/legacy-build-pins.json
+      - uses: actions/download-artifact@v4
+        with:
+          name: legacy-wasm
+          path: web/scripts
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: 40058134891
+      - name: Verify WASM runtime hashes and install fixture tools
+        run: |
+          sha256sum -c web/scripts/SHA256SUMS
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python3 -m pip install 'piper-tts[http]==1.8.0' playwright==1.55.0
+          python3 -m playwright install --with-deps chromium
+      - name: Prepare original pinned model/dictionary and synthetic voice
+        run: |
+          python3 tests/fixtures/prepare-en-ro-assets.py
+          python3 tests/fixtures/prepare-piper-fixture-voice.py
+      - name: Generate one shared fixture and measure real browser baseline
+        run: |
+          set -euo pipefail
+          python3 -m piper.http_server -m en_US-joe-medium --data-dir tests/generated/piper --host 127.0.0.1 --port 5000 > tests/generated/en-ro-e2e/piper-http.log 2>&1 &
+          piper_pid=$!
+          trap 'kill "$piper_pid" || true' EXIT
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:5000/info > tests/generated/en-ro-e2e/piper-info.json; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:5000/info >/dev/null
+          python3 tests/fixtures/generate-en-ro-e2e.py
+          python3 tests/wasm/run-en-ro-e2e.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-shared-en-ro-fixture
+          path: |
+            tests/generated/en-ro-e2e/reference-english.mkv
+            tests/generated/en-ro-e2e/target.rum.srt
+            tests/generated/en-ro-e2e/fixture.json
+            tests/generated/en-ro-e2e/browser-en-ro-e2e.json
+          if-no-files-found: error
+
+  native-build:
+    needs: [native-dependencies, shared-fixture, core-tests]
+    runs-on: macos-15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Select verified Xcode 26 toolchain
@@ -31,13 +147,30 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
-      - name: Verify canonical native bridge
-        run: python3 tests/ios/run-native-tests.py
-      - name: Test durable jobs, real CPU work and interruption safety
+          mkdir -p ios/build
+          xcrun devicectl device install app --help > ios/build/device-install-help.log
+          xcrun devicectl device process launch --help > ios/build/device-launch-help.log
+      - uses: actions/download-artifact@v4
+        with: {name: native-deps-macos-auto, path: ios/vendor/host}
+      - uses: actions/download-artifact@v4
+        with: {name: native-deps-iphoneos-arm64, path: ios/vendor/iphoneos-arm64}
+      - uses: actions/download-artifact@v4
+        with: {name: native-deps-iphonesimulator-arm64, path: ios/vendor/iphonesimulator-arm64}
+      - uses: actions/download-artifact@v4
+        with: {name: native-deps-iphonesimulator-x86_64, path: ios/vendor/iphonesimulator-x86_64}
+      - uses: actions/download-artifact@v4
+        with: {name: native-shared-en-ro-fixture, path: tests/generated/en-ro-e2e}
+      - name: Build native media engine and compare on identical browser inputs
         run: |
           mkdir -p ios/build
           set -o pipefail
-          swift test --package-path ios/BackgroundCore 2>&1 | tee ios/build/swift-tests.log
+          python3 tests/fixtures/prepare-en-ro-assets.py
+          python3 tests/ios/check-dictionary-parity.py
+          python3 ios/tools/build-media-cli.py --prefix ios/vendor/host --output ios/build/media-cli
+          python3 tests/ios/run-media-parity.py --engine ios/build/media-cli 2>&1 | tee ios/build/media-parity.log
+          python3 ios/tools/stage-language-assets.py
+      - name: Verify canonical native bridge
+        run: python3 tests/ios/run-native-tests.py
       - name: Verify deterministic project generation
         run: |
           python3 ios/tools/generate-project.py
@@ -57,18 +190,42 @@ jobs:
             -configuration Release -destination 'generic/platform=iOS' \
             -derivedDataPath ios/build/device CODE_SIGNING_ALLOWED=NO \
             SUBSYNC_SOURCE_COMMIT="$GITHUB_SHA" build 2>&1 | tee ios/build/device-build.log
+      - name: Launch and render actual app in iOS 26 Simulator
+        timeout-minutes: 6
+        run: python3 ios/tools/simulator-smoke.py
       - name: Verify evidence evaluator
         run: python3 -m unittest discover -s tests/ios -p 'test_*.py'
+      - name: Package unsigned IPA for authorized signing (not directly installable)
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile
+          app = Path('ios/build/device/Build/Products/Release-iphoneos/SubSync2Background.app')
+          with zipfile.ZipFile('ios/build/SubSync2-Native-0.2.0-UNSIGNED.ipa', 'w', zipfile.ZIP_DEFLATED) as archive:
+              for path in sorted(app.rglob('*')):
+                  if path.is_file(): archive.write(path, 'Payload/SubSync2Background.app/' + str(path.relative_to(app)))
+          PY
       - name: Upload build evidence (not a signed IPA or physical test)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ios26-build-evidence-${{ github.sha }}
-          path: ios/build/*.log
+          path: |
+            ios/build/*.log
+            ios/build/*.json
+            ios/build/native-simulator.png
+            tests/generated/native-media-parity.json
+            tests/generated/native-dictionary-parity.json
           if-no-files-found: warn
       - name: Upload unsigned iPhone app (cannot install without signing)
         uses: actions/upload-artifact@v4
         with:
           name: ios26-unsigned-app-${{ github.sha }}
           path: ios/build/device/Build/Products/Release-iphoneos/SubSync2Background.app/
+          if-no-files-found: error
+      - name: Upload unsigned IPA (requires user's authorized Apple signing)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios26-UNSIGNED-ipa-${{ github.sha }}
+          path: ios/build/SubSync2-Native-0.2.0-UNSIGNED.ipa
           if-no-files-found: error

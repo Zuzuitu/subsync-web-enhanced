@@ -6,17 +6,21 @@ import UIKit
 @MainActor
 struct SubSync2BackgroundApp: App {
     @StateObject private var controller = BackgroundController()
+    @StateObject private var mediaController = MediaController()
     @Environment(\.scenePhase) private var scenePhase
     @State private var seconds = 600
 
     var body: some Scene {
         WindowGroup {
+            TabView {
+                MediaSyncView(controller: mediaController, diagnosticsBusy: controller.busy)
+                    .tabItem { Label("Sincronizare", systemImage: "captions.bubble") }
             NavigationStack {
                 List {
                     Section("Verificare iOS 26+") {
                         Text("Test nativ pentru procesare în fundal")
                             .font(.headline)
-                        Text("Această versiune verifică execuția CPU și recuperarea după întrerupere. Sincronizarea filmelor nu este încă integrată.")
+                        Text("Acest test verifică separat execuția CPU și recuperarea după întrerupere. Pentru filme folosește tabul Sincronizare.")
                         Text("Progresul măsoară date procesate efectiv. Durata aleasă este o estimare bazată pe viteza inițială a telefonului.")
                             .font(.footnote).foregroundStyle(.secondary)
                         Picker("Durată estimată", selection: $seconds) {
@@ -26,7 +30,7 @@ struct SubSync2BackgroundApp: App {
                         }.disabled(controller.busy)
                         Button(controller.preparing ? "Se calibrează volumul de lucru…" : "Pornește testul nativ") {
                             controller.start(seconds: seconds)
-                        }.disabled(controller.busy || !controller.ready)
+                        }.disabled(controller.busy || !controller.ready || mediaController.busy)
                         if controller.busy {
                             Button("Anulează", role: .destructive) { controller.cancel() }
                         }
@@ -45,7 +49,7 @@ struct SubSync2BackgroundApp: App {
                                     HStack {
                                         Button("Exportă dovezile JSON") { controller.export(job) }
                                         if job.state != .completed {
-                                            Button("Repornește de la zero") { controller.start(seconds: job.requestedSeconds) }
+                                            Button("Repornește de la zero") { controller.start(seconds: job.requestedSeconds) }.disabled(mediaController.busy)
                                         }
                                     }.buttonStyle(.bordered).disabled(controller.busy)
                                 }
@@ -57,7 +61,7 @@ struct SubSync2BackgroundApp: App {
                     }
                     Section("Motor și licență") {
                         Text(controller.nativeCoreLinked
-                            ? "Corelatorul C++ canonic este inclus. Audio / PocketSphinx / dicționarul urmează după validarea testului fizic."
+                            ? "Corelatorul C++ și motorul audio nativ sunt incluse. Acest tab verifică separat execuția CPU în fundal."
                             : "Legătura cu motorul nativ nu a fost verificată.")
                         Text("SubSync2 derivă din SubSync de Michał Szymaniak (sc0ty), GPLv3. Procesare exclusiv locală.")
                             .font(.footnote)
@@ -66,14 +70,19 @@ struct SubSync2BackgroundApp: App {
                 }
                 .navigationTitle("SubSync2 Background Lab")
             }
+            .tabItem { Label("Diagnostic CPU", systemImage: "cpu") }
+            }
             .onChange(of: scenePhase) { _, phase in
                 controller.lifecycle(phase == .active ? "active" : phase == .background ? "background" : "inactive")
+                mediaController.lifecycle(phase == .active ? "active" : phase == .background ? "background" : "inactive")
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataWillBecomeUnavailableNotification)) { _ in
                 controller.lifecycle(scenePhase == .background ? "background" : "inactive", protectedDataAvailable: false)
+                mediaController.lifecycle(scenePhase == .background ? "background" : "inactive", protectedDataAvailable: false)
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)) { _ in
                 controller.lifecycle(scenePhase == .background ? "background" : "active", protectedDataAvailable: true)
+                mediaController.lifecycle(scenePhase == .background ? "background" : "active", protectedDataAvailable: true)
             }
         }
     }

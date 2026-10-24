@@ -1,5 +1,81 @@
 # SubSync2 — Project State
 
+## 2026-10-24 — Experimental native EN→RO client 0.2.0: implemented, Apple builds pass; physical signing pending
+
+**PR #98:** https://github.com/Zuzuitu/subsync-web-enhanced/pull/98 . Branch
+`feat/ios-native-media-sync-20261024`, baseline PR #97 merge
+`9077d66349386b9c5bbe98e1dd6f163dd9cc4b00`. User explicitly asked to continue;
+independent native engineering advanced while physical acceptance remains an
+unfulfilled release gate. The native app now has a real synchronization tab;
+the production PWA is independent and is not deployed by this work.
+
+**Implemented:** exact pinned static FFmpeg/PocketSphinx/SphinxBase on macOS,
+arm64 iPhone and arm64/x86_64 simulator; file-only/no-network FFmpeg; ORIGINAL
+native decoder/resampler/translator/recognizer/correlator sources unchanged;
+coordinated security-scoped Files imports copied in 1 MiB chunks with SHA-256,
+space/size/mtime checks and explicit protection until first authentication;
+track inspection and explicit ambiguity handling; real native continued-task
+execution, native interrupt/cancel, media progress and durable atomic media jobs;
+last-valid canonical lock, original SRT text/labels/BOM/line endings/diacritics
+preserved while editing timestamps only; canonical/finite/cue guards and atomic
+SRT readback/checksum before completion; verified share/save; interrupted-on-launch
+and explicit restart from zero with the SAME stored track and input identities.
+No exact decoder/ASR resume or universal native language/codec support is claimed.
+
+**Verified code/build milestone:** `b9821c4137dae01530c2b0db88e1eb371471f774`:
+- iOS Native Background `40082922225` **SUCCESS**: all four dependency targets,
+  22 Swift tests, canonical C ABI tests, same-input native/browser EN→RO media and
+  Swift SRT export, silence/cancel negative controls, both simulator architecture
+  builds, unsigned arm64 iPhone build, actual simulator launch/render and unsigned
+  IPA packaging. Simulator: iPhone 17 Pro / iOS 26.0. UI screenshot inspected.
+- CI `40082922269` and Android `40082922371`: **SUCCESS**.
+- Build provenance/PR merge tree `1a1e98f5256a5b0a7e2df9f1a48d215860326c3b`.
+  The unsigned IPA and app artifacts exist in that run; neither is directly
+  installable without authorized signing. Final-head checks follow the small
+  install-helper/documentation/protected-staging/export-state follow-up.
+  The final lifecycle follow-up also preserves native cancellation/expiration
+  reasons across generic C decoder errors, with a dedicated regression, and
+  shows preparation status before the first decoder progress update.
+  Asset containment canonicalizes sandbox root aliases and children consistently;
+  alias/traversal/symlink regressions cover Apple's /var-style path distinction.
+- Full pinned dictionary vs ACTUAL production PWA loader: **42,843 exact pairs,
+  zero missing/extra**, mapping SHA-256
+  `0917d93c7aa23c66ea3c74f6c66d14e2fc1c014a8da5a3d4d2198fbe296085d6`.
+  Production loader parity is separate from the convenience WASM fixture loader's
+  extra trim/case normalization; their translated-word counters can differ.
+- First same-input native/WASM run (`119b807...`, parity step in `40082482157`)
+  produced identical formulas: 79 reference words, 26 points, 33 SRT cues, maximum
+  inter-engine timestamp delta **0 s**. Ground-truth start MAE **0.470909 s**,
+  P95 **0.533 s**, max **0.541 s**; parity does NOT mean perfect timing accuracy.
+- Second generated shared fixture (`40082922225`): 77 reference words, 22 points,
+  33 cues; native/browser formula delta **0 s**; start MAE **0.463242 s**,
+  P95 **0.583600 s**, max **0.598 s**. These are different Piper-generated inputs;
+  input hashes and formulas are retained in the run's parity JSON. Ground truth
+  never enters the native engine. No acceptance gate was relaxed.
+
+**Installation preparation:** `ios/tools/install-on-device.py` builds, signs and
+installs using an already-authorized local Xcode development team and paired
+physical device; `--prepare` builds the pinned dependencies/assets. Xcode/Keychain
+handle credentials; no certificates/profiles are stored in source or created by
+CI. See `docs/IOS_NATIVE_MEDIA_SYNC.md` for the exact commands and test scope.
+
+**Actual next dependency:** an authorized signing/install route and a physical
+iPhone. No signing identity/device access is established in this session. Install,
+run without debugger, obtain 5–15 minute background CPU proof and real native
+foreground/background EN→RO output on the SAME input. Test app switching, lock,
+low power, calls, expiration, cancel, force quit/reopen/retry, storage exhaustion,
+large MKV, memory and battery. Simulator launch/host recognition/unsigned builds
+are not physical proof. Do not call background synchronization physically ready.
+
+**Backlog preserved:** PR #94 remains OPEN at `dc7a0be650854fa3b01256850c595a5abc8d8ae2`
+with prior green checks but a checkpoint conflict to reconcile. After physical
+background acceptance (or an explicit change of priority), resume whole-title
+precision metrics, read-only evidence coverage, edition/cut diagnostics, preview,
+held-out validated segment correction, performance, memory and secondary UX.
+Native synthetic parity does not establish quality on every real Romanian SRT.
+
+---
+
 ## 2026-10-24 — P0 native iOS milestone: CPU PoC compiled and verified; physical gate pending
 
 **Implemented in PR #97:** separate iOS 26 SwiftUI app in `ios/`,

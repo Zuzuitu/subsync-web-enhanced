@@ -124,6 +124,14 @@ public final class StopToken: @unchecked Sendable {
         if let reason { throw JobError.stopped(reason) }
     }
 
+    /// A native decoder may surface cancellation as its own generic error.
+    /// Preserve the actual user/system stop reason across that C/Swift boundary.
+    public func failureConsideringCancellation(_ original: Error) -> Error {
+        lock.lock(); defer { lock.unlock() }
+        if let reason { return JobError.stopped(reason) }
+        return original
+    }
+
     public func commit<T>(_ body: () throws -> T) throws -> T {
         lock.lock(); defer { lock.unlock() }
         if let reason { throw JobError.stopped(reason) }
