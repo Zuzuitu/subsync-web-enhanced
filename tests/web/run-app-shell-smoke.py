@@ -21,6 +21,12 @@ required_files = [
     "app.css",
     "manifest.webmanifest",
     "icon.svg",
+    "favicon.ico",
+    "favicon-32.png",
+    "apple-touch-icon.png",
+    "icon-192.png",
+    "icon-512.png",
+    "icon-maskable-512.png",
     "sw.js",
     "build-manifest.json",
     "scripts/subsync.js",
@@ -66,7 +72,8 @@ audio_index_text = (DIST / "audio-extractor" / "index.html").read_text(encoding=
 audio_app_text = (DIST / "audio-extractor" / "app.js").read_text(encoding="utf-8")
 sw_text = (DIST / "sw.js").read_text(encoding="utf-8")
 
-if "__BUILD_HASH__" in index_text or "__BUILD_HASH__" in audio_index_text or "__BUILD_HASH__" in sw_text:
+app_manifest_text = (DIST / "manifest.webmanifest").read_text(encoding="utf-8")
+if any("__BUILD_HASH__" in text for text in (index_text, audio_index_text, sw_text, app_manifest_text)):
     raise SystemExit("Staged PWA still contains unresolved build hash placeholders")
 for expected in (
     f"./app.css?{build_hash}",
@@ -207,11 +214,34 @@ try:
         if "Subtitle" not in page.locator("#subsync_app").inner_text():
             raise SystemExit("Synchronization tab did not restore the input screen")
 
-        manifest_ok = page.evaluate(
-            "() => fetch('./manifest.webmanifest').then(r => r.ok)"
+        app_manifest = page.evaluate(
+            "() => fetch('./manifest.webmanifest').then(r => r.json())"
         )
-        if not manifest_ok:
-            raise SystemExit("PWA manifest is not fetchable")
+        brand_icons = page.evaluate(
+            """async manifest => {
+              const sources = manifest.icons.map(icon => icon.src);
+              sources.push(document.querySelector('link[rel="apple-touch-icon"]').getAttribute('href'));
+              sources.push(document.querySelector('link[type="image/x-icon"]').getAttribute('href'));
+              return Promise.all(sources.map(async src => {
+                const image = new Image();
+                image.src = src;
+                await image.decode();
+                return { src, width: image.naturalWidth, height: image.naturalHeight };
+              }));
+            }""",
+            app_manifest,
+        )
+        for icon in app_manifest["icons"]:
+            if not icon["src"].endswith("?" + build_hash):
+                raise SystemExit(f"Installed PWA icon is not versioned: {icon}")
+            if icon["sizes"] != "any":
+                decoded = next(item for item in brand_icons if item["src"] == icon["src"])
+                if f'{decoded["width"]}x{decoded["height"]}' != icon["sizes"]:
+                    raise SystemExit(f"Decoded PWA icon size mismatch: {decoded}")
+        if not any(icon.get("purpose") == "maskable" for icon in app_manifest["icons"]):
+            raise SystemExit("Installed Android PWA needs a dedicated maskable icon")
+        if not page.locator(".brand_mark").evaluate("image => image.complete && image.naturalWidth > 0"):
+            raise SystemExit("Header brand image did not decode")
 
         service_worker = page.evaluate(
             """async () => {
@@ -225,6 +255,17 @@ try:
         )
         if not service_worker or ("?" + build_hash) not in service_worker:
             raise SystemExit(f"Service worker is not bound to current build: {service_worker}")
+
+        icons_cached = page.evaluate(
+            """async ({ hash, icons }) => {
+              const cache = await caches.open('subsync2-shell-' + hash);
+              const matches = await Promise.all(icons.map(icon => cache.match(new URL(icon.src, location.href))));
+              return matches.every(response => response && response.ok);
+            }""",
+            {"hash": build_hash, "icons": brand_icons},
+        )
+        if not icons_cached:
+            raise SystemExit("Brand/favicon/install icons must be available in the offline shell")
 
         audio_page = browser.new_page()
         audio_console, audio_runtime, audio_failed = page_errors(audio_page)
@@ -337,6 +378,8 @@ self.addEventListener('fetch', event => {
             "bundleSrc": bundle_src,
             "serviceWorkerScript": service_worker,
             "serviceWorkerReady": True,
+            "brandIcons": brand_icons,
+            "brandIconsCached": icons_cached,
             "staleShellRecovery": {
                 "bootstrapPage": bootstrap_page,
                 "bootstrapBuildHash": recovered_hash,

@@ -153,6 +153,10 @@ if "__BUILD_HASH__" in index:
     raise SystemExit("Unresolved build hash placeholder in staged index.html")
 index_path.write_text(index, encoding="utf-8")
 
+app_manifest_path = DIST / "manifest.webmanifest"
+app_manifest = app_manifest_path.read_text(encoding="utf-8").replace("__BUILD_HASH__", args.hash)
+app_manifest_path.write_text(app_manifest, encoding="utf-8")
+
 audio_extractor_index = DIST / "audio-extractor" / "index.html"
 audio_extractor_html = audio_extractor_index.read_text(encoding="utf-8").replace("__BUILD_HASH__", args.hash)
 if "__BUILD_HASH__" in audio_extractor_html:
