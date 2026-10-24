@@ -52,7 +52,10 @@ def build(target, arch):
         if not (source / ".git").exists():
             run(["git", "init", source])
             run(["git", "remote", "add", "origin", "https://github.com/" + pin["repository"] + ".git"], source)
-        run(["git", "fetch", "--depth", "1", "origin", ref], source)
+        # Fetch an actual named tag, not only FETCH_HEAD, so exact-tag
+        # verification remains meaningful in a shallow checkout.
+        fetch_ref = f"refs/tags/{ref}:refs/tags/{ref}" if "ref" in pin else ref
+        run(["git", "fetch", "--depth", "1", "origin", fetch_ref], source)
         run(["git", "checkout", "--detach", "FETCH_HEAD"], source)
         revision = output(["git", "-C", str(source), "rev-parse", "HEAD"])
         if "sha" in pin and revision != pin["sha"]:

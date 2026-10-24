@@ -21,6 +21,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  core-tests:
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
+      - name: Test durable jobs, CPU work, bounded imports and SRT byte preservation
+        run: |
+          mkdir -p ios/build
+          set -o pipefail
+          swift test --package-path ios/BackgroundCore 2>&1 | tee ios/build/swift-tests.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: native-swift-tests, path: ios/build/swift-tests.log}
+
   native-dependencies:
     runs-on: macos-15
     timeout-minutes: 30
@@ -121,7 +136,7 @@ jobs:
           if-no-files-found: error
 
   native-build:
-    needs: [native-dependencies, shared-fixture]
+    needs: [native-dependencies, shared-fixture, core-tests]
     runs-on: macos-15
     timeout-minutes: 30
     steps:
@@ -152,11 +167,6 @@ jobs:
           python3 ios/tools/stage-language-assets.py
       - name: Verify canonical native bridge
         run: python3 tests/ios/run-native-tests.py
-      - name: Test durable jobs, real CPU work and interruption safety
-        run: |
-          mkdir -p ios/build
-          set -o pipefail
-          swift test --package-path ios/BackgroundCore 2>&1 | tee ios/build/swift-tests.log
       - name: Verify deterministic project generation
         run: |
           python3 ios/tools/generate-project.py
