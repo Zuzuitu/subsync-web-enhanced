@@ -70,10 +70,10 @@ struct SubSync2BackgroundApp: App {
                 controller.lifecycle(phase == .active ? "active" : phase == .background ? "background" : "inactive")
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataWillBecomeUnavailableNotification)) { _ in
-                controller.lifecycle(scenePhase == .background ? "background" : "inactive")
+                controller.lifecycle(scenePhase == .background ? "background" : "inactive", protectedDataAvailable: false)
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)) { _ in
-                controller.lifecycle(scenePhase == .background ? "background" : "active")
+                controller.lifecycle(scenePhase == .background ? "background" : "active", protectedDataAvailable: true)
             }
         }
     }

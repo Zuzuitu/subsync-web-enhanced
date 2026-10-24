@@ -2,7 +2,7 @@
 
 ## 2026-10-24 — P0 native iOS milestone: real CPU PoC and canonical C++ adapter
 
-**Implemented locally, build/physical evidence pending:** separate iOS 26 SwiftUI
+**Implemented in PR #97; build/physical evidence pending:** separate iOS 26 SwiftUI
 app in `ios/`, BGContinuedProcessingTask submission on an explicit tap, real
 bounded CPU work with measured Progress, synchronous expiration/cancel, durable
 atomic job/result records, interrupted-on-relaunch recovery and explicit restart
@@ -12,10 +12,18 @@ fork or threshold change. See `docs/IOS_NATIVE_BACKGROUND_POC.md` for the source
 inventory, native-port risks, build instructions and physical acceptance protocol.
 
 **Baseline:** main `745c6db096c9f9e47c4bcf8471b44e1478aa5763` (PR #95 confirmed
-merged). Branch `feat/ios26-native-background-poc-20261024`; PR/SHA/CI follow in the
-next checkpoint once published. Local C ABI/direct-core and fail-closed cue-count
-tests PASS; governance invariants PASS. macOS/Xcode compile, Swift tests and all
-physical iPhone evidence are pending at this entry; no signed IPA exists.
+merged). Branch `feat/ios26-native-background-poc-20261024`; PR
+https://github.com/Zuzuitu/subsync-web-enhanced/pull/97, initial code SHA
+`b3cc398a221d6a2919254d5e10f9d65db1595af8`. Local C ABI/direct-core tests,
+6 evidence-evaluator tests, governance and all 487 existing C++ assertions in
+10 test cases PASS. Xcode 26.3 was available on macos-15; all 13 Swift core tests,
+native bridge compilation and project generation PASS in run `40060377058`.
+The initial simulator compile correctly rejected a nested weak capture under
+Swift 6 strict concurrency; it is repaired with a constant main-actor reference
+without disabling strict checking. Simulator/device builds are rerun after that
+fix and explicit protected-data telemetry. No physical evidence or signed IPA.
+Main advanced concurrently to `f80b58fcc5e4d9eab96a131263a21efe0fee5246` (PR #96
+Signal logo); it is reconciled without dropping its icons or checkpoint.
 
 **Live PR #94 readback:** OPEN, mergeable=false, head
 `dc7a0be650854fa3b01256850c595a5abc8d8ae2`; CI `40058134762`, Android
@@ -54,6 +62,31 @@ PWA `https://sync.alexlab.media/` is not changed or deployed by this milestone.
 **Status inițial P0:** doar analiză și documentație de arhitectură; nicio procesare de fundal în PWA sau versiune iOS nativă nu este livrată încă.
 
 ---
+## 2026-10-24 — Identitate Signal: logo, favicon și pictograme PWA
+
+Utilizatorul a cerut explicit un logo nou modern și publicarea sa împreună cu
+faviconul. Branch dedicat: `feat/subsync2-signal-brand-20261024`.
+
+- `web/public/icon.svg` este sursa vectorială originală: un S din două trasee
+  separate de o îmbinare diagonală, mentă/albastru pe fundal închis. Antetul
+  folosește același simbol, cu wordmark SubSync² accesibil ca SubSync2.
+- Sunt incluse favicon ICO (16/32/48), PNG 32, Apple touch 180, PNG PWA 192/512
+  și un PNG maskable 512 opac cu simbolul în zona sigură. Sursa nu include
+  fonturi, scripturi sau dependențe grafice externe.
+- `scripts/render-brand-icons.py` regenerează rasterele din SVG; este un utilitar
+  de mentenanță, nu o dependență a buildului sau a utilizatorului.
+- Antetul, faviconurile și toate URL-urile pictogramelor din manifest sunt
+  versionate cu build hash. Service worker-ul le precachează; Audio Extractor
+  direct folosește aceeași identitate, fără un manifest sau worker separat.
+- Smoke-ul existent decodează pictogramele în browser, verifică dimensiunile,
+  versiunea și disponibilitatea lor în cache-ul offline.
+- Verificări locale inițiale: invariants și Audio Extractor tab PASS.
+  Publicarea se confirmă prin PR/CI, verdictul Deploy PWA Preview și citirea
+  efectivă a build-manifest/iconurilor de la `https://sync.alexlab.media/`.
+
+Schimbarea este vizuală și de distribuție a pictogramelor. Nu modifică motorul,
+pragurile, dicționarele sau prioritățile English audio → Romanian subtitles.
+PR #94 pentru benchmarkul de precizie rămâne o lucrare separată.
 
 ## 2026-10-24 — STARE NOUĂ DUPĂ MERGE PR #92 (verificări reale, domeniu încă în așteptare)
 

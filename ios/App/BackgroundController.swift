@@ -133,7 +133,10 @@ final class BackgroundController: ObservableObject {
         let session = NativeSession(id: id, token: token, task: task, total: job.totalUnits)
         self.session = session
         let telemetry = self.telemetry
-        Task.detached(priority: .utility) { [weak self] in
+        // Main-actor references are Sendable. Hold a constant for the lifetime
+        // of this task; nested Sendable callbacks must not capture weak var self.
+        let controller = self
+        Task.detached(priority: .utility) {
             var success = false
             do {
                 try token.check()
@@ -151,7 +154,7 @@ final class BackgroundController: ObservableObject {
                         $0.append(kind: "progress", metrics: telemetry.sample())
                     }
                     session.task.progress.completedUnitCount = progress.completed
-                    Task { @MainActor [weak self] in self?.refresh() }
+                    Task { @MainActor in controller.refresh() }
                 }
                 _ = try token.commit { try store.complete(id, checksum: checksum, metrics: telemetry.sample()) }
                 success = true
@@ -172,11 +175,11 @@ final class BackgroundController: ObservableObject {
                 } catch {
                     // Preserve the last atomic record. Launch recovery treats it
                     // as interrupted; never replace persistence failure by success.
-                    await self?.reportStorageFailure()
+                    await controller.reportStorageFailure()
                 }
             }
             session.finish(success: success)
-            await self?.didFinish(id)
+            await controller.didFinish(id)
         }
     }
 
@@ -198,9 +201,9 @@ final class BackgroundController: ObservableObject {
         refresh()
     }
 
-    func lifecycle(_ phase: String) {
+    func lifecycle(_ phase: String, protectedDataAvailable: Bool? = nil) {
         self.phase = phase
-        refreshTelemetry()
+        refreshTelemetry(protectedDataAvailable: protectedDataAvailable)
         if preparing && phase != "active" { token?.requestStop(.systemExpired) }
         if let id = activeID, let store {
             do {
@@ -231,8 +234,9 @@ final class BackgroundController: ObservableObject {
         } catch { reportStorageFailure() }
     }
 
-    private func refreshTelemetry() {
-        telemetry.update(phase: phase, protectedDataAvailable: UIApplication.shared.isProtectedDataAvailable,
+    private func refreshTelemetry(protectedDataAvailable: Bool? = nil) {
+        telemetry.update(phase: phase,
+                         protectedDataAvailable: protectedDataAvailable ?? UIApplication.shared.isProtectedDataAvailable,
                          batteryLevel: UIDevice.current.batteryLevel)
     }
 

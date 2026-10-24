@@ -9,10 +9,28 @@
   "theme_color": "#101828",
   "icons": [
     {
-      "src": "./icon.svg",
+      "src": "./icon.svg?__BUILD_HASH__",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-192.png?__BUILD_HASH__",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png?__BUILD_HASH__",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-maskable-512.png?__BUILD_HASH__",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
