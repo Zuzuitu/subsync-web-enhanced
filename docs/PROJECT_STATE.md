@@ -1,5 +1,36 @@
 # SubSync2 — Project State
 
+## 2026-10-25 — User decision: native background/IPA PAUSED; return to PWA media reliability
+
+**Current priority overrides older P0/background instructions below.** The user
+explicitly paused native background development, signing, IPA installation and
+physical background acceptance until a later decision. They have only an iPhone
+and require zero paid services/subscriptions. Do not resume signing, sideloading,
+Rock64 installation experiments or native feature expansion without a new request.
+Preserve the completed native source and unsigned-build evidence; do not delete it.
+PR #98 merged as `0051698f870adb246b25f6f983460f89e076ba20`, final head
+`d939092a8e06786f32282596751c845b66e7c9cf` passed all 10 checks including 25 Swift
+tests and iOS workflow `40084892199`. This was not a signed/physical background test.
+
+**PWA remains the active product:** all existing language dictionaries, models,
+synchronization/export and Audio Extractor features are retained. It does not gain
+the native background API. Focus first on the newly reported reference-file open
+failure (`Demux.avformat_open_input`, `AVERROR_INVALIDDATA`), then resume the
+preserved precision/reliability roadmap and PR #94 after reviewing its live state.
+Do not weaken canonical thresholds or infer a decoder root cause from a screenshot.
+
+**Current media blocker:** the Drive original is 274,582,991 bytes, exceeding the
+Drive connector's 268,435,456-byte raw download limit. The directly attached MP4
+received here is only 28,335 bytes: ffprobe identifies one H.264 still frame,
+107.24 seconds, NO audio stream. It cannot reproduce the original reference's
+failure. Request the unchanged original inside a ZIP attached from Files; archive
+packaging preserves bytes instead of passing the media through a video import.
+The original's contents/root cause remain unverified. No media-file fix or deploy
+is claimed. Screenshots also reveal horizontal error-dialog overflow, a separate
+UI issue to reproduce and fix alongside the reference import investigation.
+
+---
+
 ## 2026-10-24 — Experimental native EN→RO client 0.2.0: implemented, Apple builds pass; physical signing pending
 
 **PR #98:** https://github.com/Zuzuitu/subsync-web-enhanced/pull/98 . Branch
