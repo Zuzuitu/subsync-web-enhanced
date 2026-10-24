@@ -4,6 +4,15 @@ SubSync2 remains a GPL-3.0 derivative of the original SubSync project by
 Michał Szymaniak (sc0ty). See `README.md`, `LICENSE`, and `UPSTREAM_COMMIT`
 for the primary project license and upstream attribution.
 
+The experimental native iOS client additionally compiles the SAME pinned FFmpeg,
+SphinxBase and PocketSphinx sources named in `config/legacy-build-pins.json`.
+`ios/tools/build-dependencies.py` records exact revisions and copies upstream
+COPYING/LICENSE files into each dependency build. The native app stages these
+notices alongside the existing pinned English speech model and EN/RO dictionary.
+No new model/dictionary source or third-party recognition API is substituted.
+The original English model README and dictionary source-attribution comments
+remain in the bundled data. See `docs/IOS_NATIVE_MEDIA_SYNC.md` for build scope.
+
 The Romanian local speech-recognition path additionally uses the components
 listed below. These notices do not replace the applicable upstream licenses.
 

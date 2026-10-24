@@ -43,7 +43,14 @@ public final class FileStager: Sendable {
         let partial = root.appendingPathComponent(name + ".part")
         let final = root.appendingPathComponent(name)
         defer { try? FileManager.default.removeItem(at: partial) }
-        guard FileManager.default.createFile(atPath: partial.path, contents: nil) else { throw FileStageError.insufficientSpace }
+        #if os(iOS)
+        let attributes: [FileAttributeKey: Any] = [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication]
+        #else
+        let attributes: [FileAttributeKey: Any] = [:]
+        #endif
+        guard FileManager.default.createFile(atPath: partial.path, contents: nil, attributes: attributes) else {
+            throw FileStageError.insufficientSpace
+        }
         let input = try FileHandle(forReadingFrom: source)
         let output = try FileHandle(forWritingTo: partial)
         defer { try? input.close(); try? output.close() }

@@ -147,6 +147,9 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
+          mkdir -p ios/build
+          xcrun devicectl device install app --help > ios/build/device-install-help.log
+          xcrun devicectl device process launch --help > ios/build/device-launch-help.log
       - uses: actions/download-artifact@v4
         with: {name: native-deps-macos-auto, path: ios/vendor/host}
       - uses: actions/download-artifact@v4
@@ -162,6 +165,7 @@ jobs:
           mkdir -p ios/build
           set -o pipefail
           python3 tests/fixtures/prepare-en-ro-assets.py
+          python3 tests/ios/check-dictionary-parity.py
           python3 ios/tools/build-media-cli.py --prefix ios/vendor/host --output ios/build/media-cli
           python3 tests/ios/run-media-parity.py --engine ios/build/media-cli 2>&1 | tee ios/build/media-parity.log
           python3 ios/tools/stage-language-assets.py
@@ -211,6 +215,7 @@ jobs:
             ios/build/*.json
             ios/build/native-simulator.png
             tests/generated/native-media-parity.json
+            tests/generated/native-dictionary-parity.json
           if-no-files-found: warn
       - name: Upload unsigned iPhone app (cannot install without signing)
         uses: actions/upload-artifact@v4

@@ -251,6 +251,7 @@ final class MediaController: ObservableObject {
         reset(); refresh()
     }
     func export(_ job: MediaJob) {
+        exportURL = nil
         do { exportURL = try store?.exportURL(job.id) }
         catch { storageFailure() }
     }
