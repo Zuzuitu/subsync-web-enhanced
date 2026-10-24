@@ -33,6 +33,8 @@ jobs:
         run: node tests/js/romanian-windows.js
       - name: Validate pending extractor windows when extending the scan
         run: node tests/js/extractor-append-windows.js
+      - name: Validate bounded byte-exact media read recovery and failure cleanup
+        run: node tests/js/media-file-recovery.js
       - name: Validate Romanian lexical context anchors
         run: node tests/js/romanian-context-anchors.js
       - name: Validate Romanian adaptive convergence

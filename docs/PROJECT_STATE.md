@@ -1,5 +1,60 @@
 # SubSync2 — Project State
 
+## 2026-10-25 — PWA MP4 import: original inspected; verified read recovery and mobile error layout
+
+**Background/IPA remain PAUSED** by the user decision below. This change targets
+the existing PWA reference-file open failure, not native background processing.
+
+The original received in ZIP is **274,582,991 bytes**, SHA-256
+`2bf0abded7786b703299a9f4942acbed620418f4dddbb9c2444b1649a44017a7`.
+Local ffprobe identifies **5,669.4175 seconds** of AAC LC audio, 48 kHz, six
+channels, language tag `ita`, one H.264 cover frame, and a separate chapter/data
+track lasting 107.24 seconds. The 28 KB/1:47 attachment from the earlier message
+was not the full original. The original's `moov` is at byte 272,631,468, after
+`mdat`; this is a valid layout, not proof of corruption.
+
+**Confirmed scope:** original FFmpeg n4.2 WASM opens this exact private file via
+Chromium File/WORKERFS, and the actual PWA UI identifies its Italian audio stream.
+A controlled zero-data FileReaderSync fault reproduces
+`Demux.avformat_open_input / AVERROR_INVALIDDATA`; the new recovery opens the same
+file after local byte-verified staging. The original iPhone/provider root cause
+is NOT confirmed and no universal codec/background/synchronization-quality claim
+is made. The error means container opening failed on the bytes read, not that the
+subtitle, dictionary, timing algorithm, or original audio is necessarily corrupt.
+
+**Implementation:** retain direct File/WORKERFS for normal files. Only an MP4
+`ftyp` header plus the precise container-open INVALIDDATA failure enables ONE
+retry. Copy to browser-local OPFS in 1 MiB chunks with 64 MiB space reserve and
+SHA-256 verification of every copied chunk after close; reuse the verified File
+for both stream selection and actual synchronization. No conversion, timestamps,
+codec, dictionary, model, correlator or canonical thresholds change. Storage,
+short-read, write, checksum or second FFmpeg failures preserve the native error
+and never enable success. Release copies on replacement, obsolete selection or
+failure; collect abandoned recovery files older than seven days on later recovery.
+A killed tab may leave browser-local scratch until that cleanup runs.
+
+Input replacement clears stale stream selection immediately, rejects obsolete
+asynchronous completions, and never pairs new input bytes with old track metadata.
+The error dialog wraps native details/long names, stays within 320/393 px screens,
+and keeps its close control visible, with Romanian recovery guidance.
+
+**Validation before PR:** Node fault/bounds/identity/cleanup regressions PASS;
+actual PWA Chromium direct import and injected-fault recovery PASS with the full
+274 MB original and a redistributable generated AAC/cover/chapter MP4. Bad MP4s
+remain rejected after one retry; scratch cleanup and 320/393 px layout PASS; UI
+screenshot inspected. Project invariants, bundle build and diff checks PASS.
+Automated fresh-build Chromium and iPhone-like WebKit checks are wired into CI;
+final exact-head results and release provenance must be read from the PR/run.
+Private media is used only in local QA and is not committed or uploaded to CI.
+
+**Next:** finish CI/integration and deliberate PWA publication, then retest this
+original on physical iPhone with reference language Italian and Romanian SRT.
+Until a public build/readback is confirmed, do not claim the fix is online.
+Resume the preserved precision roadmap/PR #94 afterwards; native signing remains
+paused unless explicitly requested again.
+
+---
+
 ## 2026-10-25 — User decision: native background/IPA PAUSED; return to PWA media reliability
 
 **Current priority overrides older P0/background instructions below.** The user

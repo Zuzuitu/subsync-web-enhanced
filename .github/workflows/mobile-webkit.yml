@@ -137,6 +137,9 @@ jobs:
       - name: Install Playwright WebKit
         run: python3 -m playwright install --with-deps webkit
 
+      - name: Verify MP4 audio import, byte-exact recovery and mobile error layout
+        run: python3 tests/web/run-media-import.py --browser webkit
+
       - name: Exercise Audio Extractor MP3 and MKA with iPhone-like WebKit
         run: >-
           python3 tests/web/run-audio-extractor-e2e.py
@@ -154,6 +157,7 @@ jobs:
           path: |
             tests/generated/mobile-webkit-primary-workflow.json
             tests/generated/mobile-webkit-output.srt
+            tests/generated/media-import/
             tests/generated/audio-extractor-e2e/webkit.json
           if-no-files-found: warn
           retention-days: 7

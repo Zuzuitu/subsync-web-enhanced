@@ -104,6 +104,14 @@ jobs:
       - name: Exercise staged PWA shell
         run: python3 tests/web/run-app-shell-smoke.py
 
+      - name: Verify MP4 audio import and read-fault recovery in the actual PWA
+        run: |
+          if ! command -v ffmpeg >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
+          python3 tests/web/run-media-import.py --browser chromium
+
       - name: Exercise language asset progress and cache management
         run: python3 tests/web/run-language-cache-ux.py
 
@@ -128,5 +136,6 @@ jobs:
             tests/generated/web-app-smoke.json
             tests/generated/web-language-cache-ux.json
             tests/generated/web-upstream-assets-smoke.json
+            tests/generated/media-import/
           if-no-files-found: warn
           retention-days: 7

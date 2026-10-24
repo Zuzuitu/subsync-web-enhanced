@@ -313,6 +313,9 @@ jobs:
       - name: Exercise staged PWA shell
         run: python3 tests/web/run-app-shell-smoke.py
 
+      - name: Verify MP4 audio import, real WORKERFS read-fault recovery and error layout
+        run: python3 tests/web/run-media-import.py --browser chromium
+
       - name: Exercise Audio Extractor MP3 and MKA in Chromium
         run: python3 tests/web/run-audio-extractor-e2e.py --browser chromium
 
@@ -356,6 +359,9 @@ jobs:
 
       - name: Install Playwright WebKit for Romanian ASR regression
         run: python3 -m playwright install --with-deps webkit
+
+      - name: Verify MP4 audio import and byte-exact recovery with iPhone-like WebKit
+        run: python3 tests/web/run-media-import.py --browser webkit
 
       - name: Exercise Romanian audio with iPhone-like WebKit
         run: python3 tests/web/run-romanian-audio-workflow.py --browser webkit
@@ -424,6 +430,7 @@ jobs:
         with:
           name: subsync2-pwa-diagnostics
           path: |
+            tests/generated/media-import/
             tests/generated/web-app-smoke.json
             tests/generated/web-language-cache-ux.json
             tests/generated/web-upstream-assets-smoke.json
