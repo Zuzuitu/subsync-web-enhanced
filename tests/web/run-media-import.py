@@ -9,6 +9,7 @@ import functools
 import http.server
 import json
 import shutil
+import ssl
 import subprocess
 import tempfile
 import threading
@@ -84,8 +85,20 @@ class Quiet(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *_):
         pass
 server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(Quiet, directory=str(args.dist.resolve())))
+# WebKit exposes storage/crypto APIs only in a trustworthy context. Use local
+# TLS, as the deployed PWA does, rather than weakening the recovery test or
+# accepting an HTTP-loopback run with navigator.storage missing.
+certificate_dir = tempfile.TemporaryDirectory(prefix='subsync-media-import-tls-')
+certificate = Path(certificate_dir.name)
+subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
+                '-keyout', str(certificate / 'key.pem'), '-out', str(certificate / 'cert.pem'),
+                '-days', '1', '-subj', '/CN=localhost',
+                '-addext', 'subjectAltName=DNS:localhost,IP:127.0.0.1'], check=True, capture_output=True)
+tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+tls.load_cert_chain(str(certificate / 'cert.pem'), str(certificate / 'key.pem'))
+server.socket = tls.wrap_socket(server.socket, server_side=True)
 threading.Thread(target=server.serve_forever, daemon=True).start()
-url = f'http://127.0.0.1:{server.server_port}/'
+url = f'https://localhost:{server.server_port}/'
 results = {'browser': args.browser, 'scope': 'browser import/recovery only; not physical iPhone/background or synchronization accuracy',
            'inputBytes': source.stat().st_size, 'cases': []}
 try:
@@ -98,11 +111,12 @@ try:
                 launch['executable_path'] = chrome
         browser = browser_type.launch(**launch)
         for fault in [False, True]:
-            context = browser.new_context(viewport={'width': 393, 'height': 852}, is_mobile=True, has_touch=True)
+            context = browser.new_context(viewport={'width': 393, 'height': 852}, is_mobile=True, has_touch=True, ignore_https_errors=True)
             page = context.new_page()
             if fault:
                 page.add_init_script('(' + FAULT_SCRIPT + ')()')
             page.goto(url, wait_until='load')
+            assert page.evaluate('isSecureContext && !!navigator.storage?.getDirectory && !!crypto.subtle')
             ref = page.locator('input[name="streams-group-ref-file"]')
             ref.wait_for(state='attached')
             ref.set_input_files(str(source))
@@ -162,5 +176,6 @@ try:
     results['status'] = 'pass'
 finally:
     server.shutdown()
+    certificate_dir.cleanup()
     (OUT / f'{args.browser}.json').write_text(json.dumps(results, indent=2) + '\n')
     print(json.dumps(results, indent=2))
