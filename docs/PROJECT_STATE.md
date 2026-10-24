@@ -1,5 +1,37 @@
 # SubSync2 — Project State
 
+## 2026-10-24 — ROADMAP ACTIV: precizie SRT română, audio predominant ENGLEZĂ
+
+**DECIZIE UTILIZATOR:** obiectivul principal este sincronizarea cât mai precisă a subtitrărilor în română pe întregul film. Audio-ul de referință este de obicei ENGLEZĂ (`eng` -> `rum`). Prioritizează acest flux înaintea altor limbi sau a rafinărilor audio română -> SRT română; funcționalitatea RO->RO existentă rămâne păstrată.
+
+**Regulă de continuitate obligatorie:** la începutul fiecărei sesiuni citește acest bloc, invariants, AGENTS.md, ultimul PR/CI. După fiecare etapă actualizează aici PR, SHA, testele confirmate, dacă a fost integrată sau publicată, pașii rămași și următorul lucru de făcut. Nu porni de la zero. Nu folosi doar memoria conversației. Lucrează în pași mici: branch -> PR -> CI green -> merge; deploy controlat separat.
+
+### Backlog — implementare STRICT de la cel mai ușor la cel mai greu
+
+1. **[ÎN LUCRU] Benchmark end-to-end pentru EN audio -> RO SRT:** extinde `tests/web/run-primary-workflow.py` cu `measure_srt_timing` existent, măsurând toate replicile pe fixture sintetic cunoscut: număr cue-uri, eroare absolută mediană, P95, maxim, derivă affine, început/mijloc/final; păstrează rezultatele în `web-primary-workflow.json`; test unitar cu salt la jumătatea titlului. Prima etapă este numai măsurare, FĂRĂ schimbarea algoritmului sau praguri inventate înainte de prima valoare de referință reproductibilă.
+2. **[PENDING] Evaluator EN->RO read-only al dovezilor:** acoperire temporală a punctelor de corelație, potriviri false, reziduuri/contradicții pe treimi; separă dovezile de corelație de eroarea reală față de un Original cunoscut.
+3. **[PENDING] Detector conservator de ediții diferite/tăieturi, numai diagnostic:** salt de offset local confirmat prin puncte independente înainte/după; exclude driftul liniar și situațiile fără date. Nu corecta și nu debloca salvarea automat.
+4. **[PENDING] Previzualizare românească a începutului/mijlocului/finalului și avertizări de discontinuitate:** fără a include textul, numele filmului sau audio în JSON implicit.
+5. **[PENDING] Corecție pe segmente doar după validare independentă:** fixture-uri legale cu tăieturi cunoscute, held-out, monotonicitate, fallback la formula canonica, control false acceptări; comparație pe filme cu ediții diferite (inclusiv cazul Goofy numai cu fișiere autorizate).
+6. **[PENDING] Optimizare viteză EN->RO:** analiză adaptivă pe regiuni cu deficit de dovezi și oprire doar după convergență, fără transplant nejustificat al logicii Whisper RO->RO.
+7. **[PENDING] Eficiență iPhone/MKV mari:** RAM, streaming OPFS, cleanup; verificare pe iPhone fizic, nu doar WebKit simulat.
+8. **[PENDING] Funcții secundare:** istoric local/reluare, WebVTT, UX adițional; numai după precizia de bază.
+
+### Reguli de calitate și compatibilitate
+
+- MAE/P95/max/drift/treimi sunt ERORI măsurate doar când există timpi ground truth independenți (fixture sintetic sau material autorizat verificat). Schimbarea formulei, corelația și încrederea estimatorului nu sunt automat precizie reală.
+- Păstrează textul RO și diacriticele, numărul/ordinea cue-urilor, toate dicționarele sc0ty, `pl.json`, codurile `ro/rum/ron`, pragurile canonice, GPLv3, procesarea locală și fără upload.
+- Nu relaxa pragurile ca să treacă CI; nu promite că fiecare film sau fiecare ediție se sincronizează automat. Include cazuri cu audio englezesc, scene lipsă, drift, tăcere, piste multiple.
+- Un PR verde nu înseamnă automat un deploy validat. Producția se actualizează deliberat, cu rollback și audit al domeniului.
+
+### Stare infrastructură și checkpoint
+
+- PR #92 MERGED `dece4240424b9e8bf5b8b372600e28158e387547`; PR #93 MERGED `74cf628c4e349e8afd379a3853f8807ebd378339`. Branch-ul deploy a fost avansat la versiunea română din PR #92.
+- Utilizatorul a confirmat că `https://sync.alexlab.media/` funcționează, TLS și **Enforce HTTPS** sunt active și ambele rulesets (`main` și `deploy/pages-preview`) sunt active. Acest lucru înlocuiește istoricul vechi din checkpoint care spunea că domeniul este încă neconfigurat; hashul live independent este o verificare separată.
+- **După etapa 1:** citește `fullTitleTimingQuality` din artefactul `web-primary-workflow.json` și evaluează dacă un prag P95/drift nou este justificat pe date repetabile. Apoi treci la etapa **#2 (dovezi EN->RO read-only)**. Actualizează prezentul bloc după fiecare etapă finalizată.
+
+---
+
 ## 2026-10-24 — STARE NOUĂ DUPĂ MERGE PR #92 (verificări reale, domeniu încă în așteptare)
 
 > **Acesta este checkpointul curent.** Secțiunea precedentă „PR #92 traducere UI română, domeniu și handoff” de mai jos este istorică și nu mai descrie starea PR-ului. Folosește HEAD și GitHub Actions live ca sursă de adevăr.
