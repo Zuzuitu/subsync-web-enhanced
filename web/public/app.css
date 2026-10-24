@@ -215,18 +215,24 @@ a { color: var(--accent); }
 
 #subsync_app .popup {
   width: min(620px, calc(100vw - 32px));
+  flex: 0 1 620px;
+  min-width: 0;
+  max-width: 100%;
   max-height: min(720px, calc(100vh - 32px));
   margin: auto;
   padding: 24px;
   overflow: auto;
+  overflow-wrap: anywhere;
   border: 1px solid var(--line);
   border-radius: 18px;
   background: var(--surface);
   box-shadow: 0 28px 90px rgba(0, 0, 0, .5);
 }
 
-#subsync_app .popup h1 { margin-top: 0; }
-#subsync_app .popup_close { font-size: 2rem; text-decoration: none; color: var(--muted); }
+#subsync_app .popup_header { display: flex; justify-content: space-between; gap: 12px; }
+#subsync_app .popup h1 { margin-top: 0; min-width: 0; }
+#subsync_app .popup pre { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; max-width: 100%; }
+#subsync_app .popup_close { flex: none; font-size: 2rem; text-decoration: none; color: var(--muted); }
 
 #subsync_app .spinner {
   display: flex;

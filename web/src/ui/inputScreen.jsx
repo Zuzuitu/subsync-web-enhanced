@@ -6,6 +6,8 @@ import Synchronizer from '../synchro.js';
 import OptionsPopup from './optionsPopup.jsx';
 import settings from '../settings.js';
 import { streamTypeName } from '../utils.js';
+import uiText from './romanian-ui.js';
+const { inspectMediaFile } = require('../media-file.js');
 import assetList from '../data/assets.json';
 import languages from '../data/languages.json';
 import charEncodings from '../data/charenc.json';
@@ -60,18 +62,44 @@ class InputStream {
   }
 
   async onFileOpen() {
+    const revision = this.loadRevision = (this.loadRevision || 0) + 1;
+    const isCurrent = () => this.loadRevision === revision;
+    const previousRelease = this.releaseFile;
+    this.releaseFile = null;
+    this.activeFile = null;
+    this.streams.update(false);
+    this.fileName.textContent = i18n`Select file`;
+    if (previousRelease) await previousRelease();
+    if (!isCurrent()) return;
     if (this.inputFile.files && this.inputFile.files.length) {
       const file = this.inputFile.files[0];
-      const spinner = Overlay.showSpinner(i18n`loading file...`);
+      let spinner = Overlay.showSpinner(i18n`loading file...`);
       try {
-        const info = await Synchronizer.instance.getFileInfo(file);
+        const opened = await inspectMediaFile(file,
+          candidate => Synchronizer.instance.getFileInfo(candidate), {
+            isCurrent,
+            onRecovery: () => {
+              if (!isCurrent()) return;
+              spinner.hide();
+              spinner = Overlay.showSpinner(uiText('Preparing a verified local copy of the file…'));
+            },
+          });
+        if (!isCurrent()) {
+          await opened.release();
+          return;
+        }
+        const { info } = opened;
         this.duration = info.duration;
         const streams = Object.values(info.streams).filter(s => this.types.includes(s.type));
 
         if (streams.length > 0) {
+          this.activeFile = opened.file;
+          this.sourceFile = file;
+          this.releaseFile = opened.release;
           this.fileName.textContent = file.name;
           this.streams.update(true, {streams});
         } else {
+          await opened.release();
           this.fileName.textContent = i18n`Select file`;
           this.streams.update(false);
           Overlay.showErrorPopup(i18n`Open failed`, {
@@ -80,6 +108,7 @@ class InputStream {
           });
         }
       } catch (e) {
+        if (!isCurrent()) return;
         logger.warn('Couldn\'t open:', e);
         this.fileName.textContent = i18n`Select file`;
         this.streams.update(false);
@@ -94,10 +123,11 @@ class InputStream {
   }
 
   getParams() {
-    if (this.streams.visible && this.inputFile.files.length) {
+    if (this.streams.visible && this.activeFile
+        && this.inputFile.files[0] === this.sourceFile) {
       const stream = this.streams.view;
       return {
-        file: this.inputFile.files[0],
+        file: this.activeFile,
         duration: this.duration,
         no: stream.selectedStream.no,
         type: stream.selectedStream.type,
