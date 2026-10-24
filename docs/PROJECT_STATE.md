@@ -1,5 +1,29 @@
 # SubSync2 — Project State
 
+## 2026-10-24 — NOUA PRIORITATE P0: procesare în fundal iPhone (decizie explicită a utilizatorului)
+
+**Obiectiv:** pe iPhone, utilizatorul pornește sincronizarea unui film cu audio de regulă ENGLEZESC și SRT ROMÂN, apoi poate deschide alte aplicații ori bloca ecranul fără să piardă jobul; păstrează sincronizarea precisă, procesarea locală implicită și exportul SRT. Aceasta devine **următorul proiect prioritar**, înainte de roadmapul de precizie, pe care NU îl uităm și NU îl abandonăm.
+
+**Fezabilitate verificată:** Safari / PWA iOS și WebKit pot suspenda JavaScript/Web Workers când pagina nu mai e activă. Service Worker și Background Sync web NU garantează execuție continuă pentru transcoding/ASR WASM; nu pretinde că un truc cu timer/audio mut/WAKE lock o rezolvă. Apple a introdus `BGContinuedProcessingTask` / `BGContinuedProcessingTaskRequest` pentru aplicații NATIVE iOS 26+, în special pentru sarcini pornite explicit de utilizator. Acestea pot continua în background, au progres în Live Activity, expiration/cancel, dar pot fi terminate de iOS și nu implică în mod automat că WebAssembly-ul din WKWebView rulează în fundal. Referințe Apple: https://developer.apple.com/documentation/backgroundtasks/performing-long-running-tasks-on-ios-and-ipados și https://developer.apple.com/videos/play/wwdc2025/227/ ; WebKit https://webkit.org/blog/8970/how-web-content-can-affect-power-usage/ .
+
+**Limite și arhitectură:** PWA existentă `https://sync.alexlab.media/` rămâne versiunea stabilă. Nu modifica motorul în producție pentru un pseudo-background. Investighează un client iOS nativ cu execuție efectivă în proces nativ (nu doar WKWebView), cu paritate față de fluxul sc0ty/SubSync2 EN->RO. Nu adăuga upload automat de fișiere la un backend, inclusiv Rock64, fără o decizie arhitecturală separată și aprobare explicită. Nu crea serviciu AI plătit. Păstrează GPLv3, datele și dicționarele sc0ty, toate codurile lingvistice și calitatea sincronizării.
+
+**Criterii de acceptare:** import local MKV/MKA/MP4 + SRT din Files; selecție eng->rum; pornește din acțiune explicită; trecere în altă aplicație și ecran blocat; progres verificat de sistem; export SRT cu text/diacritice intacte; cancel și expiration fără corupere; joburile întrerupte pot fi reluate sau repornite sigur dintr-un checkpoint verificat, fără a pretinde reluare la fereastra exactă dacă pipeline-ul nu o permite; test fizic pe iOS 26+ și condiții de memorie/energie și force-quit (force quit poate anula jobul). Control de paritate: aceeași intrare produce aceiași timpi în limita unei toleranțe justificate, fără a relaxa gate-urile EN->RO.
+
+**Secvența de implementare, în ordinea dificultății:**
+1. `[IN PROGRESS]` Audit API Apple și repo actual; arhitectură/fezabilitate în `docs/IOS_BACKGROUND_SYNC_RFC.md` cu riscuri/teste și variantă native. Nu confunda proiectul documentat cu funcția livrată.
+2. `[PENDING]` PoC minim pe macOS/Xcode (sau runner macOS GitHub Actions): `BGContinuedProcessingTask` pe o sarcină CPU nativă și dovadă reală că continuă 5–15 min în altă aplicație; probe pe iPhone real. Dacă prototipul de simplu wrapper WKWebView este propus, marchează explicit că trebuie testată execuția efectivă a workerului în background; respinge dacă stagnează.
+3. `[PENDING]` Studiază și portează/refolosește în clientul iOS nativ pipeline-ul real FFmpeg/PocketSphinx/correlator + dicționar EN->RO; compară pe aceeași fixture deterministică cu PWA. Nu inventa 1:1 fără probe.
+4. `[PENDING]` Job store local durabil, security-scoped Files access, limite RAM, checkpoint-uri atomice, export prin document picker și anulare/expiration/retry sigur.
+5. `[PENDING]` UI română pentru job background și progres Live Activity; teste end-to-end iPhone cu comutare aplicație, lock, putere redusă, forțare închidere, memorie.
+6. `[PENDING]` Numai dacă toate gate-urile sunt verzi, lansează o versiune iOS semnată/testabilă fără a afecta PWA-ul stabil. Semnarea/distribuția necesită infrastructură Apple autorizată; nu afirma că există IPA instalabil până la build și semnare confirmate.
+
+**Roadmapul de precizie se reia ÎN MOD OBLIGATORIU după faza background:** PR #94 `https://github.com/Zuzuitu/subsync-web-enhanced/pull/94` este OPEN (ultimul SHA văzut `dc7a0be650854fa3b01256850c595a5abc8d8ae2`), cu benchmarkul integral EN audio -> RO SRT. Testele sale finalizate și merge-ul trebuie reverificate pe GitHub la reluare. După #94: (2) evaluator read-only de dovezi și distribuție de puncte, (3) detector cut/ediție, (4) previzualizare, (5) corecție pe segmente, (6) viteză, (7) memorie, (8) funcții secundare. Nu abandona Goofy/cazurile reale, nu slăbi pragurile. Când un job se termină, actualizează și această secțiune cu SHA, CI și următoarea acțiune.
+
+**Status inițial P0:** doar analiză și documentație de arhitectură; nicio procesare de fundal în PWA sau versiune iOS nativă nu este livrată încă.
+
+---
+
 ## 2026-10-24 — STARE NOUĂ DUPĂ MERGE PR #92 (verificări reale, domeniu încă în așteptare)
 
 > **Acesta este checkpointul curent.** Secțiunea precedentă „PR #92 traducere UI română, domeniu și handoff” de mai jos este istorică și nu mai descrie starea PR-ului. Folosește HEAD și GitHub Actions live ca sursă de adevăr.
