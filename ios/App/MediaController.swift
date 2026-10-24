@@ -68,6 +68,7 @@ final class MediaController: ObservableObject {
                     self.launch(task)
                 }
             }
+            if !ready { error = "iOS nu a înregistrat sarcina nativă. Sincronizarea nu poate porni pe acest dispozitiv." }
             refreshTelemetry()
         } catch { self.error = "Datele locale nu pot fi verificate. Fișierele au fost păstrate." }
     }
@@ -152,7 +153,7 @@ final class MediaController: ObservableObject {
                 throw error
             }
             refresh()
-        } catch { error = "Sincronizarea nu a pornit. Reîncearcă din aplicația activă."; reset(); refresh() }
+        } catch { self.error = "Sincronizarea nu a pornit. Reîncearcă din aplicația activă."; reset(); refresh() }
         _ = stager // Presence was checked before creating a persistent job.
     }
 
@@ -234,7 +235,10 @@ final class MediaController: ObservableObject {
                 execution.finish(success)
                 await controller.finished(id)
             }
-        } catch { task.setTaskCompleted(success: false); storageFailure(); reset(); refresh() }
+        } catch {
+            _ = try? store.update(id) { $0.state = .failed; $0.message = "Motorul nativ nu a putut porni. Poți reîncerca." }
+            task.setTaskCompleted(success: false); storageFailure(); reset(); refresh()
+        }
     }
 
     func cancel() {
@@ -243,7 +247,7 @@ final class MediaController: ObservableObject {
         if let execution { execution.cancel(); return }
         if importing || activeID == nil { return }
         BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier)
-        if let id = activeID { try? store?.update(id) { $0.state = .cancelled; $0.message = "Anulat înainte de pornire." } }
+        if let id = activeID { _ = try? store?.update(id) { $0.state = .cancelled; $0.message = "Anulat înainte de pornire." } }
         reset(); refresh()
     }
     func export(_ job: MediaJob) {
@@ -252,7 +256,10 @@ final class MediaController: ObservableObject {
     }
     func lifecycle(_ phase: String, protectedDataAvailable: Bool? = nil) {
         self.phase = phase; refreshTelemetry(protectedDataAvailable)
-        if importing && phase != "active" { token?.requestStop(.systemExpired) }
+        if activeID == nil && phase != "active" {
+            token?.requestStop(.systemExpired)
+            probeContext?.cancel()
+        }
         if let id = activeID {
             do { try store?.update(id) { $0.event("lifecycle", metrics: telemetry.sample()) } }
             catch JobError.invalidTransition { /* Completed concurrently with this scene transition. */ }
