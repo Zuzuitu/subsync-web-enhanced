@@ -33,6 +33,9 @@ No exact decoder/ASR resume or universal native language/codec support is claime
   The unsigned IPA and app artifacts exist in that run; neither is directly
   installable without authorized signing. Final-head checks follow the small
   install-helper/documentation/protected-staging/export-state follow-up.
+  The final lifecycle follow-up also preserves native cancellation/expiration
+  reasons across generic C decoder errors, with a dedicated regression, and
+  shows preparation status before the first decoder progress update.
 - Full pinned dictionary vs ACTUAL production PWA loader: **42,843 exact pairs,
   zero missing/extra**, mapping SHA-256
   `0917d93c7aa23c66ea3c74f6c66d14e2fc1c014a8da5a3d4d2198fbe296085d6`.

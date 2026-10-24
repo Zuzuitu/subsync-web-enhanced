@@ -49,6 +49,7 @@ final class MediaController: ObservableObject {
     var canAutoSelect: Bool {
         tracks.count == 1 || tracks.filter { ["eng", "en"].contains($0.language) }.count == 1
     }
+    var preparingInputs: Bool { busy && !importing && activeID == nil }
 
     init() {
         do {
@@ -171,6 +172,7 @@ final class MediaController: ObservableObject {
                 do {
                     try token.check()
                     try store.update(id) { $0.state = .running; $0.message = "Verificare fișiere și modele locale…" }
+                    await controller.refresh()
                     let assets = try NativeMediaAssets(token: token)
                     let sub = try stager.verifiedURL(job.subtitle, token: token)
                     let ref = try stager.verifiedURL(job.media, token: token)
@@ -218,9 +220,10 @@ final class MediaController: ObservableObject {
                     execution.task.progress.completedUnitCount = execution.task.progress.totalUnitCount
                     success = true
                 } catch {
+                    let terminalFailure = token.failureConsideringCancellation(error)
                     do {
                         try store.update(id) {
-                            if case JobError.stopped(let reason) = error {
+                            if case JobError.stopped(let reason) = terminalFailure {
                                 $0.state = reason == .userCancelled ? .cancelled : .interrupted
                                 $0.message = reason == .userCancelled ? "Anulat. Fișierele locale sunt păstrate."
                                     : "Întrerupt de iOS — poți reporni de la început."

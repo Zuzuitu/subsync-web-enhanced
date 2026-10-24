@@ -27,6 +27,7 @@ struct MediaSyncView: View {
                     Text("La import se creează copii locale. Păstrează aplicația deschisă până se termină importul; originalele rămân în Files.")
                         .font(.footnote).foregroundStyle(.secondary)
                     if controller.importing { ProgressView(value: controller.importFraction); Text("Se importă local…") }
+                    if controller.preparingInputs { ProgressView("Se citesc pistele audio și fișierele locale…") }
                     if !controller.tracks.isEmpty {
                         Picker("Pista audio engleză", selection: $controller.trackNumber) {
                             Text(controller.canAutoSelect ? "Automat — engleză / singura pistă" : "Alege pista audio").tag(Int32(-1))

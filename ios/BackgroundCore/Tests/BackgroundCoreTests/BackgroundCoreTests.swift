@@ -32,6 +32,17 @@ final class BackgroundCoreTests: XCTestCase {
         }
     }
 
+    func testOpaqueNativeErrorsPreserveExpirationAndUserCancelStates() {
+        let opaque = NSError(domain: "NativeDecoder", code: -2)
+        let active = StopToken()
+        XCTAssertEqual((active.failureConsideringCancellation(opaque) as NSError).domain, "NativeDecoder")
+        for reason in [StopReason.systemExpired, .userCancelled] {
+            let token = StopToken()
+            token.requestStop(reason)
+            XCTAssertEqual(token.failureConsideringCancellation(opaque) as? JobError, .stopped(reason))
+        }
+    }
+
     func testExpirationAtLastProgressCannotBecomeSuccess() throws {
         let token = StopToken()
         XCTAssertThrowsError(try CPUProof.run(totalUnits: 1, token: token) { _ in
