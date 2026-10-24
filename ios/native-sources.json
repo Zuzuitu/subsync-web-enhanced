@@ -1,0 +1,10 @@
+[
+  "Native/SubSyncNative.cpp",
+  "../gizmo/synchro/synchronizer.cpp",
+  "../gizmo/text/words.cpp",
+  "../gizmo/text/dictionary.cpp",
+  "../gizmo/text/utf8.cpp",
+  "../gizmo/math/point.cpp",
+  "../gizmo/math/line.cpp",
+  "../gizmo/math/linefinder.cpp"
+]

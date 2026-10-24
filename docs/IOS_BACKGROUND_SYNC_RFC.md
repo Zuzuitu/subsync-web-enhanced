@@ -1,6 +1,6 @@
 # RFC: procesare reală în fundal pentru SubSync2 pe iOS 26+
 
-**Status: feasibility/design only.** This is not a shipped iPhone feature. Priority P0 ahead of the EN-audio / RO-subtitle precision roadmap; see docs/PROJECT_STATE.md. Main production PWA remains unchanged.
+**Status: native CPU PoC implemented and Xcode builds verified in PR #97; physical runtime proof and media synchronization integration pending.** This is not a shipped iPhone feature. Priority P0 ahead of the EN-audio / RO-subtitle precision roadmap; see docs/PROJECT_STATE.md. Main production PWA remains unchanged.
 
 ## User-visible target
 

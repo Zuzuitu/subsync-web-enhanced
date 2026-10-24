@@ -1,0 +1,6 @@
+BackgroundCore/.build/
+BackgroundCore/.swiftpm/
+build/
+DerivedData/
+**/xcuserdata/
+*.xcuserstate
