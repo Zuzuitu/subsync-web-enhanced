@@ -21,10 +21,11 @@ def obj(label, body):
 
 sources = ["App/Telemetry.swift", "App/BackgroundController.swift", "App/SubSync2BackgroundApp.swift"]
 sources += json.loads((IOS / "native-sources.json").read_text())
-resources = ["../LICENSE", "../THIRD_PARTY_NOTICES.md"]
+sources += json.loads((IOS / "media-sources.json").read_text())
+resources = ["../LICENSE", "../THIRD_PARTY_NOTICES.md", "LanguageAssets"]
 refs, builds, resource_builds = [], [], []
 for path in sources + resources + ["App/Info.plist", "Native/include/SubSyncNative.h"]:
-    kind = "sourcecode.swift" if path.endswith(".swift") else "sourcecode.cpp.cpp" if path.endswith(".cpp") else "text"
+    kind = "folder" if path == "LanguageAssets" else "sourcecode.swift" if path.endswith(".swift") else "sourcecode.cpp.cpp" if path.endswith(".cpp") else "text"
     ref = obj(path, f"isa = PBXFileReference; lastKnownFileType = {q(kind)}; path = {q(path)}; sourceTree = SOURCE_ROOT;")
     refs.append(ref)
     if path in sources or path in resources:
@@ -56,12 +57,15 @@ for mode in ("Debug", "Release"):
         "PRODUCT_NAME": "SubSync2Background", "INFOPLIST_FILE": "App/Info.plist",
         "GENERATE_INFOPLIST_FILE": "NO", "TARGETED_DEVICE_FAMILY": "1,2",
         "SUPPORTED_PLATFORMS": "iphoneos iphonesimulator",
-        "CODE_SIGN_STYLE": "Automatic", "SWIFT_OBJC_BRIDGING_HEADER": "Native/include/SubSyncNative.h",
+        "CODE_SIGN_STYLE": "Automatic", "SWIFT_OBJC_BRIDGING_HEADER": "Native/include/SubSyncBridge.h",
         "SUBSYNC_SOURCE_COMMIT": "working-tree",
-        "HEADER_SEARCH_PATHS": ["$(inherited)", "$(SRCROOT)/../gizmo"],
+        "NATIVE_MEDIA_PREFIX": "$(SRCROOT)/vendor/$(PLATFORM_NAME)-$(CURRENT_ARCH)",
+        "HEADER_SEARCH_PATHS": ["$(inherited)", "$(SRCROOT)/../gizmo", "$(NATIVE_MEDIA_PREFIX)/include", "$(NATIVE_MEDIA_PREFIX)/include/sphinxbase", "$(NATIVE_MEDIA_PREFIX)/include/pocketsphinx"],
+        "LIBRARY_SEARCH_PATHS": ["$(inherited)", "$(NATIVE_MEDIA_PREFIX)/lib"],
+        "OTHER_LDFLAGS": ["$(inherited)", "-lpocketsphinx", "-lsphinxbase", "-lavformat", "-lavcodec", "-lswresample", "-lavutil", "-lm", "-lz", "-liconv"],
         # Existing canonical headers rely on a transitive cstdint include; do
         # not modify the browser's source or algorithm for this build adapter.
-        "OTHER_CPLUSPLUSFLAGS": ["$(inherited)", "-include", "cstdint"],
+        "OTHER_CPLUSPLUSFLAGS": ["$(inherited)", "-include", "cstdint", "-include", "cmath"],
         "LD_RUNPATH_SEARCH_PATHS": ["$(inherited)", "@executable_path/Frameworks"],
     }
     for scope, settings in (("project", project_settings), ("target", target_settings)):

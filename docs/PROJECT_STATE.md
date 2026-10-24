@@ -1,5 +1,31 @@
 # SubSync2 — Project State
 
+## 2026-10-24 — Native media pipeline continuation (implementation in progress)
+
+User asked to continue after PR #97. Independent native engineering now proceeds
+while signed physical iPhone acceptance remains an unfulfilled release gate.
+Branch: `feat/ios-native-media-sync-20261024`; baseline main/PR #97 merge
+`9077d66349386b9c5bbe98e1dd6f163dd9cc4b00`.
+
+Implemented for verification: exact pinned FFmpeg/PocketSphinx/SphinxBase static
+Apple cross-builds, file-only/no-network FFmpeg configuration, original native
+subtitle decoder/translator/recognizer/correlator pipeline behind a C ABI, explicit
+English audio selection (ambiguity fails), interruptible bounded stepping,
+canonical last-valid-status preservation and fail-closed completion. New CI
+compares actual browser WASM and native recognition on ONE shared generated
+EN-audio/RO-SRT fixture; no expected offset is passed to the engine. Existing
+canonical gates stay unchanged; same-input parity ceiling is 100 ms across all
+cue boundaries. Initial Apple cross-build/media-parity results are PENDING.
+
+Next in this branch: safe Files staging with checksums/cancel/space checks,
+byte-preserving SRT timestamp export, native job persistence, actual app wiring,
+then exact CI results and physical signing/install/testing. No signed IPA,
+physical runtime proof or released background movie synchronization is claimed.
+PR #94 and the complete precision backlog below remain required. No web runtime,
+model/dictionary source, canonical algorithm or deploy ref is changed.
+
+---
+
 ## 2026-10-24 — P0 native iOS milestone: CPU PoC compiled and verified; physical gate pending
 
 **Implemented in PR #97:** separate iOS 26 SwiftUI app in `ios/`,

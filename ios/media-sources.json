@@ -1,0 +1,13 @@
+[
+  "Native/SubSyncMedia.cpp",
+  "../gizmo/media/demux.cpp",
+  "../gizmo/media/stream.cpp",
+  "../gizmo/media/audiodec.cpp",
+  "../gizmo/media/resampler.cpp",
+  "../gizmo/media/subdec.cpp",
+  "../gizmo/media/speechrec.cpp",
+  "../gizmo/text/translator.cpp",
+  "../gizmo/text/ssa.cpp",
+  "../gizmo/general/exception.cpp",
+  "../gizmo/general/logger.cpp"
+]
