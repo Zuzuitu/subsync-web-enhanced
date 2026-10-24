@@ -1,41 +1,60 @@
 # SubSync2 — Project State
 
-## 2026-10-24 — P0 native iOS milestone: real CPU PoC and canonical C++ adapter
+## 2026-10-24 — P0 native iOS milestone: CPU PoC compiled and verified; physical gate pending
 
-**Implemented in PR #97; build/physical evidence pending:** separate iOS 26 SwiftUI
-app in `ios/`, BGContinuedProcessingTask submission on an explicit tap, real
-bounded CPU work with measured Progress, synchronous expiration/cancel, durable
-atomic job/result records, interrupted-on-relaunch recovery and explicit restart
-from zero. The UI labels this as a CPU diagnostic; it DOES NOT synchronize films.
-The SAME original C++ correlator sources are linked through a C ABI; no algorithm
-fork or threshold change. See `docs/IOS_NATIVE_BACKGROUND_POC.md` for the source
-inventory, native-port risks, build instructions and physical acceptance protocol.
+**Implemented in PR #97:** separate iOS 26 SwiftUI app in `ios/`,
+BGContinuedProcessingTask from an explicit foreground tap, bounded real CPU work
+with measured system Progress, synchronous expiration/cancel, durable atomic
+job/result records, interrupted-on-relaunch recovery and explicit restart from
+zero. Exported local evidence contains actual work/CPU/scene counters. The UI
+labels this as a CPU diagnostic; **it DOES NOT synchronize films yet**. Original
+C++ correlator files are compiled through a C ABI with unchanged canonical gates.
+No alternate estimator, backend upload, paid service or PWA deployment is added.
+Source inventory, native-port risks, build and physical acceptance instructions:
+`docs/IOS_NATIVE_BACKGROUND_POC.md`.
 
-**Baseline:** main `745c6db096c9f9e47c4bcf8471b44e1478aa5763` (PR #95 confirmed
-merged). Branch `feat/ios26-native-background-poc-20261024`; PR
-https://github.com/Zuzuitu/subsync-web-enhanced/pull/97, initial code SHA
-`b3cc398a221d6a2919254d5e10f9d65db1595af8`. Local C ABI/direct-core tests,
-6 evidence-evaluator tests, governance and all 487 existing C++ assertions in
-10 test cases PASS. Xcode 26.3 was available on macos-15; all 13 Swift core tests,
-native bridge compilation and project generation PASS in run `40060377058`.
-The initial simulator compile correctly rejected a nested weak capture under
-Swift 6 strict concurrency; it is repaired with a constant main-actor reference
-without disabling strict checking. Simulator/device builds are rerun after that
-fix and explicit protected-data telemetry. No physical evidence or signed IPA.
-Main advanced concurrently to `f80b58fcc5e4d9eab96a131263a21efe0fee5246` (PR #96
-Signal logo); it is reconciled without dropping its icons or checkpoint.
+**Exact implementation and CI evidence:**
+- PR: https://github.com/Zuzuitu/subsync-web-enhanced/pull/97
+- Branch: `feat/ios26-native-background-poc-20261024`.
+- Verified implementation SHA: `ba03da331247420a2514621f3c6b1be68215831f`.
+  The final checkpoint-only commit does not change app/engine/test code.
+- iOS Native Background run `40060525817`: **SUCCESS**, Xcode 26.3 on macos-15;
+  13 Swift CPU/persistence/cancellation tests, native C ABI/direct-core tests,
+  deterministic Xcode project validation, simulator arm64/x86_64 compile,
+  unsigned arm64 iPhone compile and 6 evidence-evaluator tests all PASS.
+- CI `40060525923`: **SUCCESS**. Android `40060525885`: **SUCCESS**.
+- PR merge-tree build provenance: `869ebfda5aecd907407038462092176282a33cbb`;
+  artifacts `ios26-build-evidence-869ebfda5aecd907407038462092176282a33cbb`
+  and `ios26-unsigned-app-869ebfda5aecd907407038462092176282a33cbb` exist.
+  An unsigned `.app` is **not** an installable signed IPA.
+- Local original C++ regression suite: **487 assertions / 10 test cases PASS**.
+- Initial iOS run `40060377058` passed core tests but rejected a nested weak
+  capture under strict Swift 6 checking; fixed without disabling that checking.
+- Concurrent main `f80b58fcc5e4d9eab96a131263a21efe0fee5246` (PR #96 Signal
+  branding) was reconciled, preserving all icons, web source and checkpoint.
+
+**What remains unverified:** no signed IPA, authorized signing identity/profile,
+physical iPhone background CPU/app-switch/lock/call/low-power/force-quit test,
+media Files/security-scoped import, native FFmpeg/PocketSphinx/dictionary loading,
+SRT export or whole-pipeline EN→RO parity. CPU checkpoint counts are diagnostic;
+restarts deliberately begin at zero. No exact decoder/ASR resume is claimed.
 
 **Live PR #94 readback:** OPEN, mergeable=false, head
 `dc7a0be650854fa3b01256850c595a5abc8d8ae2`; CI `40058134762`, Android
 `40058134831`, Romanian Identical Input Study `40058134778`, Legacy WebAssembly
 Build `40058134891` all SUCCESS. Its checkpoint conflict remains to reconcile
-without dropping either roadmap. Do not infer a merged state from these checks.
+without dropping either roadmap. These checks do not imply a merge.
 
-**Next:** finish/verify macOS Xcode 26 simulator + unsigned arm64 builds, then
-physical signed iPhone 5–15 minute CPU/app-switch/lock/cancel/restart proof. Full
-native FFmpeg/PocketSphinx/dictionary/Files/SRT integration and EN→RO fixture parity
-remain gated; see the unchanged P0 phases and precision backlog below. Production
-PWA `https://sync.alexlab.media/` is not changed or deployed by this milestone.
+**Next action / actual external dependency:** sign the completed native lab app
+with an authorized Apple development team and test it on physical iOS 26+ with
+the debugger detached for 5–15 minutes, switching apps and locking/unlocking.
+Process the exported JSON with `ios/tools/evaluate-background-evidence.py` and
+record real test confirmations, cancel/expiration/restart behavior and memory.
+No physical-device/install/signing capability is available in this session.
+After this gate, integrate the pinned native media/recognizer/assets and bounded
+Files/SRT lifecycle, compare the SAME EN→RO fixture against the PWA and preserve
+all accuracy thresholds. Then resume PR #94 and the entire precision roadmap
+below. Production `https://sync.alexlab.media/` remains independent of this work.
 
 ---
 
@@ -50,16 +69,16 @@ PWA `https://sync.alexlab.media/` is not changed or deployed by this milestone.
 **Criterii de acceptare:** import local MKV/MKA/MP4 + SRT din Files; selecție eng->rum; pornește din acțiune explicită; trecere în altă aplicație și ecran blocat; progres verificat de sistem; export SRT cu text/diacritice intacte; cancel și expiration fără corupere; joburile întrerupte pot fi reluate sau repornite sigur dintr-un checkpoint verificat, fără a pretinde reluare la fereastra exactă dacă pipeline-ul nu o permite; test fizic pe iOS 26+ și condiții de memorie/energie și force-quit (force quit poate anula jobul). Control de paritate: aceeași intrare produce aceiași timpi în limita unei toleranțe justificate, fără a relaxa gate-urile EN->RO.
 
 **Secvența de implementare, în ordinea dificultății:**
-1. `[IN PROGRESS]` Audit API Apple și repo actual; arhitectură/fezabilitate în `docs/IOS_BACKGROUND_SYNC_RFC.md` cu riscuri/teste și variantă native. Nu confunda proiectul documentat cu funcția livrată.
-2. `[PENDING]` PoC minim pe macOS/Xcode (sau runner macOS GitHub Actions): `BGContinuedProcessingTask` pe o sarcină CPU nativă și dovadă reală că continuă 5–15 min în altă aplicație; probe pe iPhone real. Dacă prototipul de simplu wrapper WKWebView este propus, marchează explicit că trebuie testată execuția efectivă a workerului în background; respinge dacă stagnează.
-3. `[PENDING]` Studiază și portează/refolosește în clientul iOS nativ pipeline-ul real FFmpeg/PocketSphinx/correlator + dicționar EN->RO; compară pe aceeași fixture deterministică cu PWA. Nu inventa 1:1 fără probe.
-4. `[PENDING]` Job store local durabil, security-scoped Files access, limite RAM, checkpoint-uri atomice, export prin document picker și anulare/expiration/retry sigur.
-5. `[PENDING]` UI română pentru job background și progres Live Activity; teste end-to-end iPhone cu comutare aplicație, lock, putere redusă, forțare închidere, memorie.
+1. `[DONE — PR #97]` Audit API Apple și repo actual; arhitectură/fezabilitate în `docs/IOS_BACKGROUND_SYNC_RFC.md` cu riscuri/teste și variantă native. Nu confunda proiectul documentat cu funcția livrată.
+2. `[CODE + XCODE CI PASS — physical PENDING, PR #97]` PoC minim pe macOS/Xcode (sau runner macOS GitHub Actions): `BGContinuedProcessingTask` pe o sarcină CPU nativă și dovadă reală că continuă 5–15 min în altă aplicație; probe pe iPhone real. Dacă prototipul de simplu wrapper WKWebView este propus, marchează explicit că trebuie testată execuția efectivă a workerului în background; respinge dacă stagnează.
+3. `[PARTIAL — canonical C++ adapter compiled; media/ASR/parity PENDING]` Studiază și portează/refolosește în clientul iOS nativ pipeline-ul real FFmpeg/PocketSphinx/correlator + dicționar EN->RO; compară pe aceeași fixture deterministică cu PWA. Nu inventa 1:1 fără probe.
+4. `[PARTIAL — diagnostic job store tested; Files/SRT PENDING]` Job store local durabil, security-scoped Files access, limite RAM, checkpoint-uri atomice, export prin document picker și anulare/expiration/retry sigur.
+5. `[PARTIAL — lab UI implemented; physical sync E2E PENDING]` UI română pentru job background și progres Live Activity; teste end-to-end iPhone cu comutare aplicație, lock, putere redusă, forțare închidere, memorie.
 6. `[PENDING]` Numai dacă toate gate-urile sunt verzi, lansează o versiune iOS semnată/testabilă fără a afecta PWA-ul stabil. Semnarea/distribuția necesită infrastructură Apple autorizată; nu afirma că există IPA instalabil până la build și semnare confirmate.
 
 **Roadmapul de precizie se reia ÎN MOD OBLIGATORIU după faza background:** PR #94 `https://github.com/Zuzuitu/subsync-web-enhanced/pull/94` este OPEN (ultimul SHA văzut `dc7a0be650854fa3b01256850c595a5abc8d8ae2`), cu benchmarkul integral EN audio -> RO SRT. Testele sale finalizate și merge-ul trebuie reverificate pe GitHub la reluare. După #94: (2) evaluator read-only de dovezi și distribuție de puncte, (3) detector cut/ediție, (4) previzualizare, (5) corecție pe segmente, (6) viteză, (7) memorie, (8) funcții secundare. Nu abandona Goofy/cazurile reale, nu slăbi pragurile. Când un job se termină, actualizează și această secțiune cu SHA, CI și următoarea acțiune.
 
-**Status inițial P0:** doar analiză și documentație de arhitectură; nicio procesare de fundal în PWA sau versiune iOS nativă nu este livrată încă.
+**Status istoric P0 la PR #95 (înainte de implementarea PR #97 de mai sus):** doar analiză și documentație de arhitectură; nicio procesare de fundal în PWA sau versiune iOS nativă nu este livrată încă.
 
 ---
 ## 2026-10-24 — Identitate Signal: logo, favicon și pictograme PWA
