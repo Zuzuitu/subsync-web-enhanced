@@ -46,4 +46,17 @@ assert(!/private|movie|transcript/.test(JSON.stringify(study(privacy))));
 const nonfinite = fixture('single-step');
 nonfinite.anchors[0].referenceTime = NaN;
 assert.strictEqual(study(nonfinite).reason, 'invalid-anchor');
+
+// Adversarial train-only step: the held-out anchors remain perfectly affine,
+// and must not be used to choose or validate a false hypothesis.
+const deceptive = fixture('single-step');
+deceptive.anchors.forEach((a, i) => {
+  if (i % 2 === 1) a.referenceTime = a.subtitleTime;
+});
+assert.strictEqual(study(deceptive).supported, false, 'training-only jump must fail untouched heldout');
+const reverseStep = fixture('single-step');
+reverseStep.anchors.forEach((a, i) => {
+  a.referenceTime = a.subtitleTime - (i >= 12 ? 8 : 0);
+});
+assert.strictEqual(study(reverseStep).supported, true, 'negative offset hypothesis supported');
 console.log('Read-only independent-evidence discontinuity research: PASS');
