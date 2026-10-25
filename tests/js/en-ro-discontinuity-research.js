@@ -98,4 +98,18 @@ const reorderedAudio = fixture('single-step');
 reorderedAudio.anchors[13].referenceTime = reorderedAudio.anchors[11].referenceTime - 1;
 assert.strictEqual(study(reorderedAudio).reason, 'nonmonotonic-reference-evidence',
   'reordered or ambiguous reference matches cannot corroborate a simple cut');
+
+// Irregular synthesized phrase durations: the holdout cue may sit inside
+// the train-selected bracket, closer to one edge. It is ambiguous and must
+// not be assigned a side on an invented midpoint.
+const irregular = fixture('single-step');
+irregular.anchors[11].subtitleTime =
+  irregular.anchors[10].subtitleTime + 0.85
+  * (irregular.anchors[12].subtitleTime - irregular.anchors[10].subtitleTime);
+irregular.anchors[11].referenceTime = irregular.anchors[11].subtitleTime;
+const irregularVerdict = study(irregular);
+assert.strictEqual(irregularVerdict.supported, true,
+  'independent evidence outside bracket should support authored offset step');
+assert.strictEqual(irregularVerdict.unresolvedBoundaryHoldoutCount >= 1, true,
+  'do not assign ambiguous cue within the unobserved bracket');
 console.log('Read-only independent-evidence discontinuity research: PASS');
