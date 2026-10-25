@@ -78,11 +78,11 @@ function auditSrtPair(original, shifted) {
     firstShiftMs: base,
     singleExactShiftMs: unique.size === 1 ? base : null,
     shiftValueCount: unique.size,
-    startShiftRangeMs: [Math.min(...starts), Math.max(...starts)],
-    endShiftRangeMs: [Math.min(...ends), Math.max(...ends)],
+    startShiftRangeMs: [starts.reduce((a,b)=>Math.min(a,b), Infinity), starts.reduce((a,b)=>Math.max(a,b), -Infinity)],
+    endShiftRangeMs: [ends.reduce((a,b)=>Math.min(a,b), Infinity), ends.reduce((a,b)=>Math.max(a,b), -Infinity)],
     firstMiddleLastStartShiftMs: [starts[0], starts[Math.floor(starts.length/2)], starts.at(-1)],
     thirdMedianStartShiftMs: thirds.map(xs=>xs.length?median(xs):null),
-    maxDeviationFromFirstShiftMs: Math.max(...changes.map(x=>Math.abs(x-base))),
+    maxDeviationFromFirstShiftMs: changes.reduce((a,x)=>Math.max(a,Math.abs(x-base)),0),
     interpretation: unique.size===1
       ? 'Exact uniform timestamp transformation; soundtrack alignment not verified.'
       : 'Nonuniform SRT timestamp transformation; cannot infer audio edits from SRT alone.'
