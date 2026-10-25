@@ -184,7 +184,7 @@ roundingCases.forEach(([start, end], i) => {
   millisecondExporter.addSubtitle({start, end, text: `Test cue ${i + 1}`});
 });
 const millisecondOutput = millisecondExporter.getSynchronizedSubtitles({a: 1, b: -10}, 'srt').join('');
-const millisecondLines = millisecondOutput.match(/\\d{2}:\\d{2}:\\d{2},\\d{3} --> \\d{2}:\\d{2}:\\d{2},\\d{3}/g);
+const millisecondLines = millisecondOutput.match(/\d{2}:\d{2}:\d{2},\d{3} --> \d{2}:\d{2}:\d{2},\d{3}/g);
 assert.deepStrictEqual(millisecondLines, roundingCases.map(row => row[2]),
   'SRT timestamps should preserve millisecond precision and carry into seconds/hours');
 roundingCases.forEach((_, i) => {
