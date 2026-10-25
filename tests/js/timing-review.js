@@ -171,4 +171,24 @@ assert.deepStrictEqual(enRoDiagnostic.englishRomanianEvidence.thirds.map(x => x.
 assert.strictEqual(diagnosticReport(enRoStatus, review, env).englishRomanianEvidence, undefined,
   'EN->RO-only summary must not leak into other languages');
 require('./en-ro-evidence.js');
+// SRT output must round to the nearest millisecond once, even after a -10s
+// affine shift; no private subtitle/audio fixtures are used in this regression.
+const millisecondExporter = new sandbox.module.exports();
+const roundingCases = [
+  [10.001, 11.001, '00:00:00,001 --> 00:00:01,001'],
+  [69.9996, 70.9996, '00:01:00,000 --> 00:01:01,000'],
+  [3609.9996, 3610.9996, '01:00:00,000 --> 01:00:01,000'],
+  [7245.678, 7246.9996, '02:00:35,678 --> 02:00:37,000'],
+];
+roundingCases.forEach(([start, end], i) => {
+  millisecondExporter.addSubtitle({start, end, text: `Test cue ${i + 1}`});
+});
+const millisecondOutput = millisecondExporter.getSynchronizedSubtitles({a: 1, b: -10}, 'srt').join('');
+const millisecondLines = millisecondOutput.match(/\\d{2}:\\d{2}:\\d{2},\\d{3} --> \\d{2}:\\d{2}:\\d{2},\\d{3}/g);
+assert.deepStrictEqual(millisecondLines, roundingCases.map(row => row[2]),
+  'SRT timestamps should preserve millisecond precision and carry into seconds/hours');
+roundingCases.forEach((_, i) => {
+  assert(millisecondOutput.includes(`Test cue ${i + 1}`), 'export must preserve cue text');
+});
+
 console.log('Read-only timing review, export parity and diagnostic privacy: OK');
