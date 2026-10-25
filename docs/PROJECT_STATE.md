@@ -1,5 +1,16 @@
 # SubSync2 — Project State
 
+## 2026-10-25 — SRT export millisecond rounding (isolated bugfix PR, NOT RELEASED)
+
+**Reproducible issue on `main` and the previously validated PWA build:** the SubRip formatter computed milliseconds using `Math.floor(t * 1000 % 1000)`. A binary floating-point subtraction such as `10.001 - 10` can serialize `00:00:00,000` instead of `00:00:00,001`, creating a 1 ms negative bias even when the affine mapping is mathematically exact.
+
+**Candidate fix in a dedicated branch:** round the transformed, already-clamped timestamp once to an integer number of milliseconds, then derive hours/minutes/seconds/milliseconds from that integer. This changes only SRT serialization, not the recognized words, accepted correlation formula, canonical thresholds, ASR language assets, decoding, media privacy, or save policy. Synthetic tests include fractional-millisecond carry across minutes/hours, Romanian UTF-8 and negative-time clamping. Private authorized read-only QA identified the symptom, but no private media, filenames, subtitle text or copies are in Git history or CI fixtures.
+
+**Status:** awaiting exact-head PR review and required CI. `main` and `deploy/pages-preview` remain unchanged; no production publication is implied. Full audio-to-SRT real-title convergence and independent MAE/P95 validation remain outstanding; a formatter fix alone does not establish audio synchronization accuracy.
+
+---
+
+
 ## 2026-10-25 — PR #105 merged; private-media baseline SRT-pair verification (stage #4)
 
 **Confirmed:** #105 squash merged as `146abb22fb2278cd3fac4f4f0ea0fd8612ac8502` after 12/12 CI SUCCESS. Shared EN→RO artifact-ID provenance fixed without changing canonical matching. Native/WebAssembly maximum timestamp difference on the *same successful generated input* was 0 ms. Tracking issue #106 closed. This is synthetic same-input parity, not perfect alignment of real films.
