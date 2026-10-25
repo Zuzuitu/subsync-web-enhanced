@@ -26,3 +26,13 @@ Pragurile interne (inclusiv diferența de 1 s, MAD 0,25 s, raportul SSE 0,25 și
 - Dacă dovezile lipsesc, aplicația trebuie să folosească aceeași sincronizare canonică ori să rămână inconcludentă; **nu** corecta automat pe segmente.
 
 Vezi și `docs/PIECEWISE_REVIEW.md`, unde este explicat de ce metoda externă piecewise nu a fost adoptată ca atare.
+
+## Următorul control: cronologia materialului EN→RO generat efectiv
+
+`tests/research/validate-generated-en-ro-editions.js` citește `tests/generated/en-ro-e2e/fixture.json`, produs de `tests/fixtures/generate-en-ro-e2e.py` folosind perechi de fraze și timpi cunoscuți din sinteza Piper. Perechile de tip `audioStart` → `subtitleStart` sunt autoritatea fixture-ului, **nu** corelații ghicite din cuvinte. Testul verifică explicit offsetul original și cronologia înainte de orice simulare.
+
+Se testează: fixture-ul perfect afin; o pauză/scenă adăugată de +8 secunde în audio; o regiune lipsă din ediție prin eliminarea unui bloc de opt cue-uri și scăderea timpului dispărut (cu verificarea golului rămas între cue-urile autentice); derivă liniară; o singură potrivire falsă; două editări ambigue; lipsa ancorelor post-editare; cronologie inversată și lipsa dovezii declarate. Cazurile pozitive rămân **ipoteze de salt**, nu confirmări de tăieturi.
+
+Rularea se face exclusiv în `Legacy WebAssembly Build`, *după* generarea fixture-ului și instalarea Node 20; în rezultatul public sunt doar valori numerice și etichete de caz, **fără** propoziții, texte românești, identificatori ai utilizatorilor sau media. Nu se schimbă generatorul, modelele, dicționarele, exportul ori PWA.
+
+Limită critică: ambele cronologii sunt create de același generator legal sintetic; acesta oferă ground truth de fixture, dar **nu dovedește** că o aplicație poate deduce din sunet real că perechea cue→audio este corectă. Cazurile repetate și filmele cu montaj necunoscut cer dovezi suplimentare și comparare independentă înaintea oricărei corecții pe segmente.
