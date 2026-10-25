@@ -303,6 +303,9 @@ jobs:
         working-directory: web
         run: npm ci --ignore-scripts --no-audit --no-fund
 
+      - name: Verify independent EN-to-RO generated edition ground truth (research-only)
+        run: node tests/research/validate-generated-en-ro-editions.js
+
       - name: Build browser application bundle
         working-directory: web
         run: npm run build
