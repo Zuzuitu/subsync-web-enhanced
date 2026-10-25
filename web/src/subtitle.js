@@ -118,10 +118,13 @@ class SubRip {
   }
 
   static formatTime(t) {
-    const hh = Math.floor(t / 3600).toString().padStart(2, '0');
-    const mm = Math.floor(t / 60 % 60).toString().padStart(2, '0');
-    const ss = Math.floor(t % 60).toString().padStart(2, '0');
-    const fff = Math.floor(t * 1000 % 1000).toString().padStart(3, '0');
+    // Round only at export: binary floating-point can make exact millisecond
+    // timestamps fall just below an integer after the affine transform.
+    const totalMs = Math.max(0, Math.round(t * 1000));
+    const hh = Math.floor(totalMs / 3600000).toString().padStart(2, '0');
+    const mm = Math.floor(totalMs / 60000 % 60).toString().padStart(2, '0');
+    const ss = Math.floor(totalMs / 1000 % 60).toString().padStart(2, '0');
+    const fff = (totalMs % 1000).toString().padStart(3, '0');
     return `${hh}:${mm}:${ss},${fff}`;
   }
 }
