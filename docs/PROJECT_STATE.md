@@ -1,5 +1,17 @@
 # SubSync2 — Project State
 
+## 2026-10-25 — PR #105 merged; private-media baseline SRT-pair verification (stage #4)
+
+**Confirmed:** #105 squash merged as `146abb22fb2278cd3fac4f4f0ea0fd8612ac8502` after 12/12 CI SUCCESS. Shared EN→RO artifact-ID provenance fixed without changing canonical matching. Native/WebAssembly maximum timestamp difference on the *same successful generated input* was 0 ms. Tracking issue #106 closed. This is synthetic same-input parity, not perfect alignment of real films.
+
+**Private reference evidence available outside public repository:** six user-supplied pairs of `Original.srt` and `Decalare.srt`, across a total of 7,023 matching cues. Every cue start and end in the shifted file was +10,000 ms relative to its corresponding original, with matching indices, exact normalized subtitle body and preserved durations. This shows an **intentional, uniform SRT offset** throughout each pair; it is not proof that the file labeled original aligns with the soundtrack, and not a set of independently proven edition cuts. **NO private filenames, media, text or SRT contents committed.**
+
+**Local-only test tool candidate:** `scripts/audit-srt-pair.js` provides a privacy-safe read-only comparison of any two local SRTs. Fail-closed on changed cue payloads/indices, invalid chronology, unparsable data; reports per-third median changes, uniformity, all timestamp differences without source text/filenames. `tests/js/audit-srt-pair.js` exercises synthetic exact shift, drift, boundary anomaly, missing or changed cues and chronology. Runtime PWA untouched; full CI required before merge. Usage/limits: `docs/PRIVATE_SRT_AUDIT.md`.
+
+**Next evidence goal:** independently check soundtrack language/edition and run actual audio→SRT synchronization on legally provided private source under a fully local test environment; compare exported SRT starts/ends to a separately verified ground truth. Never claim numerical synchronization improvement based only on a reference offset. Native iOS/background/IPA remains PAUSED; production PWA remains `deploy/pages-preview` `a46305ab124bb5d5cf15b79f7f77b43e239ecd34`.
+
+---
+
 ## 2026-10-25 — PR #105 CI: proven artifact-ID ambiguity after fixture retry
 
 **Evidence on PR #105:** head `763fe59e0e7b5d6fb4c9e5c0671b1c1c34c07875` initially passed primary PWA/WebKit/stress/Android and then failed two unrelated EN→RO gates. Original `shared-fixture` voice synthesis 33 cues, 76.8553125 s, 27/33 recognized calibration keys, browser factor `0.9998830942974953`/20 points, **correctly NOT correlated** under unmodified sc0ty threshold `0.9999`; artifact `12597173360`. Successful unchanged producer retry produced 33 cues, 76.901625 s, 31/33 keys, factor `0.9999013200564293`/25 points; artifact `12596962684`.
