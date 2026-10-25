@@ -59,4 +59,39 @@ reverseStep.anchors.forEach((a, i) => {
   a.referenceTime = a.subtitleTime - (i >= 12 ? 8 : 0);
 });
 assert.strictEqual(study(reverseStep).supported, true, 'negative offset hypothesis supported');
+
+// Deterministic adversarial matrix: synthetic fixtures only.
+for (const mode of ['flat', 'slope', 'step8', 'stepMinus8', 'singleOutlier',
+                    'twoSteps', 'alternatingNoise', 'missingAfter']) {
+  for (let seed = 0; seed < 48; seed++) {
+    const n = 24 + (seed % 3) * 8;
+    const matrixAnchors = [];
+    for (let i = 0; i < n; i++) {
+      const time = 40 + 40 * i;
+      const split = Math.floor(n / 2);
+      if (mode === 'missingAfter' && i >= split) break;
+      let delta = 0;
+      if (mode === 'slope') delta = time * 0.007;
+      if (mode === 'step8') delta = i >= split ? 8 : 0;
+      if (mode === 'stepMinus8') delta = i >= split ? -8 : 0;
+      if (mode === 'singleOutlier') delta = i === split ? 8 : 0;
+      if (mode === 'twoSteps') delta =
+        i >= Math.floor(n / 3) && i < Math.floor(2 * n / 3) ? 8 : 0;
+      if (mode === 'alternatingNoise') delta = i % 2 ? 1.2 : -1.2;
+      if (seed % 4 === 0) delta += ((i * 37 + seed) % 11 - 5) * 0.015;
+      matrixAnchors.push({
+        cueId: i + 1, subtitleTime: time,
+        referenceTime: time + delta, independentlyVerified: true,
+      });
+    }
+    const candidate = study({
+      provenance: 'independently-verified-cue-pairs',
+      formula: {a: 1, b: 0},
+      durationSeconds: 40 + 40 * n + 60,
+      anchors: matrixAnchors,
+    });
+    assert.strictEqual(candidate.supported, mode === 'step8' || mode === 'stepMinus8',
+      'synthetic ' + mode + ' seed ' + seed);
+  }
+}
 console.log('Read-only independent-evidence discontinuity research: PASS');
