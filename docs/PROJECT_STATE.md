@@ -1,5 +1,15 @@
 # SubSync2 — Project State
 
+## 2026-10-25 — Test fizic iPhone după PR #100: importul nu mai este blocat
+
+**Raport de utilizator (iPhone, 25 octombrie 2026):** după publicarea fixului PR #100, eroarea `Demux.avformat_open_input / AVERROR_INVALIDDATA` nu mai apare și aplicația funcționează. Acesta este un test fizic pozitiv raportat de utilizator, suplimentar față de CI și testele din browser. Nu este stabilit dacă recovery-ul OPFS s-a activat pe telefon și nu sunt disponibile încă măsurători ale preciziei pe întregul SRT, ale exportului final pe acest titlu sau ale tuturor formatelor.
+
+**Proveniență verificată:** PR #100 este integrat în `main` ca `a46305ab124bb5d5cf15b79f7f77b43e239ecd34`, iar `deploy/pages-preview` arată către același commit; run `40141428164` este SUCCESS. Procesarea rămâne locală, fără upload. Importul nu mai constituie blocajul raportat pentru următoarea etapă.
+
+**Noua prioritate:** continuă măsurarea EN audio → RO SRT pe întregul titlu prin PR #94 (teste și documentație, nu modificări de algoritm). Păstrează și fluxul audio RO → SRT RO, dicționarele, limbile și pragurile canonice. Verifică CI pe commitul final și citește datele efective din artefact înainte de a promite orice îmbunătățire a preciziei. iOS native / background / IPA rămân SUSPENDATE.
+
+---
+
 ## 2026-10-24 — ROADMAP ACTIV: precizie SRT română, audio predominant ENGLEZĂ
 
 **DECIZIE UTILIZATOR:** obiectivul principal este sincronizarea cât mai precisă a subtitrărilor în română pe întregul film. Audio-ul de referință este de obicei ENGLEZĂ (`eng` -> `rum`). Prioritizează acest flux înaintea altor limbi sau a rafinărilor audio română -> SRT română; funcționalitatea RO->RO existentă rămâne păstrată.
@@ -31,6 +41,280 @@
 - **După etapa 1:** citește `fullTitleTimingQuality` din artefactul `web-primary-workflow.json` și evaluează dacă un prag P95/drift nou este justificat pe date repetabile. Apoi treci la etapa **#2 (dovezi EN->RO read-only)**. Actualizează prezentul bloc după fiecare etapă finalizată.
 
 ---
+
+## 2026-10-25 — PWA MP4 import: original inspected; verified read recovery and mobile error layout
+
+**Background/IPA remain PAUSED** by the user decision below. This change targets
+the existing PWA reference-file open failure, not native background processing.
+
+The original received in ZIP is **274,582,991 bytes**, SHA-256
+`2bf0abded7786b703299a9f4942acbed620418f4dddbb9c2444b1649a44017a7`.
+Local ffprobe identifies **5,669.4175 seconds** of AAC LC audio, 48 kHz, six
+channels, language tag `ita`, one H.264 cover frame, and a separate chapter/data
+track lasting 107.24 seconds. The 28 KB/1:47 attachment from the earlier message
+was not the full original. The original's `moov` is at byte 272,631,468, after
+`mdat`; this is a valid layout, not proof of corruption.
+
+**Confirmed scope:** original FFmpeg n4.2 WASM opens this exact private file via
+Chromium File/WORKERFS, and the actual PWA UI identifies its Italian audio stream.
+A controlled zero-data FileReaderSync fault reproduces
+`Demux.avformat_open_input / AVERROR_INVALIDDATA`; the new recovery opens the same
+file after local byte-verified staging. The original iPhone/provider root cause
+is NOT confirmed and no universal codec/background/synchronization-quality claim
+is made. The error means container opening failed on the bytes read, not that the
+subtitle, dictionary, timing algorithm, or original audio is necessarily corrupt.
+
+**Implementation:** retain direct File/WORKERFS for normal files. Only an MP4
+`ftyp` header plus the precise container-open INVALIDDATA failure enables ONE
+retry. Copy to browser-local OPFS in 1 MiB chunks with 64 MiB space reserve and
+SHA-256 verification of every copied chunk after close; reuse the verified File
+for both stream selection and actual synchronization. No conversion, timestamps,
+codec, dictionary, model, correlator or canonical thresholds change. Storage,
+short-read, write, checksum or second FFmpeg failures preserve the native error
+and never enable success. Release copies on replacement, obsolete selection or
+failure; collect abandoned recovery files older than seven days on later recovery.
+A killed tab may leave browser-local scratch until that cleanup runs.
+
+Input replacement clears stale stream selection immediately, rejects obsolete
+asynchronous completions, and never pairs new input bytes with old track metadata.
+The error dialog wraps native details/long names, stays within 320/393 px screens,
+and keeps its close control visible, with Romanian recovery guidance.
+
+**Validation before PR:** Node fault/bounds/identity/cleanup regressions PASS;
+actual PWA Chromium direct import and injected-fault recovery PASS with the full
+274 MB original and a redistributable generated AAC/cover/chapter MP4. Bad MP4s
+remain rejected after one retry; scratch cleanup and 320/393 px layout PASS; UI
+screenshot inspected. Project invariants, bundle build and diff checks PASS.
+Automated fresh-build Chromium and iPhone-like WebKit checks are wired into CI;
+the OPFS import check uses an isolated Playwright **1.64.1** runner and a real
+HTTPS/persistent browser profile. The existing pinned 1.55 compatibility/ASR
+checks remain unchanged. Older Linux Playwright WebKit omits navigator.storage
+entirely (upstream microsoft/playwright #18235); do not skip OPFS assertions or
+claim positive recovery coverage from that build.
+final exact-head results and release provenance must be read from the PR/run.
+Private media is used only in local QA and is not committed or uploaded to CI.
+
+**Next:** finish CI/integration and deliberate PWA publication, then retest this
+original on physical iPhone with reference language Italian and Romanian SRT.
+Until a public build/readback is confirmed, do not claim the fix is online.
+Resume the preserved precision roadmap/PR #94 afterwards; native signing remains
+paused unless explicitly requested again.
+
+---
+
+## 2026-10-25 — User decision: native background/IPA PAUSED; return to PWA media reliability
+
+**Current priority overrides older P0/background instructions below.** The user
+explicitly paused native background development, signing, IPA installation and
+physical background acceptance until a later decision. They have only an iPhone
+and require zero paid services/subscriptions. Do not resume signing, sideloading,
+Rock64 installation experiments or native feature expansion without a new request.
+Preserve the completed native source and unsigned-build evidence; do not delete it.
+PR #98 merged as `0051698f870adb246b25f6f983460f89e076ba20`, final head
+`d939092a8e06786f32282596751c845b66e7c9cf` passed all 10 checks including 25 Swift
+tests and iOS workflow `40084892199`. This was not a signed/physical background test.
+
+**PWA remains the active product:** all existing language dictionaries, models,
+synchronization/export and Audio Extractor features are retained. It does not gain
+the native background API. Focus first on the newly reported reference-file open
+failure (`Demux.avformat_open_input`, `AVERROR_INVALIDDATA`), then resume the
+preserved precision/reliability roadmap and PR #94 after reviewing its live state.
+Do not weaken canonical thresholds or infer a decoder root cause from a screenshot.
+
+**Current media blocker:** the Drive original is 274,582,991 bytes, exceeding the
+Drive connector's 268,435,456-byte raw download limit. The directly attached MP4
+received here is only 28,335 bytes: ffprobe identifies one H.264 still frame,
+107.24 seconds, NO audio stream. It cannot reproduce the original reference's
+failure. Request the unchanged original inside a ZIP attached from Files; archive
+packaging preserves bytes instead of passing the media through a video import.
+The original's contents/root cause remain unverified. No media-file fix or deploy
+is claimed. Screenshots also reveal horizontal error-dialog overflow, a separate
+UI issue to reproduce and fix alongside the reference import investigation.
+
+---
+
+## 2026-10-24 — Experimental native EN→RO client 0.2.0: implemented, Apple builds pass; physical signing pending
+
+**PR #98:** https://github.com/Zuzuitu/subsync-web-enhanced/pull/98 . Branch
+`feat/ios-native-media-sync-20261024`, baseline PR #97 merge
+`9077d66349386b9c5bbe98e1dd6f163dd9cc4b00`. User explicitly asked to continue;
+independent native engineering advanced while physical acceptance remains an
+unfulfilled release gate. The native app now has a real synchronization tab;
+the production PWA is independent and is not deployed by this work.
+
+**Implemented:** exact pinned static FFmpeg/PocketSphinx/SphinxBase on macOS,
+arm64 iPhone and arm64/x86_64 simulator; file-only/no-network FFmpeg; ORIGINAL
+native decoder/resampler/translator/recognizer/correlator sources unchanged;
+coordinated security-scoped Files imports copied in 1 MiB chunks with SHA-256,
+space/size/mtime checks and explicit protection until first authentication;
+track inspection and explicit ambiguity handling; real native continued-task
+execution, native interrupt/cancel, media progress and durable atomic media jobs;
+last-valid canonical lock, original SRT text/labels/BOM/line endings/diacritics
+preserved while editing timestamps only; canonical/finite/cue guards and atomic
+SRT readback/checksum before completion; verified share/save; interrupted-on-launch
+and explicit restart from zero with the SAME stored track and input identities.
+No exact decoder/ASR resume or universal native language/codec support is claimed.
+
+**Verified code/build milestone:** `b9821c4137dae01530c2b0db88e1eb371471f774`:
+- iOS Native Background `40082922225` **SUCCESS**: all four dependency targets,
+  22 Swift tests, canonical C ABI tests, same-input native/browser EN→RO media and
+  Swift SRT export, silence/cancel negative controls, both simulator architecture
+  builds, unsigned arm64 iPhone build, actual simulator launch/render and unsigned
+  IPA packaging. Simulator: iPhone 17 Pro / iOS 26.0. UI screenshot inspected.
+- CI `40082922269` and Android `40082922371`: **SUCCESS**.
+- Build provenance/PR merge tree `1a1e98f5256a5b0a7e2df9f1a48d215860326c3b`.
+  The unsigned IPA and app artifacts exist in that run; neither is directly
+  installable without authorized signing. Final-head checks follow the small
+  install-helper/documentation/protected-staging/export-state follow-up.
+  The final lifecycle follow-up also preserves native cancellation/expiration
+  reasons across generic C decoder errors, with a dedicated regression, and
+  shows preparation status before the first decoder progress update.
+  Asset containment canonicalizes sandbox root aliases and children consistently;
+  alias/traversal/symlink regressions cover Apple's /var-style path distinction.
+- Full pinned dictionary vs ACTUAL production PWA loader: **42,843 exact pairs,
+  zero missing/extra**, mapping SHA-256
+  `0917d93c7aa23c66ea3c74f6c66d14e2fc1c014a8da5a3d4d2198fbe296085d6`.
+  Production loader parity is separate from the convenience WASM fixture loader's
+  extra trim/case normalization; their translated-word counters can differ.
+- First same-input native/WASM run (`119b807...`, parity step in `40082482157`)
+  produced identical formulas: 79 reference words, 26 points, 33 SRT cues, maximum
+  inter-engine timestamp delta **0 s**. Ground-truth start MAE **0.470909 s**,
+  P95 **0.533 s**, max **0.541 s**; parity does NOT mean perfect timing accuracy.
+- Second generated shared fixture (`40082922225`): 77 reference words, 22 points,
+  33 cues; native/browser formula delta **0 s**; start MAE **0.463242 s**,
+  P95 **0.583600 s**, max **0.598 s**. These are different Piper-generated inputs;
+  input hashes and formulas are retained in the run's parity JSON. Ground truth
+  never enters the native engine. No acceptance gate was relaxed.
+
+**Installation preparation:** `ios/tools/install-on-device.py` builds, signs and
+installs using an already-authorized local Xcode development team and paired
+physical device; `--prepare` builds the pinned dependencies/assets. Xcode/Keychain
+handle credentials; no certificates/profiles are stored in source or created by
+CI. See `docs/IOS_NATIVE_MEDIA_SYNC.md` for the exact commands and test scope.
+
+**Actual next dependency:** an authorized signing/install route and a physical
+iPhone. No signing identity/device access is established in this session. Install,
+run without debugger, obtain 5–15 minute background CPU proof and real native
+foreground/background EN→RO output on the SAME input. Test app switching, lock,
+low power, calls, expiration, cancel, force quit/reopen/retry, storage exhaustion,
+large MKV, memory and battery. Simulator launch/host recognition/unsigned builds
+are not physical proof. Do not call background synchronization physically ready.
+
+**Backlog preserved:** PR #94 remains OPEN at `dc7a0be650854fa3b01256850c595a5abc8d8ae2`
+with prior green checks but a checkpoint conflict to reconcile. After physical
+background acceptance (or an explicit change of priority), resume whole-title
+precision metrics, read-only evidence coverage, edition/cut diagnostics, preview,
+held-out validated segment correction, performance, memory and secondary UX.
+Native synthetic parity does not establish quality on every real Romanian SRT.
+
+---
+
+## 2026-10-24 — P0 native iOS milestone: CPU PoC compiled and verified; physical gate pending
+
+**Implemented in PR #97:** separate iOS 26 SwiftUI app in `ios/`,
+BGContinuedProcessingTask from an explicit foreground tap, bounded real CPU work
+with measured system Progress, synchronous expiration/cancel, durable atomic
+job/result records, interrupted-on-relaunch recovery and explicit restart from
+zero. Exported local evidence contains actual work/CPU/scene counters. The UI
+labels this as a CPU diagnostic; **it DOES NOT synchronize films yet**. Original
+C++ correlator files are compiled through a C ABI with unchanged canonical gates.
+No alternate estimator, backend upload, paid service or PWA deployment is added.
+Source inventory, native-port risks, build and physical acceptance instructions:
+`docs/IOS_NATIVE_BACKGROUND_POC.md`.
+
+**Exact implementation and CI evidence:**
+- PR: https://github.com/Zuzuitu/subsync-web-enhanced/pull/97
+- Branch: `feat/ios26-native-background-poc-20261024`.
+- Verified implementation SHA: `ba03da331247420a2514621f3c6b1be68215831f`.
+  The final checkpoint-only commit does not change app/engine/test code.
+- iOS Native Background run `40060525817`: **SUCCESS**, Xcode 26.3 on macos-15;
+  13 Swift CPU/persistence/cancellation tests, native C ABI/direct-core tests,
+  deterministic Xcode project validation, simulator arm64/x86_64 compile,
+  unsigned arm64 iPhone compile and 6 evidence-evaluator tests all PASS.
+- CI `40060525923`: **SUCCESS**. Android `40060525885`: **SUCCESS**.
+- PR merge-tree build provenance: `869ebfda5aecd907407038462092176282a33cbb`;
+  artifacts `ios26-build-evidence-869ebfda5aecd907407038462092176282a33cbb`
+  and `ios26-unsigned-app-869ebfda5aecd907407038462092176282a33cbb` exist.
+  An unsigned `.app` is **not** an installable signed IPA.
+- Local original C++ regression suite: **487 assertions / 10 test cases PASS**.
+- Initial iOS run `40060377058` passed core tests but rejected a nested weak
+  capture under strict Swift 6 checking; fixed without disabling that checking.
+- Concurrent main `f80b58fcc5e4d9eab96a131263a21efe0fee5246` (PR #96 Signal
+  branding) was reconciled, preserving all icons, web source and checkpoint.
+
+**What remains unverified:** no signed IPA, authorized signing identity/profile,
+physical iPhone background CPU/app-switch/lock/call/low-power/force-quit test,
+media Files/security-scoped import, native FFmpeg/PocketSphinx/dictionary loading,
+SRT export or whole-pipeline EN→RO parity. CPU checkpoint counts are diagnostic;
+restarts deliberately begin at zero. No exact decoder/ASR resume is claimed.
+
+**Live PR #94 readback:** OPEN, mergeable=false, head
+`dc7a0be650854fa3b01256850c595a5abc8d8ae2`; CI `40058134762`, Android
+`40058134831`, Romanian Identical Input Study `40058134778`, Legacy WebAssembly
+Build `40058134891` all SUCCESS. Its checkpoint conflict remains to reconcile
+without dropping either roadmap. These checks do not imply a merge.
+
+**Next action / actual external dependency:** sign the completed native lab app
+with an authorized Apple development team and test it on physical iOS 26+ with
+the debugger detached for 5–15 minutes, switching apps and locking/unlocking.
+Process the exported JSON with `ios/tools/evaluate-background-evidence.py` and
+record real test confirmations, cancel/expiration/restart behavior and memory.
+No physical-device/install/signing capability is available in this session.
+After this gate, integrate the pinned native media/recognizer/assets and bounded
+Files/SRT lifecycle, compare the SAME EN→RO fixture against the PWA and preserve
+all accuracy thresholds. Then resume PR #94 and the entire precision roadmap
+below. Production `https://sync.alexlab.media/` remains independent of this work.
+
+---
+
+## 2026-10-24 — NOUA PRIORITATE P0: procesare în fundal iPhone (decizie explicită a utilizatorului)
+
+**Obiectiv:** pe iPhone, utilizatorul pornește sincronizarea unui film cu audio de regulă ENGLEZESC și SRT ROMÂN, apoi poate deschide alte aplicații ori bloca ecranul fără să piardă jobul; păstrează sincronizarea precisă, procesarea locală implicită și exportul SRT. Aceasta devine **următorul proiect prioritar**, înainte de roadmapul de precizie, pe care NU îl uităm și NU îl abandonăm.
+
+**Fezabilitate verificată:** Safari / PWA iOS și WebKit pot suspenda JavaScript/Web Workers când pagina nu mai e activă. Service Worker și Background Sync web NU garantează execuție continuă pentru transcoding/ASR WASM; nu pretinde că un truc cu timer/audio mut/WAKE lock o rezolvă. Apple a introdus `BGContinuedProcessingTask` / `BGContinuedProcessingTaskRequest` pentru aplicații NATIVE iOS 26+, în special pentru sarcini pornite explicit de utilizator. Acestea pot continua în background, au progres în Live Activity, expiration/cancel, dar pot fi terminate de iOS și nu implică în mod automat că WebAssembly-ul din WKWebView rulează în fundal. Referințe Apple: https://developer.apple.com/documentation/backgroundtasks/performing-long-running-tasks-on-ios-and-ipados și https://developer.apple.com/videos/play/wwdc2025/227/ ; WebKit https://webkit.org/blog/8970/how-web-content-can-affect-power-usage/ .
+
+**Limite și arhitectură:** PWA existentă `https://sync.alexlab.media/` rămâne versiunea stabilă. Nu modifica motorul în producție pentru un pseudo-background. Investighează un client iOS nativ cu execuție efectivă în proces nativ (nu doar WKWebView), cu paritate față de fluxul sc0ty/SubSync2 EN->RO. Nu adăuga upload automat de fișiere la un backend, inclusiv Rock64, fără o decizie arhitecturală separată și aprobare explicită. Nu crea serviciu AI plătit. Păstrează GPLv3, datele și dicționarele sc0ty, toate codurile lingvistice și calitatea sincronizării.
+
+**Criterii de acceptare:** import local MKV/MKA/MP4 + SRT din Files; selecție eng->rum; pornește din acțiune explicită; trecere în altă aplicație și ecran blocat; progres verificat de sistem; export SRT cu text/diacritice intacte; cancel și expiration fără corupere; joburile întrerupte pot fi reluate sau repornite sigur dintr-un checkpoint verificat, fără a pretinde reluare la fereastra exactă dacă pipeline-ul nu o permite; test fizic pe iOS 26+ și condiții de memorie/energie și force-quit (force quit poate anula jobul). Control de paritate: aceeași intrare produce aceiași timpi în limita unei toleranțe justificate, fără a relaxa gate-urile EN->RO.
+
+**Secvența de implementare, în ordinea dificultății:**
+1. `[DONE — PR #97]` Audit API Apple și repo actual; arhitectură/fezabilitate în `docs/IOS_BACKGROUND_SYNC_RFC.md` cu riscuri/teste și variantă native. Nu confunda proiectul documentat cu funcția livrată.
+2. `[CODE + XCODE CI PASS — physical PENDING, PR #97]` PoC minim pe macOS/Xcode (sau runner macOS GitHub Actions): `BGContinuedProcessingTask` pe o sarcină CPU nativă și dovadă reală că continuă 5–15 min în altă aplicație; probe pe iPhone real. Dacă prototipul de simplu wrapper WKWebView este propus, marchează explicit că trebuie testată execuția efectivă a workerului în background; respinge dacă stagnează.
+3. `[PARTIAL — canonical C++ adapter compiled; media/ASR/parity PENDING]` Studiază și portează/refolosește în clientul iOS nativ pipeline-ul real FFmpeg/PocketSphinx/correlator + dicționar EN->RO; compară pe aceeași fixture deterministică cu PWA. Nu inventa 1:1 fără probe.
+4. `[PARTIAL — diagnostic job store tested; Files/SRT PENDING]` Job store local durabil, security-scoped Files access, limite RAM, checkpoint-uri atomice, export prin document picker și anulare/expiration/retry sigur.
+5. `[PARTIAL — lab UI implemented; physical sync E2E PENDING]` UI română pentru job background și progres Live Activity; teste end-to-end iPhone cu comutare aplicație, lock, putere redusă, forțare închidere, memorie.
+6. `[PENDING]` Numai dacă toate gate-urile sunt verzi, lansează o versiune iOS semnată/testabilă fără a afecta PWA-ul stabil. Semnarea/distribuția necesită infrastructură Apple autorizată; nu afirma că există IPA instalabil până la build și semnare confirmate.
+
+**Roadmapul de precizie se reia ÎN MOD OBLIGATORIU după faza background:** PR #94 `https://github.com/Zuzuitu/subsync-web-enhanced/pull/94` este OPEN (ultimul SHA văzut `dc7a0be650854fa3b01256850c595a5abc8d8ae2`), cu benchmarkul integral EN audio -> RO SRT. Testele sale finalizate și merge-ul trebuie reverificate pe GitHub la reluare. După #94: (2) evaluator read-only de dovezi și distribuție de puncte, (3) detector cut/ediție, (4) previzualizare, (5) corecție pe segmente, (6) viteză, (7) memorie, (8) funcții secundare. Nu abandona Goofy/cazurile reale, nu slăbi pragurile. Când un job se termină, actualizează și această secțiune cu SHA, CI și următoarea acțiune.
+
+**Status istoric P0 la PR #95 (înainte de implementarea PR #97 de mai sus):** doar analiză și documentație de arhitectură; nicio procesare de fundal în PWA sau versiune iOS nativă nu este livrată încă.
+
+---
+## 2026-10-24 — Identitate Signal: logo, favicon și pictograme PWA
+
+Utilizatorul a cerut explicit un logo nou modern și publicarea sa împreună cu
+faviconul. Branch dedicat: `feat/subsync2-signal-brand-20261024`.
+
+- `web/public/icon.svg` este sursa vectorială originală: un S din două trasee
+  separate de o îmbinare diagonală, mentă/albastru pe fundal închis. Antetul
+  folosește același simbol, cu wordmark SubSync² accesibil ca SubSync2.
+- Sunt incluse favicon ICO (16/32/48), PNG 32, Apple touch 180, PNG PWA 192/512
+  și un PNG maskable 512 opac cu simbolul în zona sigură. Sursa nu include
+  fonturi, scripturi sau dependențe grafice externe.
+- `scripts/render-brand-icons.py` regenerează rasterele din SVG; este un utilitar
+  de mentenanță, nu o dependență a buildului sau a utilizatorului.
+- Antetul, faviconurile și toate URL-urile pictogramelor din manifest sunt
+  versionate cu build hash. Service worker-ul le precachează; Audio Extractor
+  direct folosește aceeași identitate, fără un manifest sau worker separat.
+- Smoke-ul existent decodează pictogramele în browser, verifică dimensiunile,
+  versiunea și disponibilitatea lor în cache-ul offline.
+- Verificări locale inițiale: invariants și Audio Extractor tab PASS.
+  Publicarea se confirmă prin PR/CI, verdictul Deploy PWA Preview și citirea
+  efectivă a build-manifest/iconurilor de la `https://sync.alexlab.media/`.
+
+Schimbarea este vizuală și de distribuție a pictogramelor. Nu modifică motorul,
+pragurile, dicționarele sau prioritățile English audio → Romanian subtitles.
+PR #94 pentru benchmarkul de precizie rămâne o lucrare separată.
 
 ## 2026-10-24 — STARE NOUĂ DUPĂ MERGE PR #92 (verificări reale, domeniu încă în așteptare)
 

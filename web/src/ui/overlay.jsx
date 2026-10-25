@@ -1,6 +1,7 @@
 import { el, mount, unmount } from 'redom';
 import i18n from 'es2015-i18n-tag';
 import settings from '../settings.js';
+import uiText from './romanian-ui.js';
 
 export class OverlayItem {
 
@@ -20,7 +21,9 @@ export class OverlayItem {
       position: 'fixed',
       top: 0,
       left: 0,
-      minWidth: '100%',
+      width: '100%',
+      minWidth: 0,
+      padding: '16px',
       height: '100%',
       overflow: 'auto',
       zIndex: 1000,
@@ -40,7 +43,7 @@ export class OverlayItem {
 
   renderHeader() {
     return (
-      <div style={{display: 'flex', justifyContent: 'space-between'}}>
+      <div class='popup_header'>
         {this.title ? <h1>{this.title}</h1> : null}
         {this.closable ? <a class='popup_close' onclick={this.hide.bind(this)}>&times;</a> : null}
       </div>);
@@ -80,7 +83,11 @@ export class Overlay {
   }
 
   static showErrorPopup(title, err) {
+    const invalidContainer = err && err.module === 'Demux.avformat_open_input'
+      && (err.averror === 'AVERROR_INVALIDDATA' || Number(err.code) === -1094995529);
     return Overlay.showPopup(title, [
+      invalidContainer && <p>{uiText('The media reader could not open the selected file. Download the original completely in Files and select it again. The technical details below do not by themselves prove that the audio is corrupt.')}</p>,
+      err && err.localReadRecovery && <p>{uiText(err.localReadRecovery.message)}</p>,
       <p>{getErrorMessage(err)}</p>,
       <pre>{getErrorDetails(err)}</pre>
     ]);

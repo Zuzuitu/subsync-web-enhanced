@@ -1,6 +1,12 @@
 /* UI-only Romanian localization. Diagnostic JSON keys and algorithm IDs stay stable. */
 import settings from '../settings.js';
 const phrases = {
+  "The file could not be read completely. Download it in Files and select it again.": "Fișierul nu a putut fi citit complet. Descarcă-l în Fișiere și selectează-l din nou.",
+  "A verified local copy is unavailable. Download the file in Files and select it again.": "Browserul nu poate pregăti copia locală verificată. Descarcă fișierul în Fișiere și selectează-l din nou.",
+  "Not enough browser storage for a local copy of this file.": "Nu există suficient spațiu de stocare disponibil pentru copia locală a acestui fișier.",
+  "The local file copy did not pass verification.": "Copia locală a fișierului nu a trecut verificarea de integritate.",
+  "Preparing a verified local copy of the file…": "Se pregătește și se verifică o copie locală a fișierului…",
+  "The media reader could not open the selected file. Download the original completely in Files and select it again. The technical details below do not by themselves prove that the audio is corrupt.": "Fișierul ales nu a putut fi deschis pentru citire. Descarcă originalul complet în Fișiere și selectează-l din nou. Detaliile tehnice de mai jos nu dovedesc singure că sunetul este corupt.",
   "Romanian adaptive verification did not gather enough canonical evidence.": "Verificarea adaptivă pentru română nu a adunat suficiente dovezi de sincronizare.",
   "Save stays disabled to avoid exporting an intermediate timing formula": "Salvarea rămâne dezactivată pentru a evita exportul unei corecții provizorii",
   "Current accepted linear correction — start and end of each sample cue.": "Corecția temporală validată — începutul și sfârșitul fiecărui exemplu.",
