@@ -108,18 +108,20 @@ function studyIndependentStep(input) {
   }
   if (!best) return unavailable('no-independently-supported-step');
 
-  // The training set identifies a BRACKET, not an exact cut cue. A fixed
-  // midpoint divides the fully untouched holdout exactly once. Do not search
-  // splits, fit offsets, or prefer candidates using this held-out evidence.
-  const boundary = (best.boundaryFrom + best.boundaryTo) / 2;
-  const aHold = heldout.filter(p => p.time <= boundary);
-  const bHold = heldout.filter(p => p.time > boundary);
+  // The train-only split identifies an uncertain edit BRACKET, not the
+  // exact cut timestamp. Held-out points inside it cannot safely be assigned
+  // to the left/right segment by a fabricated midpoint. Abstain on them;
+  // validate only anchored positions unambiguously outside the bracket.
+  const aHold = heldout.filter(p => p.time <= best.boundaryFrom);
+  const bHold = heldout.filter(p => p.time >= best.boundaryTo);
   if (aHold.length < 4 || bHold.length < 4) return unavailable('insufficient-independent-holdout');
   if (Math.abs(median(aHold.map(p => p.residual)) - best.offA) > MAX_HELDOUT_DELTA_SECONDS
       || Math.abs(median(bHold.map(p => p.residual)) - best.offB) > MAX_HELDOUT_DELTA_SECONDS) {
     return unavailable('holdout-offset-disagrees');
   }
-  const heldoutLinearSSE = sse(heldout, p => trend.intercept + trend.slope * p.time);
+  const evaluatedHoldout = [...aHold, ...bHold];
+  const heldoutLinearSSE = sse(evaluatedHoldout,
+    p => trend.intercept + trend.slope * p.time);
   const heldoutStepSSE = sse(aHold, () => best.offA) + sse(bHold, () => best.offB);
   if (!(heldoutLinearSSE > 0)
       || heldoutStepSSE > STEP_TO_LINEAR_SSE_MAX * heldoutLinearSSE) {
@@ -130,8 +132,9 @@ function studyIndependentStep(input) {
     researchOnly: true,
     supported: true,
     verdict: 'possible-offset-step-not-a-confirmed-cut',
-    beforeAnchors: points.filter(p => p.time <= boundary).length,
-    afterAnchors: points.filter(p => p.time > boundary).length,
+    beforeAnchors: points.filter(p => p.time <= best.boundaryFrom).length,
+    afterAnchors: points.filter(p => p.time >= best.boundaryTo).length,
+    unresolvedBoundaryHoldoutCount: heldout.length - evaluatedHoldout.length,
     boundarySubtitleTimeFrom: best.boundaryFrom,
     boundarySubtitleTimeTo: best.boundaryTo,
     residualStepSeconds: best.offB - best.offA,
