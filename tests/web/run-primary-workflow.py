@@ -2,6 +2,7 @@
 import functools
 import http.server
 import json
+import math
 import re
 import shutil
 import socketserver
@@ -10,6 +11,7 @@ import tempfile
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
+from srt_timing import measure_srt_timing
 
 ROOT = Path(__file__).resolve().parents[2]
 DIST = ROOT / "web" / "dist"
@@ -160,6 +162,21 @@ try:
 
         original_text = SRT_IN.read_text(encoding="utf-8")
         output_text = SAVED.read_text(encoding="utf-8")
+
+        # English audio -> Romanian SRT: measure the entire exported title,
+        # not merely its first cue. The known offset belongs to the fixture
+        # generator; it is NEVER passed to the synchronizer.
+        fixture = json.loads((FIXTURE / "fixture.json").read_text(encoding="utf-8"))
+        fixture_offset = float(fixture["offsetSeconds"])
+        if not math.isfinite(fixture_offset):
+            raise SystemExit("English/Romanian fixture offset is not finite")
+        expected_correction = -fixture_offset
+        timing_quality = measure_srt_timing(original_text, output_text, expected_correction)
+        for metric in ("startMedianAbsErrorSeconds", "startP95AbsErrorSeconds",
+                       "startMaxAbsErrorSeconds", "affineErrorDriftAcrossTitleSeconds"):
+            if not math.isfinite(timing_quality[metric]):
+                raise SystemExit(f"EN->RO full-title metric is nonfinite: {metric}")
+
         original_start = parse_srt_start(original_text)
         output_start = parse_srt_start(output_text)
         shift = output_start - original_start
@@ -203,6 +220,10 @@ try:
             "originalFirstStartSeconds": original_start,
             "outputFirstStartSeconds": output_start,
             "savedTimingShiftSeconds": shift,
+            "syntheticFixtureExpectedCorrectionSeconds": expected_correction,
+            "fullTitleTimingQuality": timing_quality,
+            "fullTitleTimingQualityEvidence": "synthetic known-offset reference, not film accuracy",
+            "fullTitleTimingQualityGate": "measurement-only baseline; existing first-cue limits unchanged",
             "savedBytes": SAVED.stat().st_size,
             "downloadSuggestedFilename": suggested_filename,
             "savePopupText": popup_text,
