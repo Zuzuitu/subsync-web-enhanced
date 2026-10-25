@@ -56,7 +56,8 @@ assert.strictEqual(evaluate(unedited).supported, false, 'unedited affine fixture
 
 const added = anchorsFor((cue, i) => cue.audioStart + (i >= middle ? 8 : 0));
 const inserted = evaluate(added);
-assert.strictEqual(inserted.supported, true, 'authored added scene must expose offset step');
+assert.strictEqual(inserted.supported, true,
+  'authored added scene must expose offset step: ' + JSON.stringify(inserted));
 assert(Math.abs(inserted.residualStepSeconds - 8) < 0.05);
 
 // A real deletion needs enough time missing between retained anchors.
@@ -70,7 +71,8 @@ const deleted = evaluate(anchorsFor(
   (cue, i) => cue.audioStart - (i >= removedEnd ? removedSeconds : 0),
   (cue, i) => i < removedStart || i >= removedEnd,
 ));
-assert.strictEqual(deleted.supported, true, 'authored deleted section must expose offset step');
+assert.strictEqual(deleted.supported, true,
+  'authored deleted section must expose offset step: ' + JSON.stringify(deleted));
 assert(Math.abs(deleted.residualStepSeconds + removedSeconds) < 0.05);
 
 const drift = evaluate(anchorsFor(cue => cue.audioStart * 1.006));
