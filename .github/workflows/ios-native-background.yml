@@ -170,6 +170,7 @@ jobs:
         with:
           artifact-ids: ${{ needs.shared-fixture.outputs.verified_fixture_artifact_id }}
           path: tests/generated/en-ro-e2e
+          merge-multiple: true # v4 preserves the previously name-based flat extract path
       - name: Build native media engine and compare on identical browser inputs
         run: |
           mkdir -p ios/build
