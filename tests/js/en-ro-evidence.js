@@ -44,3 +44,6 @@ assert(!/secret|private|999/.test(JSON.stringify(assess(poisoned,300))));
 const trueFormula = {...sample, canonicalFormula:{a:1,b:10}};
 assert.strictEqual(assess(trueFormula,300).thirds[0].medianSignedResidualSeconds,-10);
 console.log('SubSync2 English -> Romanian read-only evidence regressions PASS');
+
+// Deliberately research-only. This tests the guard without importing the detector into the PWA.
+require('./en-ro-discontinuity-research.js');

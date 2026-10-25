@@ -1,5 +1,15 @@
 # SubSync2 — Project State
 
+## 2026-10-25 — Etapa #3 research-only: discontinuități cu ancore independente
+
+PR #103 **MERGED** `d2dd7cf0ce3ef6815bf85914972dd44f242b3f03` după 15/15 CI PASS. Aceasta finalizează **etapa #2** (colectare read-only a punctelor canonice pe EN audio → RO SRT, analiză distribuție/reziduuri, raport JSON local și test browser integral). Release PWA `deploy/pages-preview` a rămas pe buildul iPhone MP4 confirmat `a46305ab124bb5d5cf15b79f7f77b43e239ecd34`; nu confunda merge-ul de dezvoltare cu publicarea.
+
+**Etapa #3, în cercetare, nu în producție:** `web/src/en-ro-discontinuity-research.js` și `tests/js/en-ro-discontinuity-research.js` verifică strict un posibil salt de offset, pe ancore cue→audio deja verificate independent, incluzând comparația held-out cu drift liniar. Nu primesc puncte brute/candidate sau inlierii canonici drept verificare independentă. `docs/EN_RO_DISCONTINUITY_STUDY.md` descrie proveniența, pragurile exclusiv de laborator, limitele și testele fals pozitive. Niciun import din runtime, nicio corecție SRT sau modificare Save/correlation; această etapă rămâne în branch/PR până la CI verde și revizie. Ios background/IPA rămâne SUSPENDAT.
+
+Următorul pas după acest studiu este stabilirea unei surse verificabile de ancore din materiale cu ediții autorizate diferite și validarea falselor potriviri; **nu** activarea corecțiilor pe segmente fără dovezi independente.
+
+---
+
 ## 2026-10-25 — EN->RO read-only evidence diagnostic candidate (PR pending)
 
 **Completed milestone:** PR #94 was squash-merged to `main` as `f500d2d9a7221721a78b162574d45fb1940ca4d8`. Exact final-head CI finished with 13/13 SUCCESS; on the unrelated suspended iOS native simulator workflow, two attempts timed out at `simctl bootstatus` (180 s) and the third succeeded, without native source changes. The 33-cue generated EN->RO primary fixture on PR #94 final head had median absolute start error 0.485 s, P95 0.611 s, max 0.626 s, affine error drift 0.294 s; these are synthetic-input measurements only and do not establish precision on real titles.
