@@ -183,7 +183,7 @@ const millisecondEdges = new sandbox.module.exports();
   {start: 2, end: 3, text: 'Clamped before zero'},
 ].forEach(event => millisecondEdges.addSubtitle(event));
 const roundedSrt = millisecondEdges.getSynchronizedSubtitles({a: 1, b: -10}, 'srt').join('');
-assert.deepStrictEqual(roundedSrt.match(/\\d\\d:\\d\\d:\\d\\d,\\d{3}/g), [
+assert.deepStrictEqual(roundedSrt.match(/[0-9]{2}:[0-9]{2}:[0-9]{2},[0-9]{3}/g), [
   '00:00:00,001', '00:00:02,123',
   '00:00:00,029', '00:00:00,099',
   '00:01:00,000', '00:01:00,000',
