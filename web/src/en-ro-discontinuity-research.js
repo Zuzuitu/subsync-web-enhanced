@@ -70,42 +70,69 @@ function studyIndependentStep(input) {
   if (points.some((p, i) => !Number.isFinite(p.residual)
       || (i && p.time <= points[i - 1].time))) return unavailable('unordered-or-nonfinite-evidence');
 
+  // Globally reserve every second anchor before selecting any boundary. The
+  // held-out anchors are not inspected to choose the candidate hypothesis.
+  const training = points.filter((_, index) => index % 2 === 0);
+  const heldout = points.filter((_, index) => index % 2 === 1);
+  const trend = regress(training);
+  const trainingAffineSSE = sse(training, p => trend.intercept + trend.slope * p.time);
+  if (trainingAffineSSE <= 0) return unavailable('no-independently-supported-step');
   let best = null;
-  // Held-out anchors are never used to choose the group offsets.
-  for (let split = MIN_PER_SIDE; split <= points.length - MIN_PER_SIDE; split++) {
-    const left = points.slice(0, split), right = points.slice(split);
-    if (left[left.length-1].time - left[0].time < MIN_GROUP_DURATION_RATIO * durationSeconds
-        || right[right.length-1].time - right[0].time < MIN_GROUP_DURATION_RATIO * durationSeconds) continue;
-    const aTrain = left.filter((_, i) => i % 2 === 0);
-    const aHold = left.filter((_, i) => i % 2 === 1);
-    const bTrain = right.filter((_, i) => i % 2 === 0);
-    const bHold = right.filter((_, i) => i % 2 === 1);
-    if ([aTrain, aHold, bTrain, bHold].some(group => group.length < 4)) continue;
+  for (let split = 4; split <= training.length - 4; split++) {
+    const aTrain = training.slice(0, split);
+    const bTrain = training.slice(split);
+    if (aTrain[aTrain.length - 1].time - aTrain[0].time
+        < MIN_GROUP_DURATION_RATIO * durationSeconds
+        || bTrain[bTrain.length - 1].time - bTrain[0].time
+        < MIN_GROUP_DURATION_RATIO * durationSeconds) continue;
     const offA = median(aTrain.map(p => p.residual));
     const offB = median(bTrain.map(p => p.residual));
     if (Math.abs(offB - offA) < MIN_STEP_SECONDS
         || mad(aTrain.map(p => p.residual)) > MAX_LOCAL_MAD_SECONDS
         || mad(bTrain.map(p => p.residual)) > MAX_LOCAL_MAD_SECONDS) continue;
-    if (Math.abs(median(aHold.map(p => p.residual)) - offA) > MAX_HELDOUT_DELTA_SECONDS
-        || Math.abs(median(bHold.map(p => p.residual)) - offB) > MAX_HELDOUT_DELTA_SECONDS) continue;
-    const training = [...aTrain, ...bTrain];
-    const test = [...aHold, ...bHold];
-    const trend = regress(training);
-    const linearSSE = sse(test, p => trend.intercept + trend.slope * p.time);
-    const stepSSE = sse(aHold, () => offA) + sse(bHold, () => offB);
-    if (linearSSE <= 0 || stepSSE > STEP_TO_LINEAR_SSE_MAX * linearSSE) continue;
-    const candidate = {
-      schemaVersion: 1, researchOnly: true, supported: true,
-      verdict: 'possible-offset-step-not-a-confirmed-cut',
-      beforeAnchors: left.length, afterAnchors: right.length,
-      boundarySubtitleTimeFrom: left[left.length-1].time,
-      boundarySubtitleTimeTo: right[0].time,
-      residualStepSeconds: offB - offA,
-      heldoutStepSSE: stepSSE, heldoutAffineSSE: linearSSE,
-      interpretation: 'Independent verified cue-pair hypothesis only. No automatic correction, edition verdict, or Save eligibility change.'
-    };
-    if (!best || candidate.heldoutStepSSE < best.heldoutStepSSE) best = candidate;
+    const trainStepSSE = sse(aTrain, () => offA) + sse(bTrain, () => offB);
+    if (trainStepSSE > STEP_TO_LINEAR_SSE_MAX * trainingAffineSSE) continue;
+    const score = trainStepSSE / trainingAffineSSE;
+    if (!best || score < best.score) {
+      best = {
+        score, offA, offB,
+        boundaryFrom: aTrain[aTrain.length - 1].time,
+        boundaryTo: bTrain[0].time
+      };
+    }
   }
-  return best || unavailable('no-independently-supported-step');
+  if (!best) return unavailable('no-independently-supported-step');
+
+  // The training set identifies a BRACKET, not an exact cut cue. A fixed
+  // midpoint divides the fully untouched holdout exactly once. Do not search
+  // splits, fit offsets, or prefer candidates using this held-out evidence.
+  const boundary = (best.boundaryFrom + best.boundaryTo) / 2;
+  const aHold = heldout.filter(p => p.time <= boundary);
+  const bHold = heldout.filter(p => p.time > boundary);
+  if (aHold.length < 4 || bHold.length < 4) return unavailable('insufficient-independent-holdout');
+  if (Math.abs(median(aHold.map(p => p.residual)) - best.offA) > MAX_HELDOUT_DELTA_SECONDS
+      || Math.abs(median(bHold.map(p => p.residual)) - best.offB) > MAX_HELDOUT_DELTA_SECONDS) {
+    return unavailable('holdout-offset-disagrees');
+  }
+  const heldoutLinearSSE = sse(heldout, p => trend.intercept + trend.slope * p.time);
+  const heldoutStepSSE = sse(aHold, () => best.offA) + sse(bHold, () => best.offB);
+  if (!(heldoutLinearSSE > 0)
+      || heldoutStepSSE > STEP_TO_LINEAR_SSE_MAX * heldoutLinearSSE) {
+    return unavailable('holdout-linear-model-not-rejected');
+  }
+  return {
+    schemaVersion: 1,
+    researchOnly: true,
+    supported: true,
+    verdict: 'possible-offset-step-not-a-confirmed-cut',
+    beforeAnchors: points.filter(p => p.time <= boundary).length,
+    afterAnchors: points.filter(p => p.time > boundary).length,
+    boundarySubtitleTimeFrom: best.boundaryFrom,
+    boundarySubtitleTimeTo: best.boundaryTo,
+    residualStepSeconds: best.offB - best.offA,
+    heldoutStepSSE,
+    heldoutAffineSSE: heldoutLinearSSE,
+    interpretation: 'Laboratory hypothesis only; caller-asserted independent cue pairs are not authenticated. No automatic correction, cut verdict or Save eligibility change.'
+  };
 }
 module.exports = {studyIndependentStep};
