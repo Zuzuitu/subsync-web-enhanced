@@ -10,13 +10,13 @@ PR #94 a stabilit erorile de referință pentru un titlu sintetic cu offset cuno
 
 `web/src/en-ro-discontinuity-research.js` oferă `studyIndependentStep(input)`, apelabil **numai cu perechi de cue-uri verificate independent**, cu ID unic al cue-ului, timpul subtitrării și timpul referinței audio. Este interzisă folosirea directă a potrivirilor lexicale brute, a punctelor candidate sau a inlierilor `fitPointTimes` drept astfel de dovezi.
 
-Modulul verifică domeniul de timp, proveniența, unicitatea și limitele (16–256 ancore). Încearcă delimitări cronologice cu cel puțin opt ancore de fiecare parte și cu acoperire temporală minimă; ajustează mediile robuste ale reziduurilor față de linia dată **doar pe o jumătate din ancore**, apoi cere confirmare pe cele rezervate (held-out). Compară eroarea unui model cu salt cu un model cu derivă liniară. Dacă nu există dovezi suficiente, întoarce `supported=false`; dacă există, verdictul este doar `possible-offset-step-not-a-confirmed-cut`.
+Modulul verifică domeniul de timp, proveniența, unicitatea și limitele (16–256 ancore). Rezervă **global, înaintea căutării**, fiecare a doua ancoră pentru validare (held-out). Caută delimitarea folosind exclusiv setul de antrenare, care trebuie să acopere cronologic ambele părți. Alege un singur interval de delimitare între două ancore de antrenare, apoi folosește *o singură dată* punctele held-out pentru confirmare — nu le folosește pentru a alege dintre mai multe delimitări. Acest pas evită contaminarea validării prin selecție. Compară eroarea modelului cu salt cu deriva liniară pe datele independente de evaluare; cere dovezi de ambele părți. Dacă nu există dovezi suficiente, întoarce `supported=false`; dacă există, verdictul este doar `possible-offset-step-not-a-confirmed-cut`.
 
 Pragurile interne (inclusiv diferența de 1 s, MAD 0,25 s, raportul SSE 0,25 și acoperirea minimă) sunt **ipoteze conservative de laborator**, nu praguri de sincronizare, nu criterii universale de detectare, nu estimări de acuratețe și nu propuneri de schimbare a valorilor originale sc0ty.
 
 ## Regresii
 
-`tests/js/en-ro-discontinuity-research.js` verifică: caz affine perfect fără salt; derivă liniară (nu confunda cu cut); un singur fals pozitiv (nu accepta); două salturi neclare (fail closed); salt sintetic 8 s și variantă cu zgomot (ipoteză, nu confirmare); prea puține ancore, lipsă proveniență, cue-uri duplicate, coordonate nefinite; absența textelor private din rezultat.
+`tests/js/en-ro-discontinuity-research.js` verifică: caz affine perfect fără salt; derivă liniară (nu confunda cu cut); un singur fals pozitiv (nu accepta); două salturi neclare (fail closed); salt fals prezent doar în datele de antrenare (holdout trebuie să-l respingă); schimbare de semn a saltului; salt sintetic 8 s și variantă cu zgomot (ipoteză, nu confirmare); prea puține ancore, lipsă proveniență, cue-uri duplicate, coordonate nefinite; absența textelor private din rezultat.
 
 ## Limitări deliberate și condițiile pentru continuare
 
