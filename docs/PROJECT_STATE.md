@@ -1,5 +1,19 @@
 # SubSync2 — Project State
 
+## 2026-10-25 — CHECKPOINT ACTUAL: PR #107 merged; seturi reale recuperate + VAD privat, motor E2E încă neexecutat
+
+**Sursă de continuitate detaliată:** `docs/checkpoints/SUBSYNC2_CHECKPOINT_2026-10-25_REAL_AUDIO_HANDOFF.md`. Această secțiune **actualizează** notele mai vechi de mai jos care descriu PR-urile #94, #103, #104, #105 sau #107 drept „pending”.
+
+**GitHub verificat:** PR #94 merged `f500d2d9a7221721a78b162574d45fb1940ca4d8` (13/13), PR #103 merged `d2dd7cf0ce3ef6815bf85914972dd44f242b3f03` (15/15), PR #104 merged `f6c01534b926d67d777855c4b9ad40c09f6407d6` (12/12), PR #105 merged `146abb22fb2278cd3fac4f4f0ea0fd8612ac8502` (12/12, exact fixture artifact ID în CI), PR #107 merged `1b5edf8d0b6a0a45f583e6fa9599930d41e3ab24` (9/9). Issue #106 este închis după rezolvarea selecției vechiului fixture; issue istoric #101 simulator iOS rămâne deschis. `deploy/pages-preview` este **neschimbat** pe `a46305ab124bb5d5cf15b79f7f77b43e239ecd34`.
+
+**Dovezi private:** șase seturi Drive cu audio și `Original.srt`/`Decalare.srt`; toate cele **7.023** cue-uri corespund exact, cu shift de **+10.000 ms** constant și fără modificare de text/durată. Au fost analizate local toate cele șase MP3-uri cu FFmpeg + WebRTC VAD și câte 320 ferestre SRT pe titlu (1.920); cinci rezultate VAD sprijină preliminar intervalele `Original.srt` versus +10 s, iar unul este neconcludent prin saturație. **VAD este doar screen acustic; NU s-a rulat SubSync2 ASR + corelator + Save/export pe cele șase surse reale; nu există încă eroare whole-title verificată sau ground truth audio independent.** Niciun fișier privat nu este introdus în repo/CI.
+
+**Decizie utilizator:** nu solicita repetarea manuală a sincronizărilor pe iPhone. Recuperează și reutilizează fișierele existente din Drive și, dacă este posibil, artefactele locale private. Pasul următor este un **harness strict local al motorului canonic PWA** cu cele șase audio + SRT deplasate, probe audio–cue independente, comparare export la referință după validare, metrici întreg titlul / treimi și raport separat per set. Fără praguri slăbite, offset inventat, editări pe film, upload media, servicii plătite sau codepath piecewise automat; procesarea rămâne locală, iar iOS native/background/IPA este SUSPENDAT.
+
+**Disciplină release:** această actualizare este doar documentară; nu înseamnă deploy nou. Pentru toate modificările materiale: branch → PR → exact-head CI green → merge; apoi deploy numai deliberat.
+
+---
+
 ## 2026-10-25 — PR #105 merged; private-media baseline SRT-pair verification (stage #4)
 
 **Confirmed:** #105 squash merged as `146abb22fb2278cd3fac4f4f0ea0fd8612ac8502` after 12/12 CI SUCCESS. Shared EN→RO artifact-ID provenance fixed without changing canonical matching. Native/WebAssembly maximum timestamp difference on the *same successful generated input* was 0 ms. Tracking issue #106 closed. This is synthetic same-input parity, not perfect alignment of real films.
