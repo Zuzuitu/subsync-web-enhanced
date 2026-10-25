@@ -83,6 +83,10 @@ jobs:
           path: ios/build/dependencies.log
 
   shared-fixture:
+    # Preserve the exact verified producer artifact, even across GitHub job
+    # retries where multiple artifacts share the same display name.
+    outputs:
+      verified_fixture_artifact_id: ${{ steps.upload_verified_fixture.outputs.artifact-id }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -125,6 +129,7 @@ jobs:
           python3 tests/fixtures/generate-en-ro-e2e.py
           python3 tests/wasm/run-en-ro-e2e.py
       - uses: actions/upload-artifact@v4
+        id: upload_verified_fixture
         if: always()
         with:
           name: native-shared-en-ro-fixture
@@ -158,8 +163,14 @@ jobs:
         with: {name: native-deps-iphonesimulator-arm64, path: ios/vendor/iphonesimulator-arm64}
       - uses: actions/download-artifact@v4
         with: {name: native-deps-iphonesimulator-x86_64, path: ios/vendor/iphonesimulator-x86_64}
-      - uses: actions/download-artifact@v4
-        with: {name: native-shared-en-ro-fixture, path: tests/generated/en-ro-e2e}
+      # Do not download by non-unique name: a successful producer rerun can
+      # coexist with a failed older artifact in the same workflow run.
+      - name: Download exact producer fixture artifact
+        uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ needs.shared-fixture.outputs.verified_fixture_artifact_id }}
+          path: tests/generated/en-ro-e2e
+          merge-multiple: true # v4 preserves the previously name-based flat extract path
       - name: Build native media engine and compare on identical browser inputs
         run: |
           mkdir -p ios/build

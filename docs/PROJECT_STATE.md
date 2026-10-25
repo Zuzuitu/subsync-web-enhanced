@@ -1,5 +1,27 @@
 # SubSync2 — Project State
 
+## 2026-10-25 — PR #105 CI: proven artifact-ID ambiguity after fixture retry
+
+**Evidence on PR #105:** head `763fe59e0e7b5d6fb4c9e5c0671b1c1c34c07875` initially passed primary PWA/WebKit/stress/Android and then failed two unrelated EN→RO gates. Original `shared-fixture` voice synthesis 33 cues, 76.8553125 s, 27/33 recognized calibration keys, browser factor `0.9998830942974953`/20 points, **correctly NOT correlated** under unmodified sc0ty threshold `0.9999`; artifact `12597173360`. Successful unchanged producer retry produced 33 cues, 76.901625 s, 31/33 keys, factor `0.9999013200564293`/25 points; artifact `12596962684`.
+
+**Isolated downstream bug:** BOTH subsequent `native-build` attempts silently downloaded the original **failed** artifact `12597173360` by its non-unique name, rather than the successful producer retry artifact. Their native factor `0.9998830942974958`/20 points repeats the original failed browser fit; this does **not** prove the native implementation diverges on the successful fixture. Tracking issue: `#106`. Browser WebAssembly build is SUCCESS; native cannot be marked green on the wrong input.
+
+**CI-only fix in PR #105 branch:** `.github/workflows/ios-native-background.yml` now publishes `steps.upload_verified_fixture.outputs.artifact-id` as `jobs.shared-fixture.outputs.verified_fixture_artifact_id`, and `native-build` downloads by this exact ID with flat extraction. No native source changes, no iOS feature work, no threshold changes, no bypass. The freeze on native iOS/background/IPA remains active. Verify the exact downloaded artifact ID on the new final-head CI before merge; investigate any remaining true same-input discrepancies separately. Piper synthesized voice quality may vary between independent runs: never mistake variability for an automatic alignment guarantee.
+
+**Release:** `main` remains `f6c01534b926d67d777855c4b9ad40c09f6407d6` after merged #104, and production `deploy/pages-preview` remains validated MP4 iPhone build `a46305ab124bb5d5cf15b79f7f77b43e239ecd34`. PR #105 stays open until exact-head CI green and merge; independent real-film validation still pending.
+
+---
+
+## 2026-10-25 — Etapa #3 continuată: fixture EN→RO cu ediții sintetice controlate
+
+PR #104 **MERGED** `f6c01534b926d67d777855c4b9ad40c09f6407d6`, exact-head CI 12/12 SUCCESS. Studiul experimental are selecția intervalului exclusiv pe ancorele train, validare doar pe heldout rezervat global, negative controls pentru drift/fals match/multiple edits/ordonare inversă și 384 de cazuri sintetice determinate. **Nu este activ în PWA și nu produce automat SRT.**
+
+**PR ulterior, în verificare:** `tests/research/validate-generated-en-ro-editions.js` citește direct `tests/generated/en-ro-e2e/fixture.json`, cu timpii audio/subtitrare scriși de generatorul Piper original, și aplică transformări controlate: scenă inserată +8s, bloc eliminat cu spațiu verificat, drift, fals match, multiple editări, lipsă dovezi și cronologie inversată. Se execută read-only în `legacy-web-build.yml`, după sinteză; fără date ale utilizatorului, fără upload nou și fără modificarea motorului sau a pragurilor sc0ty. Validarea nu demonstrează încă perechi sigure de cue-uri pentru filme reale. Vezi `docs/EN_RO_DISCONTINUITY_STUDY.md`.
+
+**Producție:** `deploy/pages-preview` rămâne pe `a46305ab124bb5d5cf15b79f7f77b43e239ecd34` (MP4 pe iPhone confirmat); merge-urile sunt doar în `main`. iOS native / background / IPA rămân explicit SUSPENDATE. Etapa următoare: verificați e2e și artefactele PR-ului cu ediții sintetice; apoi comparații read-only pe materiale independente autorizate, înainte de orice corecție piecewise.
+
+---
+
 ## 2026-10-25 — Etapa #3 research-only: discontinuități cu ancore independente
 
 PR #103 **MERGED** `d2dd7cf0ce3ef6815bf85914972dd44f242b3f03` după 15/15 CI PASS. Aceasta finalizează **etapa #2** (colectare read-only a punctelor canonice pe EN audio → RO SRT, analiză distribuție/reziduuri, raport JSON local și test browser integral). Release PWA `deploy/pages-preview` a rămas pe buildul iPhone MP4 confirmat `a46305ab124bb5d5cf15b79f7f77b43e239ecd34`; nu confunda merge-ul de dezvoltare cu publicarea.
