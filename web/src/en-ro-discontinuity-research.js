@@ -69,6 +69,11 @@ function studyIndependentStep(input) {
   points.sort((a, b) => a.time - b.time);
   if (points.some((p, i) => !Number.isFinite(p.residual)
       || (i && p.time <= points[i - 1].time))) return unavailable('unordered-or-nonfinite-evidence');
+  // A pair of independently verified correspondences must not time-travel in
+  // the reference edition. Reordered cue histories cannot prove a clean cut.
+  if (points.some((p, i) => i && p.referenceTime <= points[i - 1].referenceTime)) {
+    return unavailable('nonmonotonic-reference-evidence');
+  }
 
   // Globally reserve every second anchor before selecting any boundary. The
   // held-out anchors are not inspected to choose the candidate hypothesis.
