@@ -118,10 +118,13 @@ class SubRip {
   }
 
   static formatTime(t) {
-    const hh = Math.floor(t / 3600).toString().padStart(2, '0');
-    const mm = Math.floor(t / 60 % 60).toString().padStart(2, '0');
-    const ss = Math.floor(t % 60).toString().padStart(2, '0');
-    const fff = Math.floor(t * 1000 % 1000).toString().padStart(3, '0');
+    // Round once before splitting into fields: floating-point subtraction can make
+    // a valid millisecond (e.g. 10.001 - 10) appear just below its boundary.
+    const totalMilliseconds = Math.round(t * 1000);
+    const hh = Math.floor(totalMilliseconds / 3600000).toString().padStart(2, '0');
+    const mm = Math.floor(totalMilliseconds / 60000 % 60).toString().padStart(2, '0');
+    const ss = Math.floor(totalMilliseconds / 1000 % 60).toString().padStart(2, '0');
+    const fff = (totalMilliseconds % 1000).toString().padStart(3, '0');
     return `${hh}:${mm}:${ss},${fff}`;
   }
 }
