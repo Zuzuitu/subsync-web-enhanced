@@ -171,4 +171,28 @@ assert.deepStrictEqual(enRoDiagnostic.englishRomanianEvidence.thirds.map(x => x.
 assert.strictEqual(diagnosticReport(enRoStatus, review, env).englishRomanianEvidence, undefined,
   'EN->RO-only summary must not leak into other languages');
 require('./en-ro-evidence.js');
+// SubRip exports rounded integer milliseconds. Floating-point subtraction may
+// produce values like (10.001 - 10) * 1000 = 0.9999999999994458;
+// truncation used to serialize 000 instead of the intended 001.
+const millisecondEdges = new sandbox.module.exports();
+[
+  {start: 10.001, end: 12.123, text: 'Știință și sănătate'},
+  {start: 10.029, end: 10.099, text: 'Țară'},
+  {start: 69.9996, end: 70.0004, text: 'Minute boundary'},
+  {start: 3610.0004, end: 3610.001, text: 'Hour boundary'},
+  {start: 2, end: 3, text: 'Clamped before zero'},
+].forEach(event => millisecondEdges.addSubtitle(event));
+const roundedSrt = millisecondEdges.getSynchronizedSubtitles({a: 1, b: -10}, 'srt').join('');
+assert.deepStrictEqual(roundedSrt.match(/\\d\\d:\\d\\d:\\d\\d,\\d{3}/g), [
+  '00:00:00,001', '00:00:02,123',
+  '00:00:00,029', '00:00:00,099',
+  '00:01:00,000', '00:01:00,000',
+  '01:00:00,000', '01:00:00,001',
+  '00:00:00,000', '00:00:00,000',
+], 'SRT rounds once at the millisecond unit, including carries and clamp');
+assert(roundedSrt.includes('Știință și sănătate'));
+assert(roundedSrt.includes('Țară'));
+assert.strictEqual(millisecondEdges.getSynchronizedSubtitles({a: 1, b: -10}, 'srt').join(''), roundedSrt,
+  'formatting the same event list twice is deterministic');
+
 console.log('Read-only timing review, export parity and diagnostic privacy: OK');
