@@ -1,5 +1,15 @@
 # SubSync2 — Project State
 
+## 2026-10-25 — EN->RO read-only evidence diagnostic candidate (PR pending)
+
+**Completed milestone:** PR #94 was squash-merged to `main` as `f500d2d9a7221721a78b162574d45fb1940ca4d8`. Exact final-head CI finished with 13/13 SUCCESS; on the unrelated suspended iOS native simulator workflow, two attempts timed out at `simctl bootstatus` (180 s) and the third succeeded, without native source changes. The 33-cue generated EN->RO primary fixture on PR #94 final head had median absolute start error 0.485 s, P95 0.611 s, max 0.626 s, affine error drift 0.294 s; these are synthetic-input measurements only and do not establish precision on real titles.
+
+**Next candidate (this branch, NOT released):** read-only EN English reference audio → Romanian subtitle diagnostic calculated only from the already exported canonically retained coordinate pairs (maximum 256 points) and accepted affine formula: match counts and distinct timestamps by reference-time thirds, largest evidence gap, temporal span, signed and absolute model residuals. Candidate points, raw speech, subtitles, filenames and media are NOT used; the data is included only in the locally downloaded diagnostic JSON for the target workflow. Reject missing, truncated, nonfinite and noncanonical evidence. Matches can repeat within the same cue and do not prove independent alignment. Residuals to the fitted line are **not** ground-truth subtitle timing accuracy; no edition/cut classification, automatic correction, save-policy change or new thresholds.
+
+**Release discipline:** tests must pass at this branch head, review via PR and merge only after green; `deploy/pages-preview` remains on the validated MP4 import build `a46305ab124bb5d5cf15b79f7f77b43e239ecd34` until deliberate release. Physical iPhone confirmation of MP4 import remains recorded below. iOS native/background/IPA development remains PAUSED.
+
+---
+
 ## 2026-10-25 — Test fizic iPhone după PR #100: importul nu mai este blocat
 
 **Raport de utilizator (iPhone, 25 octombrie 2026):** după publicarea fixului PR #100, eroarea `Demux.avformat_open_input / AVERROR_INVALIDDATA` nu mai apare și aplicația funcționează. Acesta este un test fizic pozitiv raportat de utilizator, suplimentar față de CI și testele din browser. Nu este stabilit dacă recovery-ul OPFS s-a activat pe telefon și nu sunt disponibile încă măsurători ale preciziei pe întregul SRT, ale exportului final pe acest titlu sau ale tuturor formatelor.
