@@ -57,6 +57,8 @@ jobs:
         run: node tests/js/save-policy.js
       - name: Validate read-only timing review and diagnostic privacy
         run: node tests/js/timing-review.js
+      - name: Validate private SRT comparison without data uploads or soundtrack claims
+        run: node tests/js/audit-srt-pair.js
       - name: Validate Audio Extractor tab integration
         run: node tests/js/audio-extractor-tab.js
       - name: Validate legacy web package metadata
