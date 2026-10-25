@@ -121,6 +121,40 @@ try:
         formula = page.locator("#subsync_app").locator("strong").nth(3).inner_text()
         max_change = page.locator("#subsync_app").locator("strong").nth(4).inner_text()
 
+        # Stage 2: validate the REAL exported local diagnostic on the EN->RO
+        # browser workflow, not merely the pure Node statistics helper.
+        diagnostic_button = page.get_by_role(
+            "button", name="Download diagnostic report", exact=True)
+        if diagnostic_button.is_disabled():
+            raise SystemExit("EN->RO diagnostic download remained disabled")
+        with page.expect_download(timeout=30_000) as diagnostic_info:
+            diagnostic_button.click()
+        diagnostic_path = ROOT / "tests" / "generated" / "web-primary-workflow-diagnostic.json"
+        diagnostic_info.value.save_as(str(diagnostic_path))
+        diagnostic_data = json.loads(diagnostic_path.read_text(encoding="utf-8"))
+        en_ro_evidence = diagnostic_data.get("englishRomanianEvidence")
+        if not isinstance(en_ro_evidence, dict) or not en_ro_evidence.get("available"):
+            raise SystemExit("EN->RO retained-point evidence missing/unavailable in browser JSON: "
+                             + str(en_ro_evidence))
+        if (en_ro_evidence.get("basis") != "retained-matches-vs-accepted-affine-line"
+                or not 2 <= en_ro_evidence.get("rawMatchCount", 0) <= 256
+                or len(en_ro_evidence.get("thirds", [])) != 3):
+            raise SystemExit("EN->RO diagnostic evidence schema or bounds are invalid")
+        if (sum(third["rawMatchCount"] for third in en_ro_evidence["thirds"])
+                + en_ro_evidence["outsideReferenceDurationCount"]
+                != en_ro_evidence["rawMatchCount"]):
+            raise SystemExit("EN->RO reported evidence partition counts differ")
+        for metric in ("referenceEvidenceSpanSeconds", "referenceEvidenceSpanRatio",
+                       "largestReferenceEvidenceGapSeconds",
+                       "medianAbsoluteModelResidualSeconds"):
+            if not math.isfinite(en_ro_evidence[metric]):
+                raise SystemExit("EN->RO diagnostic contains nonfinite metric: " + metric)
+        if "cutDetected" in en_ro_evidence or "correctedFormula" in en_ro_evidence:
+            raise SystemExit("Read-only diagnostic unexpectedly claimed a cut/correction")
+        if any(private_name in json.dumps(diagnostic_data)
+               for private_name in (MKV_IN.name, SRT_IN.name)):
+            raise SystemExit("Diagnostic JSON leaked private media or subtitle filename")
+
         save_button = page.get_by_role("button", name="Save subtitles", exact=True)
         if save_button.is_disabled():
             raise SystemExit("Save subtitles stayed disabled after successful synchronization")
@@ -224,6 +258,8 @@ try:
             "fullTitleTimingQuality": timing_quality,
             "fullTitleTimingQualityEvidence": "synthetic known-offset reference, not film accuracy",
             "fullTitleTimingQualityGate": "measurement-only baseline; existing first-cue limits unchanged",
+            "englishRomanianEvidence": en_ro_evidence,
+            "englishRomanianEvidenceBasis": "accepted fit residuals, not independent ground truth",
             "savedBytes": SAVED.stat().st_size,
             "downloadSuggestedFilename": suggested_filename,
             "savePopupText": popup_text,

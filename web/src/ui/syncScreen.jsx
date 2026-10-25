@@ -110,6 +110,8 @@ export default class SyncScreen {
   }
 
   update({sub, ref}) {
+    this.enRoAudioReference = ref.type === 'audio' && ref.lang === 'eng' && sub.lang === 'rum';
+    this.referenceDurationSeconds = Number(ref.duration) || 0;
     this.out = {
       fileName: ref.file.name,
       lang: sub.lang
@@ -317,6 +319,8 @@ export default class SyncScreen {
       browser: navigator.userAgent,
       elapsedSeconds: (performance.now() - this.startTime) / 1000,
       outcome: this.fatalError ? 'failed' : finished ? 'completed' : 'stopped',
+      enRoAudioReference: this.enRoAudioReference,
+      referenceDurationSeconds: this.referenceDurationSeconds,
     });
     this.reportBtn.disabled = false;
     this.timingReviewPanel.hidden = !review.available;
@@ -345,6 +349,8 @@ export default class SyncScreen {
         runtime: runtimeVersion, browser: navigator.userAgent,
         elapsedSeconds: (performance.now() - this.startTime) / 1000,
         outcome: 'running',
+        enRoAudioReference: this.enRoAudioReference,
+        referenceDurationSeconds: this.referenceDurationSeconds,
       });
     let url;
     let link;

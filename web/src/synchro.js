@@ -171,6 +171,31 @@ export default class Synchronizer {
       listener.onSyncStarted();
       await Promise.all(this.extractors.map( (ex, i) => this.runExtractor(ex, i, listener)) );
 
+      // EN audio -> RO SRT already uses the canonical sync result. Its word-
+      // by-word correlation updates do not carry retained match coordinates;
+      // obtain one final read-only snapshot for the user-requested diagnostic.
+      // Never replace the accepted status/formula or modify Save eligibility.
+      if (ref.type === 'audio' && ref.lang === 'eng' && sub.lang === 'rum'
+          && this.status && this.status.correlated && this.status.formula) {
+        try {
+          const diagnosticStats = await this.correlator.getStats(this.referenceDuration);
+          const accepted = this.status.formula;
+          const diagnosticFormula = diagnosticStats && diagnosticStats.formula;
+          if (diagnosticStats && diagnosticStats.correlated
+              && diagnosticStats.precision && diagnosticFormula
+              && diagnosticFormula.a === accepted.a
+              && diagnosticFormula.b === accepted.b) {
+            this.status.precision = diagnosticStats.precision;
+            this.diagnostics.precision = { ...diagnosticStats.precision };
+          } else {
+            logger.warn('EN->RO diagnostic evidence unavailable: final fitted formula differs from accepted formula');
+          }
+        } catch (error) {
+          // Diagnostics must never turn a working sync/export into a failure.
+          logger.warn('EN->RO final read-only evidence snapshot unavailable', error);
+        }
+      }
+
       this.applyRomanianPrecisionRefinement();
 
       this.recordStage(listener, 'processing', 'ready');

@@ -161,4 +161,14 @@ preview.samples.forEach((sample, i) => {
   assert(Math.abs(seconds(timestamps[i * 2]) - sample.afterStart) < 0.0011);
   assert(Math.abs(seconds(timestamps[i * 2 + 1]) - sample.afterEnd) < 0.0011);
 });
+const enRoStatus = {correlated: true, formula: {a: 1, b: 0},
+  precision: {rawPoints: 3, fitPointTimes: [[20,20], [150,150], [250,250]]}};
+const enRoEnvironment = {...env, enRoAudioReference: true, referenceDurationSeconds: 300};
+const enRoDiagnostic = diagnosticReport(enRoStatus, review, enRoEnvironment);
+assert.strictEqual(enRoDiagnostic.englishRomanianEvidence.available, true);
+assert.deepStrictEqual(enRoDiagnostic.englishRomanianEvidence.thirds.map(x => x.rawMatchCount),
+  [1, 1, 1]);
+assert.strictEqual(diagnosticReport(enRoStatus, review, env).englishRomanianEvidence, undefined,
+  'EN->RO-only summary must not leak into other languages');
+require('./en-ro-evidence.js');
 console.log('Read-only timing review, export parity and diagnostic privacy: OK');
