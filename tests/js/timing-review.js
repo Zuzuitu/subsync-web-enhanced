@@ -161,4 +161,49 @@ preview.samples.forEach((sample, i) => {
   assert(Math.abs(seconds(timestamps[i * 2]) - sample.afterStart) < 0.0011);
   assert(Math.abs(seconds(timestamps[i * 2 + 1]) - sample.afterEnd) < 0.0011);
 });
+
+// English-reference / Romanian-subtitle evidence review is read-only, optional
+// and strictly distinguished from independently measured SRT timing error.
+const { reviewCorrelationEvidence } = require('../../web/src/evidence-review.js');
+const enRoStatus = {correlated: true, formula: {a: 1, b: -8},
+  precision: {rawPoints: 6, buckets: 5, fitPointTimesTruncated: false,
+    fitPointTimes: [[12, 4], [20, 12], [32, 24], [75, 67], [83, 75], [90, 82]]}};
+const enRoBefore = JSON.stringify(enRoStatus);
+const coverage = reviewCorrelationEvidence(enRoStatus, 90);
+assert.strictEqual(coverage.available, true);
+assert.deepStrictEqual([
+  coverage.beginningPointCount, coverage.middlePointCount, coverage.finalPointCount,
+], [3, 0, 3]);
+assert.strictEqual(coverage.retainedPointCount, 6);
+assert.strictEqual(coverage.cueBucketCount, 5);
+assert.strictEqual(coverage.largestUnobservedGapSeconds, 43);
+assert.strictEqual(coverage.medianAbsFitResidualSeconds, 0);
+assert.strictEqual(coverage.maxAbsFitResidualSeconds, 0);
+assert.strictEqual(coverage.falseMatchAssessment, 'not-measured');
+assert.strictEqual(coverage.cutAssessment, 'not-measured');
+assert.strictEqual(JSON.stringify(enRoStatus), enRoBefore, 'evidence review cannot mutate source');
+assert.strictEqual(reviewCorrelationEvidence({...enRoStatus, correlated: false}, 90).reason,
+  'no-canonical-lock');
+assert.strictEqual(reviewCorrelationEvidence({...enRoStatus, correlationSource: 'romanian-vad'}, 90).available,
+  false);
+assert.strictEqual(reviewCorrelationEvidence(enRoStatus, 0).reason, 'reference-duration-unavailable');
+assert.strictEqual(reviewCorrelationEvidence({...enRoStatus, precision: {...enRoStatus.precision,
+  fitPointTimesTruncated: true}}, 90).reason, 'point-coordinates-truncated');
+assert.strictEqual(reviewCorrelationEvidence({...enRoStatus, precision: {...enRoStatus.precision,
+  rawPoints: 7}}, 90).reason, 'incomplete-point-coordinates');
+assert.strictEqual(reviewCorrelationEvidence({...enRoStatus, precision: {...enRoStatus.precision,
+  fitPointTimes: [[3, 4, 'private speech']]}}, 90).available, false);
+assert.strictEqual(reviewCorrelationEvidence({...enRoStatus, precision: {...enRoStatus.precision,
+  rawPoints: 1, fitPointTimes: [[30, 91]]}}, 90).reason, 'points-outside-reference');
+assert.strictEqual(reviewCorrelationEvidence({...enRoStatus, canonicalFormula: {a: 1, b: -8},
+  formula: {a: 1, b: -10}}, 90).medianAbsFitResidualSeconds, 0);
+assert.strictEqual(reviewCorrelationEvidence({...enRoStatus, formula: {a: 1, b: Infinity}}, 90).available,
+  false);
+const enRoReport = diagnosticReport(enRoStatus, review, {...env, referenceDuration: 90});
+assert.strictEqual(enRoReport.evidenceReview.available, true);
+assert.strictEqual(enRoReport.evidenceReview.middlePointCount, 0);
+assert.strictEqual(enRoReport.evidenceReview.falseMatchAssessment, 'not-measured');
+assert(!/private speech|secret title|media bytes/.test(JSON.stringify(enRoReport)),
+  'diagnostic must never include media, filenames or transcript');
+
 console.log('Read-only timing review, export parity and diagnostic privacy: OK');

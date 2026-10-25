@@ -1,5 +1,15 @@
 # SubSync2 — Project State
 
+## 2026-10-25 — Stage 2 candidate: read-only retained-point coverage and residual report
+
+**Prerequisite completed:** PR #94 merged as \`f500d2d9a7221721a78b162574d45fb1940ca4d8\`, after all 13 final-head CI checks succeeded (iOS simulator boot needed two failed attempts before succeeding on the third). This merged the EN audio → RO SRT whole-title benchmark; no runtime algorithm changes were made. The physical iPhone MP4 import fix remains confirmed by the user. CI simulator flakiness is tracked in issue #101; do not conflate it with physical iPhone failures.
+
+**This stage is read-only evidence, not synchronization refinement.** Use existing bounded \`precision.fitPointTimes\` coordinates emitted by the WASM correlator, never raw transcript/media. When canonical acceptance holds and the complete coordinate set is available (up to the existing 256-point transport limit), summarize per-third point counts on the reference-audio timeline, span, largest unobserved temporal gap, median/max absolute residual to the canonical affine formula, and reported cue bucket count. A missing duration, truncated points, provisional match, non-finite value or unverifiable domain must yield an explicit unavailable reason instead of a fabricated coverage number. \`falseMatchAssessment\` and \`cutAssessment\` remain \`not-measured\` because retained inliers cannot validate excluded matches or prove an edition cut. Do not mistake residuals from accepted fit points for real SRT timing error measured against independent ground truth.
+
+**Privacy:** additional report data are numeric/allowlisted only; no filenames, subtitle text, recognized speech or upload. All input parsing, output formulas, canonical gates, model assets, language catalog, export behavior and iOS native feature scope remain unchanged. Stage 2 changes are on a branch; after CI green and PR merge, decide separately whether to publish a new PWA build. Stage 3 (cut/edition evidence) is diagnostic-only and must not be enabled prematurely.
+
+---
+
 ## 2026-10-25 — Test fizic iPhone după PR #100: importul nu mai este blocat
 
 **Raport de utilizator (iPhone, 25 octombrie 2026):** după publicarea fixului PR #100, eroarea `Demux.avformat_open_input / AVERROR_INVALIDDATA` nu mai apare și aplicația funcționează. Acesta este un test fizic pozitiv raportat de utilizator, suplimentar față de CI și testele din browser. Nu este stabilit dacă recovery-ul OPFS s-a activat pe telefon și nu sunt disponibile încă măsurători ale preciziei pe întregul SRT, ale exportului final pe acest titlu sau ale tuturor formatelor.

@@ -110,6 +110,7 @@ export default class SyncScreen {
   }
 
   update({sub, ref}) {
+    this.referenceDuration = Number(ref && ref.duration) || 0;
     this.out = {
       fileName: ref.file.name,
       lang: sub.lang
@@ -316,6 +317,7 @@ export default class SyncScreen {
       runtime: runtimeVersion,
       browser: navigator.userAgent,
       elapsedSeconds: (performance.now() - this.startTime) / 1000,
+      referenceDuration: this.referenceDuration,
       outcome: this.fatalError ? 'failed' : finished ? 'completed' : 'stopped',
     });
     this.reportBtn.disabled = false;
@@ -344,6 +346,7 @@ export default class SyncScreen {
       Synchronizer.instance.getStatus(), Synchronizer.instance.getTimingReview(), {
         runtime: runtimeVersion, browser: navigator.userAgent,
         elapsedSeconds: (performance.now() - this.startTime) / 1000,
+        referenceDuration: this.referenceDuration,
         outcome: 'running',
       });
     let url;

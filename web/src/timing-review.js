@@ -1,6 +1,7 @@
 'use strict';
 
 const { isSaveReady } = require('./save-policy.js');
+const { reviewCorrelationEvidence } = require('./evidence-review.js');
 
 // Read-only projection: use the same endpoint mapping/clamp as subtitle export.
 function timingReview(events, formula) {
@@ -131,6 +132,7 @@ function diagnosticReport(status, review, environment) {
       ]
     ),
     precision: precisionEvidence(status.precision || diagnostics.precision),
+    evidenceReview: reviewCorrelationEvidence(status, environment.referenceDuration),
     errorCount: Array.isArray(diagnostics.errors) ? diagnostics.errors.length : 0,
     timingReview: review,
   };
