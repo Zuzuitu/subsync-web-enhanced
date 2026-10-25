@@ -1,5 +1,15 @@
 # SubSync2 — Project State
 
+## 2026-10-25 — Etapa #3 continuată: fixture EN→RO cu ediții sintetice controlate
+
+PR #104 **MERGED** `f6c01534b926d67d777855c4b9ad40c09f6407d6`, exact-head CI 12/12 SUCCESS. Studiul experimental are selecția intervalului exclusiv pe ancorele train, validare doar pe heldout rezervat global, negative controls pentru drift/fals match/multiple edits/ordonare inversă și 384 de cazuri sintetice determinate. **Nu este activ în PWA și nu produce automat SRT.**
+
+**PR ulterior, în verificare:** `tests/research/validate-generated-en-ro-editions.js` citește direct `tests/generated/en-ro-e2e/fixture.json`, cu timpii audio/subtitrare scriși de generatorul Piper original, și aplică transformări controlate: scenă inserată +8s, bloc eliminat cu spațiu verificat, drift, fals match, multiple editări, lipsă dovezi și cronologie inversată. Se execută read-only în `legacy-web-build.yml`, după sinteză; fără date ale utilizatorului, fără upload nou și fără modificarea motorului sau a pragurilor sc0ty. Validarea nu demonstrează încă perechi sigure de cue-uri pentru filme reale. Vezi `docs/EN_RO_DISCONTINUITY_STUDY.md`.
+
+**Producție:** `deploy/pages-preview` rămâne pe `a46305ab124bb5d5cf15b79f7f77b43e239ecd34` (MP4 pe iPhone confirmat); merge-urile sunt doar în `main`. iOS native / background / IPA rămân explicit SUSPENDATE. Etapa următoare: verificați e2e și artefactele PR-ului cu ediții sintetice; apoi comparații read-only pe materiale independente autorizate, înainte de orice corecție piecewise.
+
+---
+
 ## 2026-10-25 — Etapa #3 research-only: discontinuități cu ancore independente
 
 PR #103 **MERGED** `d2dd7cf0ce3ef6815bf85914972dd44f242b3f03` după 15/15 CI PASS. Aceasta finalizează **etapa #2** (colectare read-only a punctelor canonice pe EN audio → RO SRT, analiză distribuție/reziduuri, raport JSON local și test browser integral). Release PWA `deploy/pages-preview` a rămas pe buildul iPhone MP4 confirmat `a46305ab124bb5d5cf15b79f7f77b43e239ecd34`; nu confunda merge-ul de dezvoltare cu publicarea.
