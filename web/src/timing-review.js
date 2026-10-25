@@ -1,6 +1,7 @@
 'use strict';
 
 const { isSaveReady } = require('./save-policy.js');
+const { summarizeEnRoEvidence } = require('./en-ro-evidence.js');
 
 // Read-only projection: use the same endpoint mapping/clamp as subtitle export.
 function timingReview(events, formula) {
@@ -90,7 +91,7 @@ function precisionEvidence(source) {
 
 function diagnosticReport(status, review, environment) {
   const diagnostics = status.diagnostics || {};
-  return {
+  const report = {
     schemaVersion: 1,
     application: 'SubSync2',
     runtime: environment.runtime,
@@ -134,6 +135,13 @@ function diagnosticReport(status, review, environment) {
     errorCount: Array.isArray(diagnostics.errors) ? diagnostics.errors.length : 0,
     timingReview: review,
   };
+  // Add only to the existing user-initiated local JSON report for EN audio -> RO SRT.
+  // The model residuals are NOT measured subtitle accuracy or a cut verdict.
+  if (environment.enRoAudioReference === true) {
+    report.englishRomanianEvidence = summarizeEnRoEvidence(
+      status, environment.referenceDurationSeconds);
+  }
+  return report;
 }
 
 module.exports = { timingReview, diagnosticReport };
