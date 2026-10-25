@@ -94,4 +94,8 @@ for (const mode of ['flat', 'slope', 'step8', 'stepMinus8', 'singleOutlier',
       'synthetic ' + mode + ' seed ' + seed);
   }
 }
+const reorderedAudio = fixture('single-step');
+reorderedAudio.anchors[13].referenceTime = reorderedAudio.anchors[11].referenceTime - 1;
+assert.strictEqual(study(reorderedAudio).reason, 'nonmonotonic-reference-evidence',
+  'reordered or ambiguous reference matches cannot corroborate a simple cut');
 console.log('Read-only independent-evidence discontinuity research: PASS');
