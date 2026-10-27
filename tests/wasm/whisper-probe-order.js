@@ -5,7 +5,7 @@
 // Regression asserts equal fresh/reused output with unchanged input/model.
 const fs=require('node:fs'), path=require('node:path'), assert=require('node:assert/strict');
 const root=path.resolve(__dirname,'../..'), mode=process.argv[2];
-if(!['--baseline','--regression','--survey'].includes(mode)) throw Error('Use --baseline, --regression or --survey');
+if(!['--baseline','--regression','--survey','--espeak-survey'].includes(mode)) throw Error('Use --baseline, --regression or --survey');
 const fixturePath=path.join(root,'tests/generated/romanian-audio-e2e');
 const dist=path.join(root,'web/dist');
 const paths={
@@ -36,7 +36,7 @@ function readWav(data){
     at+=8+n+(n%2);
   }
   assert.deepEqual(fmt,[1,1,16000,16]);
-  assert.ok(pcm && pcm.length>480000);
+  assert.ok(pcm && pcm.length>=480000);
   return pcm;
 }
 const raw=readWav(fs.readFileSync(paths.wav)), audioLength=raw.length/32000;
@@ -69,6 +69,62 @@ async function main(){
       }
       return batches;
     }finally{rec.delete();}
+  }
+  if(mode==='--espeak-survey'){
+    // Numeric-only exploration of independent, generated eSpeak Romanian speech.
+    // No private media, words, transcripts, or PCM fingerprints in logs.
+    function fromGeneratedWav(name){
+      const file=path.join(root,'tests/generated/issue111-espeak',name+'.wav');
+      const data=readWav(fs.readFileSync(file));
+      assert.equal(data.length,480000,'eSpeak probe must contain exactly 15s');
+      const pcm=new Float32Array(240000);
+      for(let i=0;i<pcm.length;i++)pcm[i]=data.readInt16LE(i*2)/32768;
+      return pcm;
+    }
+    function transform(source,kind){
+      const dest=new Float32Array(source.length);
+      let state=0x193c02ee;
+      for(let i=0;i<source.length;i++){
+        let x=source[i];
+        if(kind==='soft')x*=0.3;
+        if(kind==='gated'&&Math.floor(i/8000)%2===0)x=0;
+        if(kind==='noise'){
+          state^=state<<13;state^=state>>>17;state^=state<<5;
+          x+=(state/2147483648)*0.05;
+        }
+        dest[i]=Math.max(-1,Math.min(1,x));
+      }
+      return dest;
+    }
+    const A=fromGeneratedWav('A'),B=fromGeneratedWav('B');
+    const contexts=[
+      {name:'normalA',pcm:A},
+      {name:'softA',pcm:transform(A,'soft')},
+      {name:'noiseA',pcm:transform(A,'noise')}
+    ];
+    const targets=[
+      {name:'normalB',pcm:B},
+      {name:'gatedB',pcm:transform(B,'gated')},
+      {name:'noiseB',pcm:transform(B,'noise')}
+    ];
+    const same=(x,y)=>JSON.stringify(x)===JSON.stringify(y);
+    let comparisons=0,differences=0;
+    for(const target of targets){
+      const fresh=run([target.pcm])[0];
+      for(const prior of contexts){
+        const actual=run([prior.pcm,target.pcm])[1];
+        const equal=same(fresh,actual);
+        comparisons++;
+        if(!equal)differences++;
+        console.log(JSON.stringify({
+          espeakSurvey:true,prior:prior.name,target:target.name,
+          freshCount:fresh.length,afterCount:actual.length,equal,
+          inconclusive:fresh.length===0
+        }));
+      }
+    }
+    console.log(JSON.stringify({espeakSummary:true,comparisons,differences}));
+    return;
   }
   if(mode==='--survey'){
     // Discovery-only. The strict --baseline gate below remains unchanged.
