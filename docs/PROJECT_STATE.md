@@ -1,5 +1,54 @@
 # SubSync2 — Project State
 
+## 2026-10-27 — PR #112 MERGED: Romanian Whisper WASM decoder-0 RNG fix (#111)
+
+**Canonical integration outcome:** PR [#112](https://github.com/Zuzuitu/subsync-web-enhanced/pull/112)
+was squash-merged into `main` at **`dfced6cc45bbac45cbd74259abdb6287b9d62ca8`**.
+Its validated PR head was `519724fe40e10ac814ca283ee92b8749c698d254`.
+All **6/6 exact-head GitHub Actions workflows completed SUCCESS**, including:
+CI `40518630058`, Android `40518629539`, existing iOS CI `40518629589`,
+MKV Fast Diagnostic `40518629707` (same-head retry attempt 2),
+Legacy WebAssembly Build `40518629600`, and Romanian Identical Input Study
+`40518629509` (same-head retry attempt 2).
+
+**Observed failure, confirmed fix within synthetic test coverage:** Unmodified pinned
+`whisper.cpp` `0b9af32a8b3fa7e2ae5f15a9a08f5b10394993f5` on identical
+Romanian eSpeak target PCM emitted history-dependent lexical output in
+3/3 controlled A→B comparisons (fresh/reused word counts 10→10, 5→5, 5→4).
+The isolated decoder-0 RNG reset applied per `whisper_full()` call yielded
+3/3 *exact* fresh/reused text, time, duration and score matches
+(10→10, 5→5, 5→5). The patched fresh outputs also matched SHA-256
+digests of the original fresh outputs for all 3 cases using the
+identical pinned model and generated PCM (no private text/media in CI).
+
+**End-to-end browser evidence:** the updated prepared Whisper WASM was
+recompiled and staged into the authoritative PWA; Romanian audio→RO subtitle
+and English audio→RO subtitle synthetic flows, Chromium, iPhone-like WebKit,
+MP4 import/recovery and nonshared-memory validation passed in Legacy CI.
+The separate Romanian Identical Input Study first expired after its
+45-minute job limit because dependency installation consumed about
+41 minutes; an unchanged exact-head rerun finished SUCCESS.
+No canonical synchronizer thresholds, languages, sc0ty dictionary assets,
+models, native-client logic or paid services changed.
+
+**Deployment deliberately withheld:** `deploy/pages-preview` remains
+**`a46305ab124bb5d5cf15b79f7f77b43e239ecd34`**.
+The merged change is in `main` **only**, not yet deployed to
+`sync.alexlab.media`. Production rollout requires a distinct, manually
+approved branch update / Pages workflow verification, rollback SHA and
+physical iPhone check. The synthetic test outcome does **not** prove
+better whole-title SRT timing for any private real film. Tracking issue
+#111 remains open for the deployment/real-device acceptance phase;
+no user audio, subtitles or filenames may be published. Native iOS,
+background processing and IPA development remain PAUSED.
+
+**Next engineering priority after controlled release:** continue local-first,
+whole-title **English reference audio → Romanian SRT** timing validation
+(beginning/middle/end) against independent ground truth, preserving
+RO→RO support and every original sc0ty acceptance condition.
+
+---
+
 ## 2026-10-27 — Issue #111 Romanian Whisper WASM: confirmed synthetic lexical RED, candidate GREEN pending
 
 **Status: PR #112 is DRAFT, NOT MERGED, NOT DEPLOYED.** On unmodified pinned
