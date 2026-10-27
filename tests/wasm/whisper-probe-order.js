@@ -4,8 +4,9 @@
 // Baseline asserts that unmodified WASM shows the recorded order defect.
 // Regression asserts equal fresh/reused output with unchanged input/model.
 const fs=require('node:fs'), path=require('node:path'), assert=require('node:assert/strict');
+const crypto=require('node:crypto');
 const root=path.resolve(__dirname,'../..'), mode=process.argv[2];
-if(!['--baseline','--regression','--survey','--espeak-survey','--espeak-baseline','--espeak-regression'].includes(mode)) throw Error('Use --baseline, --regression or --survey');
+if(!['--baseline','--regression','--survey','--espeak-survey','--espeak-baseline','--espeak-regression'].includes(mode)) throw Error('Use a valid issue #111 probe mode');
 const fixturePath=path.join(root,'tests/generated/romanian-audio-e2e');
 const dist=path.join(root,'web/dist');
 const paths={
@@ -90,6 +91,21 @@ async function main(){
       {name:'softA_gatedB',prior:softA,target:gatedB}
     ];
     let lexicalMismatches=0,fullMismatches=0;
+    const referencePath=path.join(root,'tests/generated/issue111-espeak/original-fresh-outputs.sha256.json');
+    const digest=(value)=>crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+    const modelDigest=crypto.createHash('sha256').update(model).digest('hex');
+    const reference=mode==='--espeak-regression'?
+      JSON.parse(fs.readFileSync(referencePath,'utf8')):
+      {format:1,modelSha256:modelDigest,freshOutputs:{}};
+    assert.equal(reference.format,1,'missing candidate comparison schema');
+    assert.equal(reference.modelSha256,modelDigest,'model changed between baseline and candidate');
+    if(mode==='--espeak-regression'){
+      assert.deepEqual(
+        Object.keys(reference.freshOutputs).sort(),
+        cases.map(entry=>entry.name).sort(),
+        'baseline cases missing or unexpected'
+      );
+    }
     const fullEqual=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
     const wordsEqual=(a,b)=>a.length===b.length&&a.every((w,i)=>w.text===b[i].text);
     const timesEqual=(a,b)=>a.length===b.length&&a.every((w,i)=>
@@ -103,6 +119,12 @@ async function main(){
       assert.ok(fresh.length>0,'inconclusive: silent fresh result');
       assert.ok(fullEqual(fresh,freshRepeat),'inconclusive: unstable fresh control');
       assert.ok(fullEqual(after,afterRepeat),'inconclusive: unstable reused control');
+      if(mode==='--espeak-regression'){
+        assert.equal(digest(fresh),reference.freshOutputs[entry.name],
+          'candidate modified previously verified fresh-instance decoding');
+      }else{
+        reference.freshOutputs[entry.name]=digest(fresh);
+      }
       const lexicalEqual=wordsEqual(fresh,after);
       const equal=fullEqual(fresh,after);
       if(!lexicalEqual) lexicalMismatches++;
@@ -125,9 +147,10 @@ async function main(){
     if(mode==='--espeak-baseline'){
       assert.ok(lexicalMismatches>=1,
         'unmodified WASM did not reproduce a lexical difference on synthetic input');
+      fs.writeFileSync(referencePath,JSON.stringify(reference,null,2)+'\n');
       console.log('ISSUE111_SYNTHETIC_LEXICAL_RED_REPRODUCED');
     }else{
-      console.log('ISSUE111_SYNTHETIC_GREEN_CANDIDATE_ONLY');
+      console.log('ISSUE111_SYNTHETIC_GREEN_CANDIDATE_ONLY_AND_FRESH_PARITY');
     }
     return;
   }
