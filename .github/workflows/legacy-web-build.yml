@@ -357,6 +357,9 @@ jobs:
       - name: Generate Romanian audio and offset Romanian subtitles
         run: python3 tests/fixtures/generate-romanian-audio-e2e.py
 
+      - name: Characterize original Whisper WASM probe-order dependence (issue 111)
+        run: node tests/wasm/whisper-probe-order.js --baseline
+
       - name: Exercise Romanian audio through real PWA UI
         run: python3 tests/web/run-romanian-audio-workflow.py --browser chromium
 
