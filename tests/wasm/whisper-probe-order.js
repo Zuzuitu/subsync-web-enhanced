@@ -5,7 +5,7 @@
 // Regression asserts equal fresh/reused output with unchanged input/model.
 const fs=require('node:fs'), path=require('node:path'), assert=require('node:assert/strict');
 const root=path.resolve(__dirname,'../..'), mode=process.argv[2];
-if(!['--baseline','--regression','--survey','--espeak-survey'].includes(mode)) throw Error('Use --baseline, --regression or --survey');
+if(!['--baseline','--regression','--survey','--espeak-survey','--espeak-baseline','--espeak-regression'].includes(mode)) throw Error('Use --baseline, --regression or --survey');
 const fixturePath=path.join(root,'tests/generated/romanian-audio-e2e');
 const dist=path.join(root,'web/dist');
 const paths={
@@ -69,6 +69,67 @@ async function main(){
       }
       return batches;
     }finally{rec.delete();}
+  }
+  if(mode==='--espeak-baseline'||mode==='--espeak-regression'){
+    // Verified public-safe A/B ordering cases from issue #111; same exact
+    // Float32Array target is replayed fresh and after a prior synthetic probe.
+    function readGenerated(name){
+      const file=path.join(root,'tests/generated/issue111-espeak',name+'.wav');
+      const bytes=readWav(fs.readFileSync(file));
+      assert.equal(bytes.length,480000,'expected exactly 15 seconds of PCM16');
+      const pcm=new Float32Array(240000);
+      for(let i=0;i<pcm.length;i++) pcm[i]=bytes.readInt16LE(i*2)/32768;
+      return pcm;
+    }
+    const speechA=readGenerated('A'),speechB=readGenerated('B');
+    const softA=Float32Array.from(speechA,x=>x*0.3);
+    const gatedB=Float32Array.from(speechB,(x,i)=>Math.floor(i/8000)%2===0?0:x);
+    const cases=[
+      {name:'originalA_originalB',prior:speechA,target:speechB},
+      {name:'originalA_gatedB',prior:speechA,target:gatedB},
+      {name:'softA_gatedB',prior:softA,target:gatedB}
+    ];
+    let lexicalMismatches=0,fullMismatches=0;
+    const fullEqual=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+    const wordsEqual=(a,b)=>a.length===b.length&&a.every((w,i)=>w.text===b[i].text);
+    const timesEqual=(a,b)=>a.length===b.length&&a.every((w,i)=>
+      w.time===b[i].time&&w.duration===b[i].duration);
+    const scoresEqual=(a,b)=>a.length===b.length&&a.every((w,i)=>w.score===b[i].score);
+    for(const entry of cases){
+      const fresh=run([entry.target])[0];
+      const freshRepeat=run([entry.target])[0];
+      const after=run([entry.prior,entry.target])[1];
+      const afterRepeat=run([entry.prior,entry.target])[1];
+      assert.ok(fresh.length>0,'inconclusive: silent fresh result');
+      assert.ok(fullEqual(fresh,freshRepeat),'inconclusive: unstable fresh control');
+      assert.ok(fullEqual(after,afterRepeat),'inconclusive: unstable reused control');
+      const lexicalEqual=wordsEqual(fresh,after);
+      const equal=fullEqual(fresh,after);
+      if(!lexicalEqual) lexicalMismatches++;
+      if(!equal) fullMismatches++;
+      console.log(JSON.stringify({
+        issue111Strict:true,phase:mode.slice(2),case:entry.name,
+        freshCount:fresh.length,reusedCount:after.length,
+        lexicalEqual,timesEqual:timesEqual(fresh,after),
+        scoresEqual:scoresEqual(fresh,after),fullEqual:equal,
+        freshStable:true,reusedStable:true
+      }));
+      if(mode==='--espeak-regression'){
+        assert.ok(equal,'candidate leaves history-dependent Whisper output');
+      }
+    }
+    console.log(JSON.stringify({
+      issue111StrictSummary:true,phase:mode.slice(2),
+      cases:cases.length,lexicalMismatches,fullMismatches
+    }));
+    if(mode==='--espeak-baseline'){
+      assert.ok(lexicalMismatches>=1,
+        'unmodified WASM did not reproduce a lexical difference on synthetic input');
+      console.log('ISSUE111_SYNTHETIC_LEXICAL_RED_REPRODUCED');
+    }else{
+      console.log('ISSUE111_SYNTHETIC_GREEN_CANDIDATE_ONLY');
+    }
+    return;
   }
   if(mode==='--espeak-survey'){
     // Numeric-only exploration of independent, generated eSpeak Romanian speech.
