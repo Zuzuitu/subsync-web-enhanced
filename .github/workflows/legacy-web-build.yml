@@ -21,7 +21,7 @@ on:
       - "scripts/generate-web-metadata.py"
       - "scripts/mirror-upstream-assets.py"
       - "scripts/prepare-whisper-single-thread.py"
-      - "scripts/patch-whisper-decoder-rng.py"
+      - "scripts/patch_whisper_decoder_rng.py"
       - "scripts/stage-web-app.py"
       - "scripts/stage-neural-vad.py"
       - ".github/workflows/legacy-web-build.yml"
@@ -373,7 +373,7 @@ jobs:
         run: |
           set -euo pipefail
           original_sha="$(sha256sum web/scripts/whisper.wasm | cut -d' ' -f1)"
-          python3 scripts/patch-whisper-decoder-rng.py \
+          python3 scripts/patch_whisper_decoder_rng.py \
             --file web/deps/src/whispercpp/whisper.cpp
           rm -f web/obj/whisper-simd/whisper.o \
             web/scripts/whisper.js web/scripts/whisper.wasm
