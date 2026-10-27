@@ -1,5 +1,48 @@
 # SubSync2 — Project State
 
+## 2026-10-27 — Controlled PWA release SUCCESS, physical iPhone QA pending
+
+**Production deploy succeeded:** after explicit user authorization, the deployment
+branch `deploy/pages-preview` was advanced by **fast-forward only**, with an
+expected-head lease, from the previously iPhone-verified
+`a46305ab124bb5d5cf15b79f7f77b43e239ecd34` to
+`cbc6cac94104ecce3fcddfc2382ef6380c6a750e`. This is the same
+SHA as `main`; the release contains **eight accumulated commits /
+24 changed files**, not only Whisper #111. Rollback anchor:
+`a46305ab124bb5d5cf15b79f7f77b43e239ecd34`.
+
+**Authoritative GitHub release evidence:** [Deploy PWA Preview
+#40540710988](https://github.com/Zuzuitu/subsync-web-enhanced/actions/runs/40540710988)
+finished **SUCCESS** on exactly
+`cbc6cac94104ecce3fcddfc2382ef6380c6a750e`; both jobs
+(`build / wasm-build` and `deploy`) completed SUCCESS. The production
+build reran original eSpeak Whisper RED, candidate GREEN with fresh-instance
+SHA-256 parity, EN audio→RO SRT, RO audio→RO SRT, browser Chromium/WebKit,
+MP4 read-fault recovery, and pinned language/package checks. The deploy
+mirrored signature-verified sc0ty assets and published an authoritative Pages
+artifact; GitHub Pages log recorded **`Reported success!`** at
+2026-10-27T16:40:13Z and environment URL **https://sync.alexlab.media/**.
+
+**Verification scope:** Pages deployment is **confirmed by GitHub Actions**,
+not by an independent HTTP request from this execution environment (DNS
+resolution to the custom domain was unavailable). **Physical iPhone Safari/
+home-screen PWA testing is not yet performed or confirmed.** Do not close
+tracking issue #111 or claim reliable full-film timing until user verifies
+live `build-manifest.json` hash, local MP4/MKV import, EN→RO and RO→RO
+workflow, exported SRT and beginning/middle/end accuracy. Avoid deleting the
+installed PWA or OPFS without an explicit backup and recovery plan. Public
+release does **not** validate an exact whole-film synchronization on private
+media; no private audio/subtitle data may be uploaded.
+
+**Preserved architectural constraints:** local media processing only, no paid
+services, canonical sc0ty thresholds/language dictionaries unchanged;
+research-only discontinuity tools remain non-authoritative. Native iOS,
+background processing and IPA work remain SUSPENDED. Earlier historical
+sections recording 'not deployed' describe the pre-release checkpoint and
+are superseded by this confirmed release entry.
+
+---
+
 ## 2026-10-27 — PR #112 MERGED: Romanian Whisper WASM decoder-0 RNG fix (#111)
 
 **Canonical integration outcome:** PR [#112](https://github.com/Zuzuitu/subsync-web-enhanced/pull/112)
