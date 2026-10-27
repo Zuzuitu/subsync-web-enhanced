@@ -1,5 +1,50 @@
 # SubSync2 — Project State
 
+## 2026-10-27 — Issue #111 Romanian Whisper WASM: confirmed synthetic lexical RED, candidate GREEN pending
+
+**Status: PR #112 is DRAFT, NOT MERGED, NOT DEPLOYED.** On unmodified pinned
+`whisper.cpp` v1.5.4 `0b9af32a8b3fa7e2ae5f15a9a08f5b10394993f5`
+and original local `ggml-tiny-q5_1.bin`, a strictly synthetic
+eSpeak Romanian fixture reproduced history-dependent lexical output in the
+original `RomanianWhisperRecognition` binding, under `ro`, `minWordProb=0.3`,
+`minWordLen=5`, same bit-identical PCM per case. See Legacy build
+run **40512396604**: three fresh-vs-reused test cases differed in **text**;
+each case's fresh/reused controls were stable under repeat calls.
+Observed word counts: 10→10, 5→5, 5→4. This establishes a real lexical
+state/history issue in isolated Node-based WASM QA, **not the root cause**
+nor a real-film timing improvement. Private media was not committed.
+
+**Candidate change:** reset decoder-0 RNG once per `whisper_full()` call in the
+isolated prepared Romanian WASM copy, behind exact pinned-source assertions.
+Whisper's `no_context` clears prompt history, but does not reset the decoder's
+RNG, which upstream v1.5.4 initializes at state creation. Hypothesis only.
+No changes to canonical correlation, thresholds, recognition filtering, models,
+other languages, dictionary assets or native clients.
+
+**CI RED/GREEN discipline:** explicit `--no-reset-decoder-rng` builds original,
+strict eSpeak `--espeak-baseline` proves lexical RED, then the same prepared
+copy receives the patch and is rebuilt. The `--espeak-regression` gate must
+show all tested fresh/reused outputs identical on the exact same generated PCM.
+The previous run stopped before recompilation because root-owned generated
+Docker artifacts could not be deleted by the runner. Only those exact generated
+paths now use `sudo rm -f`; this is not a source-code or ASR change. No GREEN
+result exists until CI runs the candidate successfully. The exploratory 9-case
+survey had 3 differences and has been removed from the repeated critical path,
+not from the evidence history.
+
+**Release rules:** Do not merge #112 on synthetic RED alone. Require GREEN,
+whole workflow/browser safety checks, source/fixture provenance, and separate
+deliberate PWA deployment with rollback. `main` and
+`deploy/pages-preview` stay unchanged. iOS native/background/IPA remains
+explicitly suspended; no upload or paid services.
+
+**Independent observation:** a fast MKV long-seek assertion failed
+intermittently on the unchanged extractor baseline while later reruns passed.
+Treat this as separate CI instability. Do not weaken seek expectations or
+conflate the defect with Whisper.
+
+---
+
 ## 2026-10-25 — PR #105 merged; private-media baseline SRT-pair verification (stage #4)
 
 **Confirmed:** #105 squash merged as `146abb22fb2278cd3fac4f4f0ea0fd8612ac8502` after 12/12 CI SUCCESS. Shared EN→RO artifact-ID provenance fixed without changing canonical matching. Native/WebAssembly maximum timestamp difference on the *same successful generated input* was 0 ms. Tracking issue #106 closed. This is synthetic same-input parity, not perfect alignment of real films.
