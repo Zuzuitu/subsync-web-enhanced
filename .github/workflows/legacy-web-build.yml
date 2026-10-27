@@ -357,8 +357,11 @@ jobs:
       - name: Generate Romanian audio and offset Romanian subtitles
         run: python3 tests/fixtures/generate-romanian-audio-e2e.py
 
-      - name: Survey synthetic Piper probe-order variants before strict baseline (issue 111)
-        run: node tests/wasm/whisper-probe-order.js --survey
+      - name: Generate and survey Romanian eSpeak controls before strict baseline (issue 111)
+        run: |
+          command -v espeak >/dev/null || (sudo apt-get update && sudo apt-get install -y espeak)
+          python3 tests/fixtures/generate-issue111-espeak.py
+          node tests/wasm/whisper-probe-order.js --espeak-survey
 
       - name: Characterize original Whisper WASM probe-order dependence (issue 111)
         run: node tests/wasm/whisper-probe-order.js --baseline
