@@ -363,8 +363,8 @@ jobs:
           python3 tests/fixtures/generate-issue111-espeak.py
           node tests/wasm/whisper-probe-order.js --espeak-survey
 
-      - name: Characterize original Whisper WASM probe-order dependence (issue 111)
-        run: node tests/wasm/whisper-probe-order.js --baseline
+      - name: Assert original Whisper eSpeak lexical RED, before candidate patch (issue 111)
+        run: node tests/wasm/whisper-probe-order.js --espeak-baseline
 
       - name: Exercise Romanian audio through real PWA UI
         run: python3 tests/web/run-romanian-audio-workflow.py --browser chromium
