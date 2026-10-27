@@ -21,6 +21,7 @@ on:
       - "scripts/generate-web-metadata.py"
       - "scripts/mirror-upstream-assets.py"
       - "scripts/prepare-whisper-single-thread.py"
+      - "scripts/patch-whisper-decoder-rng.py"
       - "scripts/stage-web-app.py"
       - "scripts/stage-neural-vad.py"
       - ".github/workflows/legacy-web-build.yml"
@@ -154,7 +155,8 @@ jobs:
           test "$(git -C web/node_modules/whispercpp rev-parse HEAD)" = "$WHISPERCPP_SHA"
           python3 scripts/prepare-whisper-single-thread.py \
             --source web/node_modules/whispercpp \
-            --destination web/deps/src/whispercpp
+            --destination web/deps/src/whispercpp \
+            --no-reset-decoder-rng
 
       - name: Build pinned Romanian Whisper SIMD toolchain
         shell: bash
@@ -365,6 +367,36 @@ jobs:
 
       - name: Assert original Whisper eSpeak lexical RED, before candidate patch (issue 111)
         run: node tests/wasm/whisper-probe-order.js --espeak-baseline
+
+      - name: Rebuild isolated Whisper WASM with decoder-0 RNG candidate (issue 111)
+        shell: bash
+        run: |
+          set -euo pipefail
+          original_sha="$(sha256sum web/scripts/whisper.wasm | cut -d' ' -f1)"
+          python3 scripts/patch-whisper-decoder-rng.py \
+            --file web/deps/src/whispercpp/whisper.cpp
+          rm -f web/obj/whisper-simd/whisper.o \
+            web/scripts/whisper.js web/scripts/whisper.wasm
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/src" \
+            -w /src/web \
+            subsync-whisper-build \
+            emmake make -f Makefile.whisper -j4
+          test -s web/scripts/whisper.js
+          test -s web/scripts/whisper.wasm
+          candidate_sha="$(sha256sum web/scripts/whisper.wasm | cut -d' ' -f1)"
+          test "$candidate_sha" != "$original_sha"
+          python3 tests/wasm/assert-unshared-memory.py web/scripts/whisper.wasm
+          cp web/scripts/whisper.js web/dist/scripts/whisper.js
+          cp web/scripts/whisper.wasm web/dist/scripts/whisper.wasm
+          sha256sum \
+            web/scripts/extractor.js web/scripts/extractor.wasm \
+            web/scripts/correlator.js web/scripts/correlator.wasm \
+            web/scripts/whisper.js web/scripts/whisper.wasm \
+            > web/scripts/SHA256SUMS
+
+      - name: Require identical synthetic eSpeak PCM output after RNG patch (issue 111)
+        run: node tests/wasm/whisper-probe-order.js --espeak-regression
 
       - name: Exercise Romanian audio through real PWA UI
         run: python3 tests/web/run-romanian-audio-workflow.py --browser chromium
