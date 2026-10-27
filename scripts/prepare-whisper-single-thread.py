@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 import argparse
 import shutil
+from patch_whisper_decoder_rng import patch_text
 from pathlib import Path
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--source", required=True)
 parser.add_argument("--destination", required=True)
+parser.add_argument(
+    "--no-reset-decoder-rng",
+    action="store_true",
+    help="Test-only: build exact original Whisper before candidate RED/GREEN comparison",
+)
 args = parser.parse_args()
 
 source = Path(args.source).resolve()
@@ -232,6 +238,9 @@ whisper = whisper[:parallel_start] + parallel_stub + whisper[parallel_end:]
 
 if "std::thread" in whisper:
     raise SystemExit("whisper.cpp still contains std::thread after single-thread preparation")
+
+if not args.no_reset_decoder_rng:
+    whisper = patch_text(whisper)
 
 whisper_path.write_text(whisper, encoding="utf-8")
 
