@@ -51,6 +51,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate issue 111 Python and Node harness syntax
+        run: |
+          python3 -m py_compile \
+            scripts/prepare-whisper-single-thread.py \
+            scripts/patch_whisper_decoder_rng.py \
+            tests/fixtures/generate-issue111-espeak.py
+          node --check tests/wasm/whisper-probe-order.js
+
       - name: Run native synchronizer regression tests
         run: make -C gizmo/test clean test
 
